@@ -71,7 +71,7 @@ try {
   });
   const panel = page.locator(".terminal-panel:visible");
   const input = () => panel.locator("textarea");
-  const ready = () => panel.locator(".is-ready").waitFor();
+  const ready = () => page.locator(".terminal-panel:visible[data-terminal-status=ready]").waitFor();
   const focus = async () => { await panel.locator("canvas").click({ position: { x: 8, y: 8 } }); await input().focus(); };
   const run = async (command) => {
     await focus();
@@ -172,7 +172,7 @@ try {
   await page.evaluate(() => navigator.clipboard.writeText("printf '\\n中文输入与粘贴 ✓\\n'"));
   await Promise.all([
     page.waitForRequest((request) => request.method() === "POST" && request.url().includes("/api/terminal/") && request.postDataJSON()?.data?.includes("中文输入与粘贴")),
-    panel.getByRole("button", { name: "Paste", exact: true }).click(),
+    page.keyboard.press("Meta+v"),
   ]);
   await page.keyboard.press("Enter");
   assert.match(await waitScreen(/中文输入与粘贴 ✓/), /中文输入与粘贴 ✓/);
@@ -197,21 +197,9 @@ try {
   await run("printf '\\nFONT:%s:%s\\n' \"$GHOSTTY_TOKEN\" \"$$\"");
   await waitScreen(new RegExp(`FONT:alive:${pid}`), true); // Native font metrics may wrap the marker.
   checks.push("native-preference-refresh-does-not-restart-pty");
-  await panel.getByRole("button", { name: "Larger text", exact: true }).click();
-  nextPreferences = { ...nextPreferences, fontSize: 20 };
-  await Promise.all([
-    page.waitForResponse(response => response.url().endsWith('/api/terminal/preferences')),
-    page.evaluate(() => window.dispatchEvent(new Event("focus"))),
-  ]);
-  assert.equal(Number(await panel.getAttribute("data-terminal-font-size")), 17);
   await page.unroute("**/api/terminal/preferences");
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await page.waitForFunction(family => document.querySelector('.terminal-panel')?.dataset.terminalFontFamily === family, preferences.fontFamily);
-  checks.push("manual-zoom-survives-preference-refresh");
-  await run("printf '\\nZOOM:%s:%s\\n' \"$GHOSTTY_TOKEN\" \"$$\"");
-  await waitScreen(new RegExp(`ZOOM:alive:${pid}`), true); // Resizing may wrap this marker across physical rows.
-  await panel.getByRole("button", { name: "Smaller text", exact: true }).click();
-  checks.push("font-zoom-without-shell-restart");
+  await page.waitForFunction(family => document.querySelector(".terminal-panel")?.dataset.terminalFontFamily === family, preferences.fontFamily);
   await focus();
   await page.keyboard.type("sleep 30");
   await page.keyboard.press("Enter");
@@ -230,7 +218,7 @@ try {
     const firstRow = canvas.getContext('2d').getImageData(0, 0, Math.min(80, canvas.width), 1).data;
     return {
       caret: getComputedStyle(host).caretColor,
-      safeTop: canvas.getBoundingClientRect().top >= el.querySelector('.terminal-panel-header').getBoundingClientRect().bottom + 8,
+      safeTop: canvas.getBoundingClientRect().top >= el.getBoundingClientRect().top + 8,
       clearFirstPixelRow: Array.from(firstRow).every((value, index) => value === 255),
     };
   });
@@ -242,7 +230,7 @@ try {
   await waitScreen(/INTERRUPT:alive/);
   checks.push("alternate-screen-restored");
   await context.setOffline(true);
-  await panel.locator(".is-connecting").waitFor();
+  await page.locator('.terminal-panel[data-terminal-status=connecting]').waitFor();
   await context.setOffline(false);
   await ready();
   await run("printf '\\nRECONNECT:%s:%s\\n' \"$GHOSTTY_TOKEN\" \"$$\"");
@@ -270,20 +258,13 @@ try {
   await page.evaluate(text => navigator.clipboard.writeText(`printf '\\033[2J\\033[H\\n${text}\\n\\033[31mred  \\033[32mgreen  \\033[34mblue\\033[0m\\n'`), glyphLine);
   await Promise.all([
     page.waitForRequest(request => request.method() === 'POST' && request.url().includes('/api/terminal/') && request.postDataJSON()?.data?.includes(glyphLine)),
-    panel.getByRole('button', { name: 'Paste', exact: true }).click(),
+    page.keyboard.press('Meta+v'),
   ]);
   await page.keyboard.press('Enter');
   await waitScreen(new RegExp(`Nerd Font: ${String.fromCodePoint(0xf07b)}`));
   checks.push('nerd-font-private-use-glyphs-and-CJK-paste');
   await focus();
   await page.screenshot({ path: join(artifacts, "ghostty-desktop.png"), fullPage: true });
-  await panel.getByRole("button", { name: "Restart terminal", exact: true }).click();
-  await ready();
-  await run("printf '\\nNEWPID:%s\\n' \"$$\"");
-  const restarted = await waitScreen(/NEWPID:\d+/);
-  assert.notEqual(restarted.match(/NEWPID:(\d+)/)[1], pid);
-  assert.equal(created.size, 2);
-  checks.push("explicit-restart-replaces-shell");
   await page.getByRole("button", { name: "Terminate terminal workspace", exact: true }).click();
   await page.locator(".terminal-panel").waitFor({ state: "detached" });
   for (const id of created) assert.equal((await page.request.get(`${base}/api/terminal/${id}`)).status(), 404);
@@ -301,16 +282,16 @@ try {
   await retryPage.goto(`${base}/?session=${sessionId}`);
   await showSidebarFiles(retryPage);
   await retryPage.getByRole("button", { name: "Open workspace terminal", exact: true }).click();
-  await retryPage.locator(".terminal-panel .is-error").waitFor();
+  await retryPage.locator(".terminal-panel[data-terminal-status=error]").waitFor();
   assert.equal(retryCreates, 0, "Failed WASM load must not create an orphan shell");
   await retryPage.unroute("**/ghostty-vt.wasm");
   await retryPage.getByRole("button", { name: "Reconnect terminal", exact: true }).click();
-  await retryPage.locator(".terminal-panel .is-ready").waitFor();
+  await retryPage.locator(".terminal-panel[data-terminal-status=ready]").waitFor();
   assert.equal(retryCreates, 1);
   checks.push("wasm-failure-retry-without-orphan-shell");
   await retryPage.request.delete(`${base}/api/terminal/${retryId}`);
   await retryPage.reload();
-  await retryPage.locator(".terminal-panel .is-error").waitFor();
+  await retryPage.locator(".terminal-panel[data-terminal-status=error]").waitFor();
   assert.equal(retryCreates, 1, "A restored expired PTY must not silently create a shell");
   await retryPage.getByRole("button", { name: "Terminate terminal workspace", exact: true }).click();
   await retryPage.locator(".terminal-panel").waitFor({ state: "detached" });

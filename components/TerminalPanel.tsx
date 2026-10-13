@@ -4,11 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Terminal } from "ghostty-web";
 import { useI18n } from "@/hooks/useI18n";
 import { DEFAULT_GHOSTTY_FONT } from "@/lib/ghostty-font-config";
-import { clampTerminalFontSize, loadGhosttyFontPreferences, loadGhosttyTerminal, terminalKeyAction, TERMINAL_THEME } from "@/lib/ghostty-terminal";
+import { loadGhosttyFontPreferences, loadGhosttyTerminal, terminalKeyAction, TERMINAL_THEME } from "@/lib/ghostty-terminal";
 import { readTerminalTheme } from "@/lib/terminal-theme";
 import { wheelLines, mouseWheelSequence } from "@/lib/terminal-wheel";
-import { previewUrlsFromOutput, normalizePreviewUrl } from "@/lib/browser-preview";
-import { TerminalOpenMenu, TerminalBrowserView } from "./TerminalBrowser";
 import { createTerminalWriter, terminalRequest } from "@/lib/terminal-client";
 import {
   applyTerminalModifiers,
@@ -30,7 +28,7 @@ interface Props {
   onCloseError: () => void;
 }
 
-export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }: Props) {
+export function TerminalPanel({ tab, active, onClosed, onCloseError }: Props) {
   const { t } = useI18n();
   const { id, cwd, restored } = tab;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -42,24 +40,8 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
   const writerRef = useRef<ReturnType<typeof createTerminalWriter> | null>(null);
   const callbacksRef = useRef({ onClosed, onCloseError });
   callbacksRef.current = { onClosed, onCloseError };
-  const [previewUrl, setPreviewUrl] = useState("");
-  const [browserVisible, setBrowserVisible] = useState(false);
-  const [browserControlsCollapsed, setBrowserControlsCollapsed] = useState(true);
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(sessionStorage.getItem(`pi-web-browser:${id}`) || "null");
-      const url = saved && typeof saved.url === "string" && normalizePreviewUrl(saved.url);
-      if (url) { setPreviewUrl(url); setBrowserVisible(saved.visible === true); }
-    } catch { /* Invalid local state must not navigate. */ }
-  }, [id]);
-  useEffect(() => {
-    if (!previewUrl) return;
-    try { sessionStorage.setItem(`pi-web-browser:${id}`, JSON.stringify({ url: previewUrl, visible: browserVisible })); } catch { /* Storage can be disabled. */ }
-  }, [id, previewUrl, browserVisible]);
-  const [suggestedUrl, setSuggestedUrl] = useState("");
-  const outputTailRef = useRef("");
   const activeRef = useRef(active);
-  activeRef.current = active && !browserVisible;
+  activeRef.current = active;
   const closingRef = useRef(tab.closing);
   closingRef.current = tab.closing;
   const [status, setStatus] = useState<"connecting" | "ready" | "exited" | "error">("connecting");
@@ -73,7 +55,6 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
   const fontSizeAdjustedRef = useRef(false);
   const fontSizeRef = useRef(fontSize);
   fontSizeRef.current = fontSize;
-  const [hasSelection, setHasSelection] = useState(false);
   const [modifiers, setModifiers] = useState<TerminalModifiers>(NO_TERMINAL_MODIFIERS);
   const modifiersRef = useRef(modifiers);
   const showExtraKeys = useTerminalExtraKeysVisible();
@@ -108,19 +89,7 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
   }, [t]);
   const copyRef = useRef(copySelection);
   copyRef.current = copySelection;
-  const paste = async () => {
-    const terminal = terminalRef.current;
-    if (!terminal || terminal.options.disableStdin) return;
-    try {
-      const text = await navigator.clipboard.readText();
-      if (terminalRef.current !== terminal || closingRef.current) return;
-      terminal.paste(text);
-      terminal.focus();
-      setActionError(null);
-    } catch {
-      setActionError(t("terminal.clipboardError"));
-    }
-  };
+
 
   useEffect(() => {
     const container = containerRef.current;
@@ -133,7 +102,6 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
     setError(null);
     setActionError(null);
     setExitCode(null);
-    setHasSelection(false);
 
     startRef.current = (async () => {
       const [{ module: { Terminal, FitAddon }, ghostty }, preferences] = await Promise.all([
@@ -232,7 +200,6 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
       const onResize = terminal.onResize(({ cols, rows }) => {
         if (connected && !exited && !inputFailed) writer.resize(Math.max(2, cols), Math.max(2, rows));
       });
-      const onSelection = terminal.onSelectionChange(() => setHasSelection(terminal.hasSelection()));
       const resizeObserver = new ResizeObserver(fitAndResize);
       resizeObserver.observe(container);
       const updateFont = () => {
@@ -270,9 +237,6 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
             // Empty initial replay is valid SSE; Ghostty 0.4 cannot allocate a zero-byte write.
             if (event.data.length > 0) {
               terminal.write(event.data);
-              outputTailRef.current = (outputTailRef.current + event.data).slice(-16384);
-              const urls = previewUrlsFromOutput(outputTailRef.current);
-              if (urls[0]) setSuggestedUrl(current => current === urls[0] ? current : urls[0]);
             }
             offset = event.offset;
           } else {
@@ -321,7 +285,6 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
         document.fonts.removeEventListener("loadingdone", updateFont);
         onData.dispose();
         onResize.dispose();
-        onSelection.dispose();
         window.removeEventListener("pagehide", pageHide);
         window.removeEventListener("pageshow", pageShow);
         window.removeEventListener("offline", pageHide);
@@ -358,9 +321,9 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
     refitRef.current();
   }, [fontSize]);
   useEffect(() => {
-    if (active && !browserVisible) { refitRef.current(); terminalRef.current?.focus(); }
+    if (active) { refitRef.current(); terminalRef.current?.focus(); }
     else terminalRef.current?.blur();
-  }, [active, browserVisible]);
+  }, [active]);
   useEffect(() => {
     if (!tab.closing) return;
     let cancelled = false;
@@ -380,43 +343,15 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
   }, [id, tab.closing]);
 
   return (
-    <section className={`terminal-panel${browserVisible ? " is-browser" : ""}${browserVisible && browserControlsCollapsed ? " is-browser-controls-collapsed" : ""}`} aria-label={t("terminal.title")}  data-terminal-engine="ghostty" data-terminal-font-family={fontFamily} data-terminal-font-size={fontSize}>
-      <header className="terminal-panel-header" style={{ fontFamily }}>
-        <div className="terminal-panel-path">
-          {!browserVisible && <>
-            <span className={`terminal-status-dot is-${status}`} title={t(`terminal.${status}`)} />
-            <span className="terminal-engine-label">Ghostty</span>
-            <span className="terminal-cwd" title={cwd}>{cwd}</span>
-          </>}
-          {previewUrl && <div className="terminal-view-switch" role="group" aria-label={t("browser.view")}>
-            <button type="button" aria-pressed={!browserVisible} onClick={() => setBrowserVisible(false)}>{t("terminal.title")}</button>
-            <button type="button" aria-pressed={browserVisible} onClick={() => setBrowserVisible(true)}>{t("browser.title")}</button>
-          </div>}
-          {browserVisible && browserControlsCollapsed && <span className="terminal-browser-location" title={previewUrl}>{new URL(previewUrl).host}</span>}
-        </div>
-        <div className="terminal-panel-actions">
-          <button type="button" onClick={() => { fontSizeAdjustedRef.current = true; setFontSize((size) => clampTerminalFontSize(size - 1)); }} disabled={fontSize <= 8} title={t("terminal.smaller")} aria-label={t("terminal.smaller")}>A−</button>
-          <button type="button" onClick={() => { fontSizeAdjustedRef.current = true; setFontSize((size) => clampTerminalFontSize(size + 1)); }} disabled={fontSize >= 72} title={t("terminal.larger")} aria-label={t("terminal.larger")}>A+</button>
-          <button type="button" onClick={() => void copySelection()} disabled={!hasSelection} title={t("terminal.copy")} aria-label={t("terminal.copy")}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" /></svg></button>
-          <button type="button" onClick={() => void paste()} disabled={status !== "ready" || Boolean(tab.closing)} title={t("terminal.paste")} aria-label={t("terminal.paste")}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1" /><path d="M8 5H5v16h14V5h-3M8 12h8M8 16h6" /></svg></button>
-          <button type="button" onClick={() => { terminalRef.current?.clear(); terminalRef.current?.focus(); }} disabled={status === "connecting"} title={t("terminal.clear")} aria-label={t("terminal.clear")}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="m4 15 9-11 8 7-7 9H9zM4 21h17M9 9l8 7" /></svg></button>
-          {status === "error" && <button type="button" onClick={() => setReconnectKey((key) => key + 1)} disabled={Boolean(tab.closing)} title={t("terminal.reconnect")} aria-label={t("terminal.reconnect")}>↻</button>}
-          <button type="button" onClick={onRestart} disabled={Boolean(tab.closing)} title={t("terminal.restart")} aria-label={t("terminal.restart")}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66" /><polyline points="20 4 20 11 13 11" /></svg></button>
-          <TerminalOpenMenu suggestedUrl={browserVisible ? previewUrl : suggestedUrl} onPreview={url => { setPreviewUrl(url); setBrowserVisible(true); }} />
-          {browserVisible && <button type="button" className="terminal-chrome-toggle" onClick={() => setBrowserControlsCollapsed(value => !value)} aria-expanded={!browserControlsCollapsed} aria-controls={`browser-controls-${id}`} title={t(browserControlsCollapsed ? "browser.expandControls" : "browser.collapseControls")} aria-label={t(browserControlsCollapsed ? "browser.expandControls" : "browser.collapseControls")}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={browserControlsCollapsed ? "m6 9 6 6 6-6" : "m6 15 6-6 6 6"} /></svg>
-          </button>}
-        </div>
-      </header>
+    <section className="terminal-panel is-toolbarless" aria-label={t("terminal.title")} data-terminal-status={status} data-terminal-engine="ghostty" data-terminal-font-family={fontFamily} data-terminal-font-size={fontSize}>
       <div>
-        {!browserVisible && (error || actionError) && <div className="terminal-panel-error" role="alert">{error || actionError}</div>}
-        {!browserVisible && status === "exited" && <div className="terminal-panel-exit" role="status">{exitCode === null ? t("terminal.exited") : t("terminal.exitCode", { code: exitCode })}</div>}
+        {(error || actionError) && <div className="terminal-panel-error" role="alert">{error || actionError}{status === "error" && <button type="button" onClick={() => setReconnectKey(key => key + 1)} disabled={Boolean(tab.closing)}>{t("terminal.reconnect")}</button>}</div>}
+        {status === "exited" && <div className="terminal-panel-exit" role="status">{exitCode === null ? t("terminal.exited") : t("terminal.exitCode", { code: exitCode })}</div>}
       </div>
       <div className="terminal-workspace-content">
-        <div className="terminal-viewport" hidden={browserVisible}><div ref={containerRef} className="terminal-ghostty-host" /></div>
-        {previewUrl && <div className="terminal-browser-host" hidden={!browserVisible}><TerminalBrowserView url={previewUrl} onNavigate={setPreviewUrl} collapsed={browserControlsCollapsed} controlsId={`browser-controls-${id}`} active={active && browserVisible} onExpand={() => setBrowserControlsCollapsed(false)} /></div>}
+        <div className="terminal-viewport"><div ref={containerRef} className="terminal-ghostty-host" /></div>
       </div>
-      {showExtraKeys && !browserVisible && <TerminalExtraKeys modifiers={modifiers} onKey={sendExtraKey} onToggleModifier={toggleModifier} />}
+      {showExtraKeys && <TerminalExtraKeys modifiers={modifiers} onKey={sendExtraKey} onToggleModifier={toggleModifier} />}
     </section>
   );
 }
