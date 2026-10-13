@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "upstreamRef": "v0.12.1",
+  "supportedSdkVersions": ["1.2.0"],
+  "dependencyOverrides": {
+    "ghostty-web": "0.4.0",
+    "@xterm/addon-fit": null,
+    "@xterm/xterm": null
+  },
+  "requiredSourceMarkers": {
+    "app/globals.css": ["claude-white", "font-weight: 800"],
+    "components/TerminalPanel.tsx": ["is-toolbarless", "data-terminal-status", "terminal-ghostty"],
+    "components/FileViewer.tsx": ["srcDoc=", "sandbox=\"allow-scripts\"", "effectiveDisplayMode"],
+    "components/ChatWindow.tsx": ["data-process-details"],
+    "lib/package-subagent-bridge.ts": ["export"],
+    "app/api/agent/[id]/subagents/route.ts": ["export"]
+  }
+}
