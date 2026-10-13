@@ -141,7 +141,7 @@ export class BrowserManager {
       const p = [...this.pages.values()].find(p => p.target === e.params.targetId);
       if (p) {
         const parent = p.parents.pop();
-        if (parent) { Object.assign(p, { target: parent.target, session: parent.session }); p.state.url = parent.url; p.state.title = parent.title; p.mainFrame = undefined; this.emit(p); void this.connection?.send("Target.activateTarget", { targetId: p.target }); void this.startFrames(p); void this.history(p).catch(() => {}); }
+        if (parent) { Object.assign(p, { target: parent.target, session: parent.session }); p.state.url = parent.url; p.state.title = parent.title; p.mainFrame = undefined; this.emit(p); void this.connection?.send("Target.activateTarget", { targetId: p.target }).catch(() => {}); void this.startFrames(p); void this.history(p).catch(() => {}); }
         else { if (p.timer) clearTimeout(p.timer); this.pages.delete(p.state.id); for (const send of p.listeners) send({ type: "closed" }); }
       }
       return;
@@ -151,10 +151,10 @@ export class BrowserManager {
     if (e.method === "Runtime.bindingCalled" && e.params.name === TITLE_BINDING) { p.state.title = String(e.params.payload).slice(0, 2048); this.emit(p); }
     else if (e.method === "Page.screencastFrame") {
       void this.connection?.send("Page.screencastFrameAck", { sessionId: e.params.sessionId }, p.session).catch(() => {});
-      if (Date.now() - p.lastFrame < 45) return;
+      if (p.state.loading || Date.now() - p.lastFrame < 45) return;
       p.lastFrame = Date.now();
       if (typeof e.params.data !== "string" || e.params.data.length > 4 * 1024 * 1024) return;
-      p.frame = { type: "frame", data: e.params.data, width: p.state.width, height: p.state.height };
+      p.frame = { type: "frame", data: e.params.data, width: p.state.width, height: p.state.height, url: p.state.url };
       for (const send of p.listeners) send(p.frame);
     } else if (e.method === "Page.frameNavigated") {
       const f = e.params.frame as Params;
@@ -187,7 +187,7 @@ export class BrowserManager {
     const info = (await c.send("Target.getTargetInfo", { targetId: target })).targetInfo as Params;
     const url = normalizePreviewUrl(String(info.url)); if (url) p.state.url = url;
     p.state.title = String(info.title ?? ""); this.emit(p);
-    await c.send("Target.activateTarget", { targetId: target }); await this.startFrames(p); await this.snapshot(p).catch(() => {}); await this.history(p);
+    await c.send("Target.activateTarget", { targetId: target }).catch(() => {}); if (p.target !== target) return; await this.startFrames(p); await this.snapshot(p).catch(() => {}); await this.history(p);
   }
   private async observeTitle(p: PageRecord) {
     await this.connection!.send("Runtime.enable", {}, p.session);
@@ -207,8 +207,9 @@ export class BrowserManager {
     p.state.canGoBack = entries.slice(0, index).some(entry => normalizePreviewUrl(String((entry as Params).url))) || p.parents.length > 0; p.state.canGoForward = entries.slice(index + 1).some(entry => normalizePreviewUrl(String((entry as Params).url))); this.emit(p);
   }
   private async snapshot(p: PageRecord) {
+    const url = p.state.url;
     const result = await this.connection!.send("Page.captureScreenshot", { format: "jpeg", quality: 90 }, p.session);
-    if (typeof result.data === "string") { p.frame = { type: "frame", data: result.data, width: p.state.width, height: p.state.height }; for (const send of p.listeners) send(p.frame); }
+    if (typeof result.data === "string" && url === p.state.url && !p.state.loading) { p.frame = { type: "frame", data: result.data, width: p.state.width, height: p.state.height, url }; for (const send of p.listeners) send(p.frame); }
   }
   get(id: string) { const p = this.pages.get(id); return p ? { ...p.state } : null; }
   touch(id: string) { const p = this.pages.get(id); if (p) this.armExpiry(p); }
@@ -246,7 +247,10 @@ export class BrowserManager {
     const p = this.pages.get(id); if (!p) return null;
     if (p.timer) clearTimeout(p.timer); p.listeners.add(send);
     send({ type: "state", state: { ...p.state } }); if (p.frame) send(p.frame);
-    await this.connection!.send("Target.activateTarget", { targetId: p.target });
+    const target = p.target;
+    await this.connection!.send("Target.activateTarget", { targetId: target }).catch(async () => {
+      if (this.pages.get(id) === p && p.target !== target) await this.connection!.send("Target.activateTarget", { targetId: p.target }).catch(() => {});
+    });
     await this.startFrames(p);
     void this.snapshot(p).catch(() => {});
     return () => { p.listeners.delete(send); if (!p.listeners.size) { void this.connection?.send("Page.stopScreencast", {}, p.session).catch(() => {}); this.armExpiry(p); } };

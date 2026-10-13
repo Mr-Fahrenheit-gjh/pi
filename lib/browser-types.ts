@@ -12,7 +12,7 @@ export interface BrowserPageState {
 }
 export type BrowserEvent =
   | { type: "state"; state: BrowserPageState }
-  | { type: "frame"; data: string; width: number; height: number }
+  | { type: "frame"; data: string; width: number; height: number; url: string }
   | { type: "closed" };
 
 export type BrowserCommand =

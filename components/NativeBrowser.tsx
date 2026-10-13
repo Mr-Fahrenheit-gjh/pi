@@ -18,6 +18,7 @@ export function NativeBrowser({ url, onNavigate, collapsed, controlsId, active, 
   const creation = useRef<Promise<{ state?: BrowserPageState }> | null>(null);
   const mounted = useRef(false);
   const actualUrl = useRef(url);
+  const loading = useRef(true);
   const latestUrl = useRef(url);
   const navigateCallback = useRef(onNavigate);
   const [ready, setReady] = useState(false);
@@ -51,7 +52,7 @@ export function NativeBrowser({ url, onNavigate, collapsed, controlsId, active, 
   useEffect(() => {
     setAddress(url);
     if (ready && url !== actualUrl.current) {
-      actualUrl.current = url; setError("");
+      actualUrl.current = url; loading.current = true; setFrame(null); setError("");
       void writer.current?.send({ type: "navigate", url }, true);
     }
   }, [url, ready]);
@@ -60,9 +61,11 @@ export function NativeBrowser({ url, onNavigate, collapsed, controlsId, active, 
     const events = new EventSource(`/api/browser/${id.current}/events`);
     events.onmessage = e => {
       const event = JSON.parse(e.data) as BrowserEvent;
-      if (event.type === "frame") setFrame(event);
+      if (event.type === "frame") { if (!loading.current && event.url === actualUrl.current) setFrame(event); }
       else if (event.type === "state") {
+        loading.current = event.state.loading;
         setPage(event.state);
+        if (event.state.loading) setFrame(null);
         if (event.state.error) setError(event.state.error);
         if (event.state.dialog) setPrompt(event.state.dialog.defaultPrompt);
         if (normalizePreviewUrl(event.state.url) && event.state.url !== actualUrl.current) { actualUrl.current = event.state.url; navigateCallback.current(event.state.url); }
@@ -143,7 +146,7 @@ export function NativeBrowser({ url, onNavigate, collapsed, controlsId, active, 
     }} onPointerUp={e => { if (!ready) return; void command({ type: "mouse", event: "mouseReleased", ...point(e.clientX, e.clientY), button: e.button === 2 ? "right" : e.button === 1 ? "middle" : "left", buttons: e.buttons, clickCount: e.detail || 1, modifiers: modifiers(e) }); }} onPointerMove={e => { if (ready) void command({ type: "mouse", event: "mouseMoved", ...point(e.clientX, e.clientY), button: "none", buttons: e.buttons, clickCount: 0, modifiers: modifiers(e) }); }}>
       {/* Browser pixels, not an iframe or a rewritten copy of the website. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      {frame && <img className="browser-remote-image" src={`data:image/jpeg;base64,${frame.data}`} alt="" draggable={false} />}
+      {frame && <img className="browser-remote-image" data-browser-frame-url={frame.url} src={`data:image/jpeg;base64,${frame.data}`} alt="" draggable={false} />}
       {!frame && !error && <span className="browser-loading" role="status">{t("browser.loading")}</span>}
       <input type="text" ref={input} className="browser-input-capture" aria-label={t("browser.viewport")} autoComplete="off" autoCapitalize="off" spellCheck={false} onKeyDown={e => key(e, false)} onKeyUp={e => key(e, true)} onCompositionEnd={e => { const text = e.data || e.nativeEvent.data || e.currentTarget.value; if (typeof text === "string" && text) void command({ type: "text", text }); e.currentTarget.value = ""; }} onPaste={e => { e.preventDefault(); void command({ type: "text", text: e.clipboardData.getData("text/plain") }); }} />
     </div>
