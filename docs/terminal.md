@@ -47,21 +47,37 @@ height. Normal-screen scrollback retains native smooth scrolling. An alternate
 screen without mouse reporting does not receive fake arrow keys; use that app's
 own keyboard scrolling. Pinch gestures do not become terminal input.
 
-The Open menu offers an in-window webpage preview and an external browser tab.
-Addresses are validated as HTTP(S), without credentials or control characters;
-there is no server-side fetch/proxy or automatic external navigation. The preview
-is a sandboxed iframe, with an address bar, reload and external-open button. A
-site's frame/CSP or mixed-content restrictions are not bypassed. Terminal and
-preview stay mounted while switched; the existing PTY, canvas and history stay
-alive. Menu URLs can be suggested from a bounded tail of terminal output.
+The Open menu offers an independent Chrome page inside the window or an external
+browser tab. The in-window page is **not an iframe or a rewritten/proxied copy of
+the website**. A dedicated host Chrome loads the original HTTP(S) page; a private
+CDP pipe streams rendered pixels and forwards mouse, keyboard, IME and clipboard
+input. No DevTools network port, arbitrary CDP method, JS or filesystem path is
+accepted from clients. The existing API host/origin/password guards protect all
+browser routes. Chrome's sandbox and TLS verification remain enabled; a website
+need not permit iframe embedding because it is a normal top-level Chrome page.
+
+`lib/browser-manager.ts` owns only its launched Chrome process and page targets,
+never the user's desktop Chrome. Its private profile defaults to
+`<agentDir>/browser/chrome-profile` (mode 0700), retaining website sign-in cookies
+across restarts; the server operator can set `PI_WEB_BROWSER_PROFILE` or
+`PI_WEB_CHROME_EXECUTABLE`. Chromium still owns encryption/OS authorization.
+Popups activate within the same view and restore the opener when closed. Actual
+navigation updates the displayed address, including redirects and history.
+The page/PTY remain independent and mounted while switching modes. Live hidden
+views renew their lease; unobserved abandoned pages expire after ten minutes.
+Closing the panel closes its own page, and exiting the server terminates only its
+owned Chrome. Input with an ambiguous response is not automatically replayed.
 
 Webpage mode defaults to one compact 32px toolbar. Its chevron reveals or hides
-the address bar without remounting or navigating the iframe. Ghostty engine/cwd
-metadata and terminal-only errors are shown only in terminal mode. The redundant
-Return to terminal button and permanent embedding-help banner are removed; the
-view switch remains available, and invalid-address errors appear only on failure.
-This reduces chrome, not the iframe's restrictions; a true independent browser
-renderer is a separate follow-up.
+the address bar without navigating the page, along with back/forward/reload and
+external-open controls. Cmd/Ctrl+L focuses the address bar. Ghostty engine/cwd
+metadata and terminal-only errors appear only in terminal mode. There is no
+permanent embedding-help banner or duplicate Return to terminal button.
+
+This browser surface currently relays page pixels and interaction, not host OS
+file-picker dialogs or remote audio. External open remains available for those
+flows. Login pages and popup-based authentication can run in the independent
+page; no website login or MFA is bypassed.
 
 `GET /api/terminal/preferences` invokes the installed native
 Ghostty's `+show-config` (bounded time/output, no shell or request-controlled args)

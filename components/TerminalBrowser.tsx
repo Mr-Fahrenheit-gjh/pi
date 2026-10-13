@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useI18n } from "@/hooks/useI18n";
 import { normalizePreviewUrl } from "@/lib/browser-preview";
+export { NativeBrowser as TerminalBrowserView } from "./NativeBrowser";
 
 export function TerminalOpenMenu({ suggestedUrl, onPreview }: { suggestedUrl: string; onPreview: (url: string) => void }) {
   const { t } = useI18n();
@@ -38,24 +39,5 @@ export function TerminalOpenMenu({ suggestedUrl, onPreview }: { suggestedUrl: st
       <button type="button" onClick={() => choose(true)}>{t("browser.preview")}<span aria-hidden="true">▣</span></button>
       <button type="button" onClick={() => choose(false)}>{t("browser.external")}<span aria-hidden="true">↗</span></button>
     </div>}
-  </div>;
-}
-
-export function TerminalBrowserPreview({ url, onNavigate, collapsed, controlsId }: { url: string; onNavigate: (url: string) => void; collapsed: boolean; controlsId: string }) {
-  const { t } = useI18n();
-  const [address, setAddress] = useState(url);
-  const [error, setError] = useState(false);
-  const [revision, setRevision] = useState(0);
-  useEffect(() => { setAddress(url); setError(false); }, [url]);
-  return <div className={`terminal-browser-preview${collapsed ? " is-controls-collapsed" : ""}`}>
-    <form id={controlsId} className="terminal-browser-addressbar" hidden={collapsed} onSubmit={event => {
-      event.preventDefault(); const next = normalizePreviewUrl(address); if (next) onNavigate(next); else setError(true);
-    }}>
-      <input aria-label={t("browser.address")} value={address} onChange={event => setAddress(event.target.value)} inputMode="url" />
-      <button type="button" onClick={() => setRevision(value => value + 1)} title={t("browser.reload")} aria-label={t("browser.reload")}>↻</button>
-      <a href={url} target="_blank" rel="noopener noreferrer" title={t("browser.external")} aria-label={t("browser.external")}>↗</a>
-    </form>
-    {error && <div className="terminal-browser-error" role="alert">{t("browser.invalidUrl")}</div>}
-    <iframe key={revision} src={url} title={t("browser.preview")} sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads" referrerPolicy="no-referrer" />
   </div>;
 }

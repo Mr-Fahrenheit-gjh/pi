@@ -7,8 +7,8 @@ import { DEFAULT_GHOSTTY_FONT } from "@/lib/ghostty-font-config";
 import { clampTerminalFontSize, loadGhosttyFontPreferences, loadGhosttyTerminal, terminalKeyAction, TERMINAL_THEME } from "@/lib/ghostty-terminal";
 import { readTerminalTheme } from "@/lib/terminal-theme";
 import { wheelLines, mouseWheelSequence } from "@/lib/terminal-wheel";
-import { previewUrlsFromOutput } from "@/lib/browser-preview";
-import { TerminalOpenMenu, TerminalBrowserPreview } from "./TerminalBrowser";
+import { previewUrlsFromOutput, normalizePreviewUrl } from "@/lib/browser-preview";
+import { TerminalOpenMenu, TerminalBrowserView } from "./TerminalBrowser";
 import { createTerminalWriter, terminalRequest } from "@/lib/terminal-client";
 import {
   applyTerminalModifiers,
@@ -45,6 +45,17 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
   const [previewUrl, setPreviewUrl] = useState("");
   const [browserVisible, setBrowserVisible] = useState(false);
   const [browserControlsCollapsed, setBrowserControlsCollapsed] = useState(true);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(`pi-web-browser:${id}`) || "null");
+      const url = saved && typeof saved.url === "string" && normalizePreviewUrl(saved.url);
+      if (url) { setPreviewUrl(url); setBrowserVisible(saved.visible === true); }
+    } catch { /* Invalid local state must not navigate. */ }
+  }, [id]);
+  useEffect(() => {
+    if (!previewUrl) return;
+    try { sessionStorage.setItem(`pi-web-browser:${id}`, JSON.stringify({ url: previewUrl, visible: browserVisible })); } catch { /* Storage can be disabled. */ }
+  }, [id, previewUrl, browserVisible]);
   const [suggestedUrl, setSuggestedUrl] = useState("");
   const outputTailRef = useRef("");
   const activeRef = useRef(active);
@@ -403,7 +414,7 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
       </div>
       <div className="terminal-workspace-content">
         <div className="terminal-viewport" hidden={browserVisible}><div ref={containerRef} className="terminal-ghostty-host" /></div>
-        {previewUrl && <div className="terminal-browser-host" hidden={!browserVisible}><TerminalBrowserPreview url={previewUrl} onNavigate={setPreviewUrl} collapsed={browserControlsCollapsed} controlsId={`browser-controls-${id}`} /></div>}
+        {previewUrl && <div className="terminal-browser-host" hidden={!browserVisible}><TerminalBrowserView url={previewUrl} onNavigate={setPreviewUrl} collapsed={browserControlsCollapsed} controlsId={`browser-controls-${id}`} active={active && browserVisible} onExpand={() => setBrowserControlsCollapsed(false)} /></div>}
       </div>
       {showExtraKeys && !browserVisible && <TerminalExtraKeys modifiers={modifiers} onKey={sendExtraKey} onToggleModifier={toggleModifier} />}
     </section>
