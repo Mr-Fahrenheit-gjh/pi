@@ -6,6 +6,7 @@ import "katex/dist/katex.min.css";
 import "./globals.css";
 import "./settings.css";
 import "./sidebar.css";
+import "./sidebar-terminal-polish.css";
 import "./sidebar-menu.css";
 
 const notoSansMono = Noto_Sans_Mono({

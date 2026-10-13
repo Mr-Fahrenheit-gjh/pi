@@ -2,6 +2,7 @@ import type { AgentMessage, AssistantContentBlock, AssistantMessage, ThinkingCon
 
 interface DisplayOptions {
   isStreaming?: boolean;
+  assistantContent?: "answer" | "process";
 }
 
 export function getThinkingPreview(thinking: string): string {
@@ -44,7 +45,11 @@ export function getAssistantErrorMessage(
   options: DisplayOptions = {},
 ): string | null {
   if (options.isStreaming || message.stopReason !== "error") return null;
-  return message.errorMessage?.trim() || "Unknown provider error";
+  const error = message.errorMessage?.trim() || "Unknown provider error";
+  // Only this exact transient model-network failure belongs in the process.
+  // Do not fold authorization, rate-limit, or other provider failures.
+  const processError = error.toLowerCase() === "fetch failed";
+  return processError === (options.assistantContent === "process") ? error : null;
 }
 
 /**
@@ -83,6 +88,17 @@ export function splitFinalAssistantBlocks(
   return {
     answerBlocks: blocks.slice(lastProcessIndex + 1),
     processBlocks: blocks.slice(0, lastProcessIndex + 1),
+  };
+}
+
+/** Progress prose is a normal message, even when followed by a tool call. */
+export function splitAssistantVisibleBlocks(message: AssistantMessage, options: DisplayOptions = {}) {
+  const blocks = getDisplayableAssistantBlocks(message, options);
+  return {
+    answerBlocks: blocks.filter(isFinalAnswerBlock),
+    processBlocks: blocks.filter((block) => !isFinalAnswerBlock(block)),
+    hasProcess: blocks.some((block) => !isFinalAnswerBlock(block))
+      || Boolean(getAssistantErrorMessage(message, { ...options, assistantContent: "process" })),
   };
 }
 

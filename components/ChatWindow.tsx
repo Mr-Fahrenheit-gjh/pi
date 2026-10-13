@@ -8,7 +8,7 @@ import { normalizeCustomPanelLines } from "@/lib/ansi";
 import { splitNoticeText } from "@/lib/notice-text";
 import { EXTENSION_DIALOG_BASE_WIDTH, fitExtensionDialogWidth } from "@/lib/extension-dialog-fit";
 import { asBracketedPaste, toTerminalKeyData } from "@/lib/terminal-input";
-import { collapsesProcessDetails, countToolCallBlocks, getDisplayableAssistantBlocks, hasAssistantAnswer, isHiddenCustomMessage, isMessageGroupAnchor, splitFinalAssistantBlocks } from "@/lib/message-display";
+import { countToolCallBlocks, getAssistantErrorMessage, hasAssistantAnswer, isAssistantTruncated, isHiddenCustomMessage, isMessageGroupAnchor, splitAssistantVisibleBlocks, splitFinalAssistantBlocks } from "@/lib/message-display";
 import { extractTurnWrittenFiles, type WrittenFile } from "@/lib/turn-written-files";
 import { getFinalAnswerViews, keepWrittenFiles, type FinalAnswerViews } from "@/lib/turn-views";
 import { buildQuotedSelection } from "@/lib/quoted-selection";
@@ -16,6 +16,10 @@ import { dropMentionText, splitDroppedItems, uploadFiles, type DroppedItem } fro
 import { MessageView } from "./MessageView";
 import { MarkdownBody } from "./MarkdownBody";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
+import { SubagentFleetPanel } from "./SubagentFleetPanel";
+import { PackageSubagentChat } from "./PackageSubagentChat";
+import type { PackageAgentTarget } from "@/hooks/usePackageSubagents";
+import { openStackedDialog } from "@/lib/stacked-dialog";
 import { ChatMinimap, useMessageRefs } from "./ChatMinimap";
 import { ExtensionStatusBar } from "./ExtensionStatusBar";
 import { AnsiText } from "./AnsiText";
@@ -44,6 +48,10 @@ import {
 
 interface Props {
   session: SessionInfo | null;
+  packageTarget?: PackageAgentTarget | null;
+  onReturnToMain?: () => void;
+  showSubagentPanel?: boolean;
+  onCloseSubagentPanel?: () => void;
   searchTarget?: { sessionId: string; entryId: string; blockIndex?: number } | null;
   onSearchTargetHandled?: (target: { sessionId: string; entryId: string }) => void;
   initialScrollPosition?: ChatScrollPosition | null;
@@ -191,44 +199,30 @@ function getUserInputText(message: AgentMessage): string | null {
   return text.length > 0 ? text : null;
 }
 
-function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = false, reveal = false, children, t }: { messageCount: number; toolCallCount: number; defaultExpanded?: boolean; reveal?: boolean; children: ReactNode; t: (key: string, params?: Record<string, string | number>) => string }) {
+function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = false, reveal = false, running = false, children, t }: { messageCount: number; toolCallCount: number; defaultExpanded?: boolean; reveal?: boolean; running?: boolean; children: ReactNode; t: (key: string, params?: Record<string, string | number>) => string }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   useLayoutEffect(() => {
     if (reveal) setExpanded(true);
   }, [reveal]);
-  const parts = [t("chat.processDetails"), `${messageCount} ${t(messageCount === 1 ? "chat.message" : "chat.messages")}`];
-  if (toolCallCount > 0) parts.push(`${toolCallCount} ${t(toolCallCount === 1 ? "chat.toolCall" : "chat.toolCalls")}`);
+  const label = running ? t("chat.working") : t("chat.viewProcess");
+  const details = `${messageCount} ${t(messageCount === 1 ? "chat.message" : "chat.messages")} · ${toolCallCount} ${t(toolCallCount === 1 ? "chat.toolCall" : "chat.toolCalls")}`;
 
   return (
-    <div style={{ marginBottom: 14 }}>
+    <div data-process-details data-running={running || undefined} style={{ marginBottom: 14 }}>
       <button
         type="button"
-        aria-expanded={expanded || reveal}
+        aria-expanded={expanded}
         onClick={() => setExpanded((v) => !v)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          width: "auto",
-          minHeight: 24,
-          padding: "2px 0",
-          border: "none",
-          background: "transparent",
-          color: "var(--text-muted)",
-          cursor: "pointer",
-          fontSize: 12,
-          textAlign: "left",
-        }}
-        title={expanded ? t("chat.collapseProcess") : t("chat.expandProcess")}
+        className="process-toggle"
+        title={`${expanded ? t("chat.collapseProcess") : t("chat.expandProcess")} · ${details}`}
       >
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>
+        {running && <Image src="/icons/pi-mark.svg" alt="" width={26} height={26} className="pi-working-mark" unoptimized aria-hidden="true" />}
+        <span className="process-toggle-label">{label}</span>
+        <svg className="process-toggle-chevron" aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="4 2.5 7.5 6 4 9.5" />
         </svg>
-        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {parts.join(" · ")}
-        </span>
       </button>
-      {(expanded || reveal) && (
+      {expanded && (
         <div style={{ marginTop: 8 }}>
           {children}
         </div>
@@ -237,10 +231,16 @@ function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = fa
   );
 }
 
-export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initialScrollPosition, onScrollPositionChange, sessionRunning, newSessionCwd, newSessionDraftKey, newSessionContextBar, initialNewSessionChoices, onNewSessionChoicesChange, onAgentEnd, onToolEnd, onAttentionNeeded, onSessionCreated, onSessionForked, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSystemToolsChange, onSystemInfoLoaderChange, onSessionStatsChange, onSessionStatsPanelOpen, onOpenSettings, onContextUsageChange, onOpenFile, onFilesUploaded, onOpenSubagent, onAskInNewChat, quoteSelectionEnabled = false, initialPrompt, onInitialPromptConsumed, soundEnabled = true, onSoundToggle, playDoneSound = () => {}, unlockAudio, holdAudio }: Props) {
+export function ChatWindow({ session, packageTarget, onReturnToMain, showSubagentPanel = false, onCloseSubagentPanel, searchTarget, onSearchTargetHandled, initialScrollPosition, onScrollPositionChange, sessionRunning, newSessionCwd, newSessionDraftKey, newSessionContextBar, initialNewSessionChoices, onNewSessionChoicesChange, onAgentEnd, onToolEnd, onAttentionNeeded, onSessionCreated, onSessionForked, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSystemToolsChange, onSystemInfoLoaderChange, onSessionStatsChange, onSessionStatsPanelOpen, onOpenSettings, onContextUsageChange, onOpenFile, onFilesUploaded, onOpenSubagent, onAskInNewChat, quoteSelectionEnabled = false, initialPrompt, onInitialPromptConsumed, soundEnabled = true, onSoundToggle, playDoneSound = () => {}, unlockAudio, holdAudio }: Props) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const completionNotificationsEnabled = session?.relation?.kind !== "subagent";
+  const viewingPackageChild = Boolean(packageTarget);
+  const subagentDialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showSubagentPanel) return;
+    return openStackedDialog(document, subagentDialogRef.current, () => onCloseSubagentPanel?.());
+  }, [showSubagentPanel, onCloseSubagentPanel]);
 
   // Wrap onAgentEnd to play the completion sound. This is more reliable than
   // wrapping handleAgentEventRef because useAgentSession overwrites that ref
@@ -1013,6 +1013,15 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {extensionDialog && <ExtensionDialog key={extensionDialog.id} request={extensionDialog} waitingCount={waitingExtensionDialogCount} onRespond={respondToExtensionUi} />}
+      {extensionCustomUi && <ExtensionCustomPanel key={extensionCustomUi.id} request={extensionCustomUi} waitingCount={waitingExtensionCustomUiCount} onInput={sendExtensionCustomInput} />}
+      {session && packageTarget && <PackageSubagentChat key={`${session.id}:${packageTarget.id}`} session={session} target={packageTarget}
+        onReturn={() => onReturnToMain?.()} onOpenFile={onOpenFile} />}
+      {showSubagentPanel && session?.id && <div className="absolute inset-0 z-50 flex justify-end bg-black/30" onClick={(event) => { if (event.target === event.currentTarget) onCloseSubagentPanel?.(); }}>
+        <div ref={subagentDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="子代理任务" className="flex h-full w-full max-w-2xl min-w-0 border-l border-border shadow-xl">
+          <SubagentFleetPanel sessionId={session.id} onClose={() => onCloseSubagentPanel?.()} />
+        </div>
+      </div>}
       {isDragOver && (
         <div className="pointer-events-none absolute inset-0 z-50 flex animate-[drop-zone-in_0.15s_ease_both] items-center justify-center bg-[rgba(37,99,235,0.06)] backdrop-blur-[1px]">
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -1062,13 +1071,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
         <NoticeShelf notices={notices} floating onPauseChange={setNoticePaused} />
       </div>
 
-      <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-        {extensionDialog && (
-          <ExtensionDialog key={extensionDialog.id} request={extensionDialog} waitingCount={waitingExtensionDialogCount} onRespond={respondToExtensionUi} />
-        )}
-        {extensionCustomUi && (
-          <ExtensionCustomPanel key={extensionCustomUi.id} request={extensionCustomUi} waitingCount={waitingExtensionCustomUiCount} onInput={sendExtensionCustomInput} />
-        )}
+      <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden" style={{ display: viewingPackageChild ? "none" : undefined }}>
         {!isEmptyNew && <>
         <div
           ref={scrollContainerRef}
@@ -1107,7 +1110,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                 if (idx === lastUserIdx) { (lastUserMsgRef as { current: HTMLDivElement | null }).current = el; }
               };
 
-              const renderMessage = (idx: number, options: { attachRef?: boolean; keyPrefix?: string; messageOverride?: AgentMessage; showTimestamp?: boolean; writtenFiles?: WrittenFile[]; recoverTruncation?: boolean } = {}): ReactNode => {
+              const renderMessage = (idx: number, options: { attachRef?: boolean; keyPrefix?: string; messageOverride?: AgentMessage; assistantContent?: "answer" | "process"; showTimestamp?: boolean; writtenFiles?: WrittenFile[]; recoverTruncation?: boolean } = {}): ReactNode => {
                 const msg = options.messageOverride ?? messages[idx];
                 if (isHiddenCustomMessage(msg)) return null;
                 const isVisible = isMessageGroupAnchor(msg) || msg.role === "assistant";
@@ -1132,6 +1135,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                   <MessageView
                     key={`${keyPrefix}-view-${messageKey}`}
                     message={msg}
+                    assistantContent={options.assistantContent}
                     toolResults={toolResultsMap}
                     modelNames={modelNames}
                     cwd={messageCwd}
@@ -1180,17 +1184,44 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                 while (endIdx < messages.length && !isMessageGroupAnchor(messages[endIdx])) endIdx += 1;
 
                 const finalAssistantIdx = findFinalAssistantIndex(messages, userIdx, endIdx);
+                const isLiveTail = (sessionBusy || isStreaming) && endIdx === messages.length && userIdx === lastAnchorIdx;
 
-                if (finalAssistantIdx === -1) {
-                  for (let renderIdx = groupStartIdx; renderIdx < endIdx; renderIdx++) {
-                    rendered.push(renderMessage(renderIdx));
+                if (isLiveTail) {
+                  if (hasAnchor) rendered.push(renderMessage(userIdx));
+                  const processViews: ReactNode[] = [];
+                  let processToolCount = 0;
+                  let revealProcess = false;
+                  for (let liveIdx = userIdx + 1; liveIdx < endIdx; liveIdx++) {
+                    const liveMessage = messages[liveIdx];
+                    // Dialogs, notices, shell commands and important provider failures
+                    // stay visible; transient fetch failures join the process.
+                    if (liveMessage.role !== "assistant") {
+                      if (liveMessage.role !== "toolResult") rendered.push(renderMessage(liveIdx));
+                      continue;
+                    }
+                    const split = splitAssistantVisibleBlocks(liveMessage);
+                    if (split.answerBlocks.length > 0 || getAssistantErrorMessage(liveMessage) || isAssistantTruncated(liveMessage)) rendered.push(renderMessage(liveIdx, { assistantContent: "answer", showTimestamp: false }));
+                    const views = getFinalAnswerViews(finalAnswerViewCache, liveMessage);
+                    if (!views.hasProcess) continue;
+                    processToolCount += countToolCallBlocks(split.processBlocks);
+                    revealProcess ||= Boolean(pendingSearchScroll && pendingSearchScroll.entryId === entryIds[liveIdx] && (!searchBlock || split.processBlocks.includes(searchBlock)));
+                    processViews.push(renderMessage(liveIdx, { keyPrefix: "live-process", messageOverride: views.process, assistantContent: "process", attachRef: split.answerBlocks.length === 0, showTimestamp: false }));
                   }
+                  if (isStreaming && hasStreamingContent) {
+                    // Subscribe inside the fold, not in ChatWindow: preserve 0.12's
+                    // chunk-local rendering and the user's disclosure state.
+                    processViews.push(<StreamingReply key="streaming-process" assistantContent="process" store={streamingStore} onCommit={updatePromptAnchor} toolResults={toolResultsMap} modelNames={modelNames} cwd={messageCwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} />);
+                  }
+                  rendered.push(
+                    <ProcessDetailsGroup key={`live-process-${entryIds[groupStartIdx] ?? groupStartIdx}`} running messageCount={processViews.length} toolCallCount={processToolCount} reveal={revealProcess} t={t}>
+                      {processViews}
+                    </ProcessDetailsGroup>,
+                  );
                   idx = endIdx;
                   continue;
                 }
 
-                const isLiveTail = (sessionBusy || isStreaming) && endIdx === messages.length && userIdx === lastAnchorIdx;
-                if (isLiveTail) {
+                if (finalAssistantIdx === -1) {
                   for (let renderIdx = groupStartIdx; renderIdx < endIdx; renderIdx++) {
                     rendered.push(renderMessage(renderIdx));
                   }
@@ -1211,16 +1242,19 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                 for (let processIdx = userIdx + 1; processIdx <= finalAssistantIdx; processIdx++) {
                   const processMessage = messages[processIdx];
                   if (processMessage.role === "custom") {
-                    // Not counted either: a turn whose only extra is a hidden message has no process details.
-                    if (isHiddenCustomMessage(processMessage)) continue;
-                    revealProcess ||= Boolean(pendingSearchScroll && pendingSearchScroll.entryId === entryIds[processIdx]);
-                    processViews.push(renderMessage(processIdx, { attachRef: false, keyPrefix: "process" }));
+                    rendered.push(renderMessage(processIdx));
                     continue;
                   }
                   if (processMessage.role !== "assistant") continue;
-                  const message = processIdx === finalAssistantIdx ? finalViews.process : processMessage;
-                  const blocks = getDisplayableAssistantBlocks(message);
-                  if (blocks.length === 0) continue;
+                  const split = splitAssistantVisibleBlocks(processMessage);
+                  if (processIdx !== finalAssistantIdx && (split.answerBlocks.length > 0 || getAssistantErrorMessage(processMessage) || isAssistantTruncated(processMessage))) {
+                    rendered.push(renderMessage(processIdx, { assistantContent: "answer", showTimestamp: false }));
+                  }
+                  // Filter in MessageView, keeping the stored content indices for deferred thinking.
+                  const views = getFinalAnswerViews(finalAnswerViewCache, processMessage);
+                  const message = views.process;
+                  const blocks = split.processBlocks;
+                  if (!views.hasProcess) continue;
                   processRefIdx ??= visibleRefIndexByMessage.get(processIdx);
                   processToolCount += countToolCallBlocks(blocks);
                   revealProcess ||= Boolean(pendingSearchScroll && entryIds[processIdx] === pendingSearchScroll.entryId && (!searchBlock || blocks.includes(searchBlock)));
@@ -1228,23 +1262,19 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
                     attachRef: false,
                     keyPrefix: "process",
                     messageOverride: message,
+                    assistantContent: "process",
                     showTimestamp: false,
                   }));
                 }
 
                 if (processViews.length > 0) {
-                  const answered = collapsesProcessDetails(finalAnswerMessage);
                   rendered.push(
                     <div
                       key={`process-group-${entryIds[groupStartIdx] ?? groupStartIdx}`}
                       ref={processRefIdx === undefined ? undefined : (el) => { messageRefs.current[processRefIdx] = el; }}
                     >
-                      {/* Re-key on answer availability: useState reads defaultExpanded only
-                          on mount, so a turn first rendered without an answer (expanded)
-                          would otherwise stay open once its answer shows up, e.g. when
-                          switching between an answered and an unanswered leaf of the same
-                          turn. Manual toggles survive every other re-render. */}
-                      <ProcessDetailsGroup key={answered ? "answered" : "unanswered"} messageCount={processViews.length} toolCallCount={processToolCount} defaultExpanded={!answered} reveal={revealProcess} t={t}>
+                      {/* Reset on answer availability; ordinary updates preserve manual toggles. */}
+                      <ProcessDetailsGroup key={finalAnswerMessage ? "answered" : "unanswered"} messageCount={processViews.length} toolCallCount={processToolCount} reveal={revealProcess} t={t}>
                         {processViews}
                       </ProcessDetailsGroup>
                     </div>,
@@ -1289,10 +1319,10 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
               );
             })()}
             {isStreaming && hasStreamingContent && (
-              <StreamingReply store={streamingStore} onCommit={updatePromptAnchor} toolResults={toolResultsMap} modelNames={modelNames} cwd={messageCwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} />
+              <StreamingReply assistantContent="answer" store={streamingStore} onCommit={updatePromptAnchor} toolResults={toolResultsMap} modelNames={modelNames} cwd={messageCwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} />
             )}
 
-            {agentRunning && !hasStreamingContent && (agentPhase || isCompacting) && (
+            {agentRunning && !hasStreamingContent && (agentPhase || isCompacting) && (!messages.some(isMessageGroupAnchor) || isCompacting) && (
               <div className="break-words py-2 text-[13px] text-text-muted">
                 <span className="animate-[pulse_1.5s_infinite]">{phaseLabel(agentPhase, t, isCompacting)}</span>
               </div>
@@ -1479,8 +1509,9 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
 }
 
 // The reply being streamed: the one part of the chat a chunk re-renders.
-const StreamingReply = memo(function StreamingReply({ store, onCommit, toolResults, modelNames, cwd, onOpenFile, onOpenSubagent }: {
+const StreamingReply = memo(function StreamingReply({ store, assistantContent, onCommit, toolResults, modelNames, cwd, onOpenFile, onOpenSubagent }: {
   store: StreamingStore;
+  assistantContent?: "answer" | "process";
   /** Runs after each chunk is in the DOM. */
   onCommit: () => void;
   toolResults: Map<string, ToolResultMessage>;
@@ -1492,7 +1523,10 @@ const StreamingReply = memo(function StreamingReply({ store, onCommit, toolResul
   const message = useStreamingSelector(store, selectStreamingMessage);
   useLayoutEffect(onCommit, [message, onCommit]);
   if (!message) return null;
-  return <MessageView message={message} toolResults={toolResults} isStreaming modelNames={modelNames} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} />;
+  const split = splitAssistantVisibleBlocks(message, { isStreaming: true });
+  if (assistantContent === "answer" && split.answerBlocks.length === 0) return null;
+  if (assistantContent === "process" && !split.hasProcess) return null;
+  return <MessageView message={message} assistantContent={assistantContent} toolResults={toolResults} isStreaming modelNames={modelNames} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} />;
 });
 
 // A one-line notice is exactly as tall as its entrance animation pins it, and

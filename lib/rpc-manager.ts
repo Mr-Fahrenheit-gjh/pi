@@ -18,6 +18,7 @@ import { cacheSessionPath, catalogFirstMessage, getLatestModelChange, invalidate
 import { getProjectTrustStatus, projectTrustReloadOptions } from "./project-trust";
 import { notifySessionComplete } from "./web-push";
 import { hasActiveSessionLivenessProvider } from "./session-liveness";
+import { createPackageSubagentExtension } from "./package-subagent-bridge";
 import type { SlashCommandInfo } from "@earendil-works/pi-coding-agent";
 import type { AgentSessionLike, ExtensionUiContextLike, ToolInfo } from "./pi-types";
 import type {
@@ -1912,6 +1913,8 @@ export class AgentSessionWrapper {
       setWorkingIndicator: () => {},
       setHiddenThinkingLabel: () => {},
       setWidget: (key, content, options) => {
+        // Machine-readable package widgets are rendered by the native chat adapter.
+        if (key === "subagent-async" || key === "subagent-inspect") return;
         if (!this._alive || this.extensionWidgetsResetting) return;
         if (typeof content === "function") {
           this.setExtensionWidgetFactory(
@@ -2550,6 +2553,7 @@ export async function startRpcSession(
             extensionFactories: [
               ...(builtins?.extensions ?? []),
               createReadOnlyMcpPolicyExtension(),
+              createPackageSubagentExtension(),
               createProjectCommandBashExtension({
                 cwd: sessionCwd,
                 settings: settingsManager,

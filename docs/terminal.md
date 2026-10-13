@@ -5,6 +5,74 @@ in the right panel's existing tab bar. Each terminal tab keeps the cwd it was
 created with. Files still mount only their active viewer; terminal panels stay
 mounted behind inactive tabs, hidden panels, and session or project switches.
 
+## Renderer (local Ghostty integration)
+
+The browser uses pinned `ghostty-web@0.4.0`, not a native Ghostty window.
+`lib/ghostty-terminal.ts` loads its WASM from the versioned same-origin URL
+`/vendor/ghostty-web/0.4.0/ghostty-vt.wasm`; no CDN is involved. Initialization
+is shared, failed initialization is retryable, and unmounting before it finishes
+must not create a shell. The PTY and SSE protocols below are unchanged.
+
+`bin/prepare-ghostty.mjs` runs before builds and after normal npm installation.
+It copies the pinned WASM/license and applies narrow, idempotent ESM patches:
+CJK continuation cells do not become copied spaces; live palette changes repaint
+without resetting the emulator; full font ascent/descent prevents the first bold
+row from clipping. It refuses an unfamiliar upstream source shape.
+After changing this dependency patch, use a fresh webpack cache: Next may cache
+node_modules by package version and otherwise retain the unpatched module.
+
+Ghostty's key handler returns **true for handled keys**, opposite to xterm.
+Cmd+A selects terminal output, Cmd+C (or Ctrl+C with selection) copies, Cmd+K
+clears the viewport; Ctrl+C without selection still interrupts the process.
+Paste uses the emulator's bracketed-paste method. Toolbar controls provide
+copy, paste, clear and 8–72px font zoom without replacing the shell.
+
+The terminal follows the resolved web theme (including system changes in Auto).
+Paper, text, cursor and selection use the web palette; ANSI colors use coordinated
+light/dark palettes. `TerminalPanel` observes theme attributes and updates the
+renderer in place, preserving its canvas, scrollback, scroll position and PTY.
+The 0.4 WASM bridge exposes only resolved RGB, not semantic color indices: the
+pinned patch maps exact immutable base-palette values at paint time. Arbitrary
+true colors are preserved except exact matches to those 18 base RGB values.
+The default background uses a distinct near-white base so explicit RGB/ANSI-256
+white remains white, rather than becoming a background alias. Resets retain the
+same base palette. No CSS inversion or shell-output replay is used.
+The contenteditable host's native caret is transparent; the real terminal cursor
+and input/IME plumbing remain intact.
+
+The custom wheel handler respects DEC mouse-reporting modes: in a fullscreen app
+such as Pi, trackpad movement becomes SGR (or legacy) mouse wheel reports, not
+Ghostty 0.4's synthetic Up/Down keys. Fractional pixel deltas accumulate by cell
+height. Normal-screen scrollback retains native smooth scrolling. An alternate
+screen without mouse reporting does not receive fake arrow keys; use that app's
+own keyboard scrolling. Pinch gestures do not become terminal input.
+
+The Open menu offers an in-window webpage preview and an external browser tab.
+Addresses are validated as HTTP(S), without credentials or control characters;
+there is no server-side fetch/proxy or automatic external navigation. The preview
+is a sandboxed iframe, with an address bar, reload and external-open button. A
+site's frame/CSP or mixed-content restrictions are not bypassed. Terminal and
+preview stay mounted while switched; the existing PTY, canvas and history stay
+alive. Menu URLs can be suggested from a bounded tail of terminal output.
+
+`GET /api/terminal/preferences` invokes the installed native
+Ghostty's `+show-config` (bounded time/output, no shell or request-controlled args)
+and exposes **only** font family and logical font size. This respects the native
+config filename, includes and precedence without exposing commands or environment
+variables. The font's logical size maps to CSS pixels, matching macOS logical
+screen units. Font names refer to fonts installed on the browser's device; a remote
+client must have them installed too. Missing Ghostty/config falls back to installed
+Nerd Font families then monospace. Config is refreshed on window focus without
+replacing the PTY/SSE; manual toolbar zoom survives refresh. Settings' code font no
+longer changes the terminal. `font-thicken` and `adjust-cell-height` cannot be
+mirrored by the 0.4 renderer and are not passed as unsupported options.
+
+The 0.4 API supports font family/size but not xterm's `fontWeight`, `lineHeight`
+or `screenReaderMode`; do not silently pass these unsupported options. This
+renderer does not provide xterm's screen-reader output mode. Desktop keyboard,
+canvas output and synthetic composition-event coverage do not constitute an
+OS-level input-method or screen-reader acceptance test.
+
 ## Lifecycle
 
 - Each new tab generates a random terminal ID before creation. Creation with
@@ -58,7 +126,12 @@ Restart Pi Web after repair.
 ## Verification
 
 Run `npm test` for native PTY, lease, output cursor, input queue, and storage
-checks. `npm run test:terminal` starts an isolated development server and runs
-desktop/mobile browser checks using generated session fixtures. Install the
-Playwright Chromium browser first with `npx playwright install chromium`.
-The browser check prints the temporary location of its screenshots and log.
+checks. After building in an isolated checkout, `npm run test:terminal` starts
+an isolated production server and runs desktop Chrome checks using generated
+session fixtures and real PTYs. Set `PI_WEB_TERMINAL_ROOT` to an independently
+built package and `PI_WEB_TERMINAL_ARTIFACTS` to a result directory. It verifies
+actual copied emulator output, Chinese text, keyboard/clipboard controls,
+resize, alternate screen, reconnect, refresh, restart/termination, WASM failure
+recovery and expired restored tabs. No model requests are made. The browser
+check records its build ID, WASM hash, screenshot and log. Mobile validation is
+not enabled by default.

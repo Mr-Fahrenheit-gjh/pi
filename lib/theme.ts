@@ -1,6 +1,8 @@
 export const THEME_OPTIONS = [
   { id: "light", label: "settings.themeLight" },
   { id: "dark", label: "settings.themeDark" },
+  { id: "claude", label: "settings.themeClaude" },
+  { id: "claude-white", label: "settings.themeClaudeWhite" },
   { id: "mist", label: "settings.themeMist" },
   { id: "rose", label: "settings.themeRose" },
   { id: "pine", label: "settings.themePine" },

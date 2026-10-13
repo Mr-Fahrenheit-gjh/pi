@@ -19,6 +19,9 @@ export function ThemeIcon({ preference, size = 17 }: { preference: ThemePreferen
   if (preference === "dark") {
     return <svg {...common}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" /></svg>;
   }
+  if (preference === "claude" || preference === "claude-white") {
+    return <svg {...common}><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 7h6M9 11h6M9 15h4" /></svg>;
+  }
   if (preference === "mist") {
     return <svg {...common}><path d="M12 3S6 10 6 14a6 6 0 0 0 12 0c0-4-6-11-6-11Z" /><path d="M9 15c.5 1.4 1.5 2.2 3 2.5" /></svg>;
   }

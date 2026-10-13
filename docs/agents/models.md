@@ -1,5 +1,8 @@
 # Models and provider auth
 
+## Model manufacturer icons
+The selected-model button and assistant model labels both reuse `ProviderIcon` through `lib/model-manufacturer.ts`, showing the model maker rather than a gateway for recognizable model families. The selector preserves its spinner while switching and its generic icon when no model is selected. Icons are decorative; model text, filtering, defaults and selection behavior remain unchanged.
+
 ## Model defaults for new sessions
 `GET /api/models` returns `defaultModel` from `~/.pi/agent/settings.json`; `ChatWindow` pre-selects it for new sessions. Browser model/thinking picks are applied atomically while the AgentSession is built and are **session-scoped**: neither startup nor a mid-session `set_model` / `set_thinking_level` writes `settings.json`, as pi's `/model` and `/thinking` persist only on Ctrl+S (otherwise a one-off pick becomes the TUI's default too).
 

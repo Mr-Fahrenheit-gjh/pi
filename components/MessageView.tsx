@@ -3,6 +3,8 @@
 import { memo, useState, useRef, useEffect, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { MarkdownBody } from "./MarkdownBody";
+import { ProviderIcon } from "./ProviderIcon";
+import { modelManufacturerIcon } from "@/lib/model-manufacturer";
 import { ImagePreview } from "./ImagePreview";
 import { ThinkingIcon } from "./ThinkingIcon";
 import { copyText } from "@/lib/clipboard";
@@ -187,6 +189,7 @@ function loadThinkingContent(sessionId: string, entryId: string, blockIndex: num
 
 interface Props {
   message: AgentMessage;
+  assistantContent?: "answer" | "process";
   isStreaming?: boolean;
   toolResults?: Map<string, ToolResultMessage>;
   modelNames?: Record<string, string>;
@@ -280,12 +283,12 @@ function haveSameRelevantToolResults(
   return true;
 }
 
-export const MessageView = memo(function MessageView({ message, isStreaming, toolResults, modelNames, cwd, onOpenFile, onOpenSubagent, entryId, searchBlock, onFork, forking, onEditContent, onCancelEdit, isEditing, showTimestamp, prevTimestamp, sessionId, writtenFiles, onCompact, isCompacting, compactError }: Props) {
+export const MessageView = memo(function MessageView({ message, assistantContent, isStreaming, toolResults, modelNames, cwd, onOpenFile, onOpenSubagent, entryId, searchBlock, onFork, forking, onEditContent, onCancelEdit, isEditing, showTimestamp, prevTimestamp, sessionId, writtenFiles, onCompact, isCompacting, compactError }: Props) {
   if (message.role === "user") {
     return <UserMessageView message={message as UserMessage} cwd={cwd} onOpenFile={onOpenFile} entryId={entryId} onFork={onFork} forking={forking} onEditContent={onEditContent} onCancelEdit={onCancelEdit} isEditing={isEditing} />;
   }
   if (message.role === "assistant") {
-    return <AssistantMessageView message={message as AssistantMessage} isStreaming={isStreaming} toolResults={toolResults} modelNames={modelNames} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} showTimestamp={showTimestamp} prevTimestamp={prevTimestamp} sessionId={sessionId} entryId={entryId} searchBlock={searchBlock} writtenFiles={writtenFiles} onCompact={onCompact} isCompacting={isCompacting} compactError={compactError} />;
+    return <AssistantMessageView message={message as AssistantMessage} assistantContent={assistantContent} isStreaming={isStreaming} toolResults={toolResults} modelNames={modelNames} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} showTimestamp={showTimestamp} prevTimestamp={prevTimestamp} sessionId={sessionId} entryId={entryId} searchBlock={searchBlock} writtenFiles={writtenFiles} onCompact={onCompact} isCompacting={isCompacting} compactError={compactError} />;
   }
   if (message.role === "toolResult") {
     // Rendered inline under its toolCall — skip standalone rendering if paired
@@ -303,6 +306,7 @@ export const MessageView = memo(function MessageView({ message, isStreaming, too
   return null;
 }, (prev, next) => {
   return prev.message === next.message
+    && prev.assistantContent === next.assistantContent
     && prev.isStreaming === next.isStreaming
     && haveSameRelevantToolResults(prev.message, prev.toolResults, next.toolResults)
     && prev.modelNames === next.modelNames
@@ -420,7 +424,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
             flex: 1,
             minWidth: 0,
             background: isEditing ? "color-mix(in srgb, var(--accent) 14%, var(--user-bg))" : "var(--user-bg)",
-            border: isEditing ? "1px solid color-mix(in srgb, var(--accent) 62%, var(--user-bg))" : "1px solid rgba(59,130,246,0.2)",
+            border: isEditing ? "1px solid color-mix(in srgb, var(--accent) 62%, var(--user-bg))" : "1px solid var(--user-border)",
             boxShadow: isEditing ? "0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent)" : undefined,
             borderRadius: 12,
             padding: "8px 12px",
@@ -637,6 +641,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
 
 function AssistantMessageView({
   message,
+  assistantContent,
   isStreaming,
   toolResults,
   modelNames,
@@ -654,6 +659,7 @@ function AssistantMessageView({
   compactError,
 }: {
   message: AssistantMessage;
+  assistantContent?: "answer" | "process";
   isStreaming?: boolean;
   toolResults?: Map<string, ToolResultMessage>;
   modelNames?: Record<string, string>;
@@ -674,15 +680,19 @@ function AssistantMessageView({
   const time = showTimestamp ? formatTime(message.timestamp) : null;
   const blockItems = useMemo(() => (message.content ?? [])
     .map((block, originalIndex) => ({ block, originalIndex }))
-    .filter(({ block }) => !isEmptyThinkingBlock(block, { isStreaming })), [message.content, isStreaming]);
+    .filter(({ block }) => {
+      if (isEmptyThinkingBlock(block, { isStreaming })) return false;
+      const prose = block.type === "text" || block.type === "image";
+      return !assistantContent || (assistantContent === "answer" ? prose : !prose);
+    }), [message.content, isStreaming, assistantContent]);
   const blocks = useMemo(() => blockItems.map(({ block }) => block), [blockItems]);
-  const providerError = getAssistantErrorMessage(message, { isStreaming });
-  const truncated = isAssistantTruncated(message, { isStreaming });
+  const providerError = getAssistantErrorMessage(message, { isStreaming, assistantContent });
+  const truncated = assistantContent !== "process" && isAssistantTruncated(message, { isStreaming });
   const unansweredTruncation = truncated && !hasAssistantAnswer(message);
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied] = useState(false);
   const streamStartRef = useRef<StreamRateStart | null>(null);
-  const rateKey = streamRateKey(message);
+  const rateKey = streamRateKey(message, assistantContent ?? "all");
   const streamRateKeyRef = useRef(rateKey);
   streamRateKeyRef.current = rateKey;
   const [tps, setTps] = useState<number | null>(null);
@@ -751,6 +761,8 @@ function AssistantMessageView({
   };
 
   useEffect(() => {
+    streamStartRef.current = null;
+    setTps(null);
     if (!isStreaming) {
       // Finalise any un-finished thinking block durations on stream end
       const now = new Date().getTime();
@@ -792,14 +804,13 @@ function AssistantMessageView({
       });
 
       const tokens = estimatedTokensRef.current;
-      if (tokens === 0) return;
+      if (tokens === 0) { setTps(null); return; }
       streamStartRef.current ??= streamRateStart(streamRateKeyRef.current, tokens, now);
-      const rate = streamTokensPerSecond(streamStartRef.current, tokens, now);
-      if (rate !== null) setTps(rate);
+      setTps(streamTokensPerSecond(streamStartRef.current, tokens, now));
     };
     const id = setInterval(tick, 300);
     return () => clearInterval(id);
-  }, [isStreaming]);
+  }, [isStreaming, rateKey]);
 
   if (blocks.length === 0 && !isStreaming && !providerError && !truncated) return null;
 
@@ -823,7 +834,10 @@ function AssistantMessageView({
         }}
       >
         {message.provider && (
-          <span>{getModelDisplayName(message.provider, message.model, modelNames)}</span>
+          <span data-model-label style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <ProviderIcon id={modelManufacturerIcon(message.provider, message.model)} size={14} />
+            <span>{getModelDisplayName(message.provider, message.model, modelNames)}</span>
+          </span>
         )}
         {isStreaming && (() => {
           const est = Math.round(estimatedTokens);
@@ -994,7 +1008,7 @@ function BlockView({ block, searchTarget, toolResults, isStreaming, streamingDur
 }
 
 function TextBlock({ block, isStreaming, cwd, onOpenFile }: { block: TextContent; isStreaming?: boolean; cwd?: string; onOpenFile?: (filePath: string, page?: number) => void }) {
-  return <SafeMarkdownBody isStreaming={isStreaming} cwd={cwd} onOpenFile={onOpenFile}>{block.text}</SafeMarkdownBody>;
+  return <SafeMarkdownBody className="markdown-assistant-message" isStreaming={isStreaming} cwd={cwd} onOpenFile={onOpenFile}>{block.text}</SafeMarkdownBody>;
 }
 
 export function ThinkingBlock({ block, duration, sessionId, entryId, blockIndex }: {
@@ -1097,7 +1111,7 @@ export function ThinkingBlock({ block, duration, sessionId, entryId, blockIndex 
           style={{
             flex: 1,
             minWidth: 0,
-            color: error ? "#f87171" : "var(--text-muted)",
+            color: error ? "var(--tool-error-text)" : "var(--text-muted)",
             whiteSpace: "pre-wrap",
             overflowWrap: "anywhere",
           }}
@@ -1177,13 +1191,13 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
   const codemodeCallCount = codemode ? codemode.calls.length + codemode.omitted : 0;
 
   return (
-    <div
+    <div data-tool-status={isError ? "error" : "success"} data-tool-name={block.toolName}
       style={{
         borderRadius: 7,
         overflow: "hidden",
         fontSize: 12,
-        border: isError ? "1px solid rgba(248,113,113,0.45)" : "1px solid rgba(34,197,94,0.25)",
-        background: isError ? "rgba(248,113,113,0.05)" : "rgba(34,197,94,0.04)",
+        border: isError ? "1px solid rgba(var(--tool-error-rgb),0.45)" : "1px solid rgba(var(--tool-success-rgb),0.25)",
+        background: isError ? "rgba(var(--tool-error-rgb),0.05)" : "rgba(var(--tool-success-rgb),0.04)",
       }}
     >
       {/* ── Tool call header ── */}
@@ -1207,7 +1221,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
         >
           <span
             title={mcpLabel ? block.toolName : undefined}
-            style={{ color: isError ? "#f87171" : "#16a34a", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 11, flexShrink: 0 }}
+            style={{ color: isError ? "var(--tool-error-text)" : "var(--tool-success-text)", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 11, flexShrink: 0 }}
           >
             {mcpLabel ? (
               <>
@@ -1257,7 +1271,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
             lineHeight: 1.5,
             overflow: "auto",
             background: "var(--bg-subtle)",
-            borderTop: isError ? "1px solid rgba(248,113,113,0.25)" : "1px solid rgba(34,197,94,0.2)",
+            borderTop: isError ? "1px solid rgba(var(--tool-error-rgb),0.25)" : "1px solid rgba(var(--tool-success-rgb),0.2)",
             whiteSpace: "pre-wrap",
             wordBreak: "break-all",
           }}
@@ -1276,7 +1290,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
 
       {/* ── Expanded: applied-patch split diff ── */}
       {expanded && patchFiles && (
-        <div style={{ borderTop: "1px solid rgba(34,197,94,0.15)", background: "var(--bg)" }}>
+        <div style={{ borderTop: "1px solid rgba(var(--tool-success-rgb),0.15)", background: "var(--bg)" }}>
           <SplitFilesView files={patchFiles} />
         </div>
       )}
@@ -1316,7 +1330,7 @@ function PairedDiffResult({ diff }: {
   return (
     <div
       style={{
-        borderTop: "1px solid rgba(34,197,94,0.15)",
+        borderTop: "1px solid rgba(var(--tool-success-rgb),0.15)",
         background: "var(--bg)",
       }}
     >
@@ -1407,16 +1421,16 @@ function SplitDiffHeader({ title, side }: { title: string; side: "left" | "right
 function SplitDiffCellView({ cell, side }: { cell: SplitDiffCell; side: "left" | "right" }) {
   const bg =
     cell.type === "added"
-      ? "rgba(34,197,94,0.12)"
+      ? "rgba(var(--tool-success-rgb),0.12)"
       : cell.type === "removed"
-      ? "rgba(248,113,113,0.13)"
+      ? "rgba(var(--tool-error-rgb),0.13)"
       : cell.type === "empty"
       ? "var(--bg-subtle)"
       : "transparent";
   const marker =
     cell.type === "added" ? "+" : cell.type === "removed" ? "-" : " ";
   const markerColor =
-    cell.type === "added" ? "#22c55e" : cell.type === "removed" ? "#f87171" : "var(--text-dim)";
+    cell.type === "added" ? "var(--tool-added-text)" : cell.type === "removed" ? "var(--tool-error-text)" : "var(--text-dim)";
 
   return (
     <div
@@ -1481,13 +1495,13 @@ function PatchTextView({ text }: { text: string }) {
           line.startsWith("-") && !line.startsWith("---") ? "removed" :
           "context";
         const bg =
-          kind === "added" ? "rgba(34,197,94,0.12)" :
-          kind === "removed" ? "rgba(248,113,113,0.13)" :
+          kind === "added" ? "rgba(var(--tool-success-rgb),0.12)" :
+          kind === "removed" ? "rgba(var(--tool-error-rgb),0.13)" :
           kind === "hunk" ? "rgba(96,165,250,0.12)" :
           "transparent";
         const color =
-          kind === "added" ? "#22c55e" :
-          kind === "removed" ? "#f87171" :
+          kind === "added" ? "var(--tool-added-text)" :
+          kind === "removed" ? "var(--tool-error-text)" :
           kind === "hunk" ? "var(--accent)" :
           "var(--text)";
 
@@ -1498,9 +1512,9 @@ function PatchTextView({ text }: { text: string }) {
               display: "flex",
               background: bg,
               borderLeft: kind === "added"
-                ? "3px solid #22c55e"
+                ? "3px solid var(--tool-added-text)"
                 : kind === "removed"
-                ? "3px solid #f87171"
+                ? "3px solid var(--tool-error-text)"
                 : kind === "hunk"
                 ? "3px solid var(--accent)"
                 : "3px solid transparent",
@@ -1587,7 +1601,7 @@ function ResultImages({ images, isError }: { images: ImageContent[]; isError: bo
         flexWrap: "wrap",
         padding: "10px",
         background: "var(--bg)",
-        borderTop: `1px solid ${isError ? "rgba(248,113,113,0.3)" : "rgba(34,197,94,0.15)"}`,
+        borderTop: `1px solid ${isError ? "rgba(var(--tool-error-rgb),0.3)" : "rgba(var(--tool-success-rgb),0.15)"}`,
       }}
     >
       {images.map((image, index) => {
@@ -1629,15 +1643,15 @@ function PairedResult({ text, isEmpty, isError }: {
   return (
     <div
       style={{
-        borderTop: `1px solid ${isError ? "rgba(248,113,113,0.3)" : "rgba(34,197,94,0.15)"}`,
-        background: isError ? "rgba(248,113,113,0.04)" : "var(--bg-subtle)",
+        borderTop: `1px solid ${isError ? "rgba(var(--tool-error-rgb),0.3)" : "rgba(var(--tool-success-rgb),0.15)"}`,
+        background: isError ? "rgba(var(--tool-error-rgb),0.04)" : "var(--bg-subtle)",
       }}
     >
       <pre
         style={{
           margin: 0,
           padding: "8px 10px",
-          color: isError ? "#f87171" : (isEmpty ? "var(--text-dim)" : "var(--text-muted)"),
+          color: isError ? "var(--tool-error-text)" : (isEmpty ? "var(--text-dim)" : "var(--text-muted)"),
           fontSize: "calc(12px + var(--chat-font-size-offset, 0px))",
           lineHeight: 1.5,
           overflow: "auto",

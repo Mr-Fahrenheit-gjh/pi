@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useI18n } from "@/hooks/useI18n";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { SelectorRow } from "./SelectorRow";
+import { ProviderIcon } from "./ProviderIcon";
+import { modelManufacturerIcon } from "@/lib/model-manufacturer";
 
 export interface ModelSelectorOption {
   provider: string;
@@ -171,6 +173,7 @@ export function ModelSelector({
         type="button"
         aria-label={ariaLabel}
         aria-haspopup="listbox"
+        data-model-selector-trigger
         aria-expanded={open}
         aria-busy={busy || undefined}
         disabled={locked}
@@ -203,6 +206,8 @@ export function ModelSelector({
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" style={{ animation: "spin 0.8s linear infinite", flexShrink: 0 }} aria-hidden="true">
             <path d="M21 12a9 9 0 1 1-2.64-6.36" />
           </svg>
+        ) : value ? (
+          <ProviderIcon id={modelManufacturerIcon(value.provider, value.modelId)} size={14} />
         ) : (
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
             <rect x="4" y="4" width="16" height="16" rx="2" />

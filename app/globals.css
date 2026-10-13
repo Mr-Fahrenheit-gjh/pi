@@ -1,5 +1,5 @@
-@import "@xterm/xterm/css/xterm.css";
 @import "tailwindcss";
+@import "./conversation-transition.css";
 /* demo/ is a separate project; keep its sources out of this app's class scan. */
 @source not "../demo";
 /* Agent worktrees: scanning them makes webpack snapshot their symlinked
@@ -64,6 +64,66 @@ html.dark,
   --assistant-bg: #1a1a1a;
   --tool-bg: #222222;
   --bg-subtle: rgba(255,255,255,0.04);
+}
+
+/* Claude-inspired warm reading palette; light remains the original default. */
+[data-theme="claude"] {
+  color-scheme: light;
+  --bg: #faf9f5;
+  --bg-panel: #f0eee6;
+  --bg-hover: #e8e5db;
+  --bg-selected: #e1dcd0;
+  --border: #c9c2b5;
+  --text: #292722;
+  --text-muted: #57534b;
+  --text-dim: #625d54;
+  --accent: #91462f;
+  --accent-hover: #7d3c29;
+  --accent-contrast: #ffffff;
+  --user-bg: #f0eee6;
+  --assistant-bg: #faf9f5;
+  --tool-bg: #f4f2eb;
+  --bg-subtle: rgba(64, 52, 36, 0.04);
+}
+
+/* Existing palettes keep their execution colors. The neutral variant opts in below. */
+:root {
+  --user-border: rgba(59,130,246,0.2);
+  --tool-success-text: #16a34a;
+  --tool-error-text: #f87171;
+  --tool-running-text: #d97706;
+  --tool-added-text: #22c55e;
+  --tool-success-rgb: 34,197,94;
+  --tool-error-rgb: 248,113,113;
+}
+
+/* A separate, quieter option; never replace the original Claude warm palette. */
+[data-theme="claude-white"] {
+  color-scheme: light;
+  --bg: #fafaf9;
+  --bg-panel: #f3f3f1;
+  --bg-hover: #eeeeeb;
+  --bg-selected: #eaeae7;
+  --border: #dededa;
+  --text: #343430;
+  --text-muted: #60605a;
+  --text-dim: #666660;
+  --accent: #805d4c;
+  --accent-hover: #694b3e;
+  --accent-contrast: #ffffff;
+  --user-bg: #f0f0ed;
+  --assistant-bg: #fafaf9;
+  --tool-bg: #f6f6f4;
+  --bg-subtle: rgba(45, 45, 38, 0.025);
+}
+[data-theme="claude-white"] {
+  --user-border: #e3e3df;
+  --tool-success-text: #4c705c;
+  --tool-error-text: #95564e;
+  --tool-running-text: #7a5f2c;
+  --tool-added-text: #4c705c;
+  --tool-success-rgb: 76,112,92;
+  --tool-error-rgb: 149,86,78;
 }
 
 [data-theme="mist"] {
@@ -333,13 +393,23 @@ html.dark .web-login-error {
 }
 
 .terminal-panel {
+  --terminal-success: #547c5e;
+  --terminal-error: #99524b;
+  --terminal-warning: #a47e36;
   display: grid;
-  grid-template-rows: 38px auto minmax(0, 1fr);
+  grid-template-rows: 44px auto minmax(0, 1fr);
   width: 100%;
   height: 100%;
   min-width: 0;
   min-height: 0;
-  background: #111318;
+  background: var(--bg);
+  color-scheme: inherit;
+}
+
+html.dark .terminal-panel {
+  --terminal-success: #91b49b;
+  --terminal-error: #e7aaa2;
+  --terminal-warning: #d8bd83;
 }
 
 .terminal-panel-header {
@@ -347,10 +417,11 @@ html.dark .web-login-error {
   align-items: center;
   justify-content: space-between;
   min-width: 0;
-  padding: 0 10px 0 13px;
-  border-bottom: 1px solid #2f3540;
-  background: #181b21;
-  color: #9ca3af;
+  gap: 12px;
+  padding: 0 14px 0 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-dim);
   font-family: var(--font-mono);
   font-size: 11px;
 }
@@ -373,59 +444,61 @@ html.dark .web-login-error {
   height: 7px;
   flex: 0 0 7px;
   border-radius: 50%;
-  background: #facc15;
+  background: var(--terminal-warning);
 }
 
-.terminal-status-dot.is-ready { background: #4ade80; }
+.terminal-status-dot.is-ready { background: var(--terminal-success); }
+.terminal-engine-label { color: var(--text-muted); font-weight: 500; }
+.terminal-panel-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .terminal-status-dot.is-exited,
-.terminal-status-dot.is-error { background: #f87171; }
+.terminal-status-dot.is-error { background: var(--terminal-error); }
 
 .terminal-panel-header button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 27px;
+  justify-content: center;
+  height: 28px;
+  min-width: 28px;
   flex-shrink: 0;
-  padding: 0 8px;
-  border: 1px solid #343a46;
-  border-radius: 5px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
   background: transparent;
-  color: #9ca3af;
+  color: var(--text-muted);
   cursor: pointer;
   font: inherit;
 }
 
 .terminal-panel-exit {
   padding: 7px 12px;
-  color: #9ca3af;
+  color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: 11px;
 }
 
-.terminal-panel-header button:hover {
-  background: #242932;
-  color: #e5e7eb;
+.terminal-panel-header button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
 }
+.terminal-panel-header button:disabled { opacity: 0.3; cursor: default; }
+.terminal-panel-header button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .terminal-panel-error {
   padding: 7px 12px;
-  border-bottom: 1px solid #5f2424;
-  background: #321b1b;
-  color: #fca5a5;
+  border-bottom: 1px solid color-mix(in srgb, var(--terminal-error) 25%, var(--bg));
+  background: color-mix(in srgb, var(--terminal-error) 8%, var(--bg));
+  color: var(--terminal-error);
   font-family: var(--font-mono);
   font-size: 11px;
 }
 
-.terminal-xterm {
+.terminal-viewport {
   grid-row: -2 / -1;
   min-width: 0;
   min-height: 0;
-  padding: 10px 8px 22px 12px;
+  padding: 16px 12px 16px 18px;
   overflow: hidden;
-}
-
-.terminal-xterm .xterm {
-  height: 100%;
 }
 
 .terminal-extra-keys {
@@ -434,11 +507,11 @@ html.dark .web-login-error {
   grid-template-columns: repeat(7, minmax(0, 1fr));
   grid-auto-rows: 36px;
   padding-bottom: env(safe-area-inset-bottom);
-  border-top: 1px solid #2f3540;
-  background: #181b21;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
 }
 
-.terminal-xterm:has(+ .terminal-extra-keys) {
+.terminal-viewport:has(+ .terminal-extra-keys) {
   padding-bottom: 6px;
 }
 
@@ -451,7 +524,7 @@ html[data-keyboard-open] .terminal-extra-keys {
   padding: 0;
   border: none;
   background: transparent;
-  color: #d7dce5;
+  color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: 12px;
   touch-action: manipulation;
@@ -462,7 +535,7 @@ html[data-keyboard-open] .terminal-extra-keys {
 }
 
 .terminal-extra-keys button:active {
-  background: #242932;
+  background: var(--bg-hover);
 }
 
 .terminal-extra-keys .is-rotated {
@@ -471,17 +544,25 @@ html[data-keyboard-open] .terminal-extra-keys {
 }
 
 .terminal-extra-keys button.is-active {
-  color: #60a5fa;
+  color: var(--accent);
 }
 
-.terminal-xterm-host {
+.terminal-ghostty-host,
+.terminal-ghostty-surface {
+  position: relative;
   width: 100%;
   height: 100%;
+  overflow: hidden;
 }
-
-.terminal-xterm .xterm-viewport {
-  background-color: #111318;
+/* TerminalPanel synchronizes the renderer palette without replacing its
+   canvas, history buffer or PTY. The surrounding surface follows the same paper. */
+.terminal-ghostty-surface {
+  outline: none;
+  /* The contenteditable host handles input, but only the canvas draws a cursor. */
+  caret-color: transparent;
+  background: var(--bg);
 }
+.terminal-ghostty-surface canvas { max-width: 100%; }
 
 /*
  * Chromium-only scrollbars. Firefox renders its native ones, which the standard
@@ -540,18 +621,6 @@ html[data-keyboard-open] .terminal-extra-keys {
     border-width: 1px;
     border-radius: 3px;
   }
-}
-
-/* The terminal keeps its dark surface in every theme, so --text-dim (a dark
-   grey in the light themes) would disappear against it. */
-.terminal-xterm .xterm-viewport::-webkit-scrollbar-thumb {
-  background-color: rgba(156, 163, 175, 0.45);
-}
-.terminal-xterm .xterm-viewport::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(156, 163, 175, 0.72);
-}
-.terminal-xterm .xterm-viewport::-webkit-scrollbar-thumb:active {
-  background-color: rgb(156, 163, 175);
 }
 
 
@@ -826,7 +895,9 @@ button.extension-widget-trigger:focus-visible {
 }
 
 :root {
-  --font-ui-default: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-ui-default: 'Anthropic Sans', 'Helvetica Neue', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-answer-default: 'Anthropic Serif', Georgia, 'Songti SC', 'STSong', 'Noto Serif CJK SC', serif;
+  --font-answer: var(--font-answer-default);
   --font-mono-default: var(--font-noto-mono), 'JetBrains Mono', 'Fira Code', 'Consolas', ui-monospace, 'PingFang SC', 'Microsoft YaHei', monospace;
   --font-ui: var(--font-ui-default);
   --font-mono: var(--font-mono-default);
@@ -842,6 +913,76 @@ pre, code {
 /* Inline code inside a heading or emphasis keeps that surrounding emphasis. */
 .markdown-body :is(h1, h2, h3, h4, h5, h6, strong, b) code {
   font-weight: inherit;
+}
+
+/* Claude-style reading typography, without downloading proprietary fonts. */
+.markdown-assistant-message,
+.markdown-user-message {
+  font-family: var(--font-answer);
+}
+
+/* A quiet disclosure, not a status card. Only the Pi mark breathes. */
+.process-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-height: 30px;
+  padding: 3px 2px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+.process-toggle:hover { color: var(--text); }
+.process-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+.process-toggle-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.process-toggle-chevron {
+  flex: none;
+  color: var(--text-dim);
+  transition: transform 160ms ease;
+}
+.process-toggle[aria-expanded="true"] .process-toggle-chevron {
+  transform: rotate(90deg);
+}
+[data-process-details][data-running] .process-toggle {
+  min-height: 36px;
+  gap: 10px;
+  font-size: 14px;
+}
+.pi-working-mark {
+  flex: none;
+  animation: pi-working-breathe 2.1s ease-in-out infinite;
+}
+@keyframes pi-working-breathe {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.88);
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 5px rgba(77, 154, 191, 0.38));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pi-working-mark { animation: none; }
+  .process-toggle, .process-toggle-chevron { transition: none; }
 }
 
 /* react-markdown output styles */
@@ -886,9 +1027,16 @@ pre, code {
   color: color-mix(in srgb, var(--accent) 72%, var(--text-muted));
   font-weight: 600;
 }
-.markdown-body strong {
-  color: color-mix(in srgb, var(--text) 88%, var(--accent));
-  font-weight: 700;
+/* Emphasis should read as heavier ink, not a quieter accent-colored span.
+   Keep the surrounding font family/size and other themes' text contrast. */
+.markdown-body :is(strong, b) {
+  color: var(--text-strong, var(--text));
+  font-weight: 800;
+  font-synthesis: weight;
+}
+[data-theme="claude"],
+[data-theme="claude-white"] {
+  --text-strong: #151513;
 }
 .markdown-body em { color: var(--text-muted); }
 .markdown-body a {

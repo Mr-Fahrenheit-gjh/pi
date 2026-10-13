@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useGlobalKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { SessionSidebar, type SelectSessionOptions, type SessionSidebarControl } from "./SessionSidebar";
 import { ChatWindow } from "./ChatWindow";
+import { ConversationTransition } from "./ConversationTransition";
 import { NewSessionContextBar, type NewSessionContextControl } from "./NewSessionContextBar";
 import type { ChatScrollPosition } from "@/lib/chat-scroll-position";
 import { FileViewer } from "./FileViewer";
@@ -17,6 +18,7 @@ import { SystemPromptPanel } from "./SystemPromptPanel";
 import { ToolDefinitionsPanel } from "./ToolDefinitionsPanel";
 import { AgentSessionPanel } from "./AgentSessionPanel";
 import { SubagentViewer } from "./SubagentViewer";
+import { usePackageSubagents, type PackageAgentTarget } from "@/hooks/usePackageSubagents";
 import { TerminalPanel } from "./TerminalPanel";
 import { newTerminalTab, restoreTerminalTabs, TERMINAL_TABS_KEY, type TerminalTab } from "./terminal-tab-state";
 import { useTheme } from "@/hooks/useTheme";
@@ -171,7 +173,12 @@ export function AppShell() {
     () => getSessionFamily(sessionsWithSelection, selectedSession?.id),
     [selectedSession?.id, sessionsWithSelection],
   );
-  const hasSubagentSessions = Boolean(activeSessionFamily?.subagents.length);
+  const packageAgents = usePackageSubagents(selectedSession);
+  const [packageSelection, setPackageSelection] = useState<{ sessionId: string; target: PackageAgentTarget } | null>(null);
+  const packageTarget = packageSelection?.sessionId === selectedSession?.id
+    ? packageAgents.targets.find((target) => target.id === packageSelection?.target.id) ?? packageSelection?.target : null;
+  const returnToMain = useCallback(() => setPackageSelection(null), []);
+  const agentCount = (activeSessionFamily?.subagents.length ?? 0) + packageAgents.sessions.length;
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
   const handleRunningSessionIdsChange = useCallback((ids: Set<string>) => {
     setRunningSessionIds((previous) => {
@@ -389,10 +396,8 @@ export function AppShell() {
   }, [sessionHasBranches]);
 
   useEffect(() => {
-    if (!hasSubagentSessions) {
-      setActiveTopPanel((panel) => panel === "agents" ? null : panel);
-    }
-  }, [hasSubagentSessions]);
+    setActiveTopPanel((panel) => panel === "agents" ? null : panel);
+  }, [selectedSession?.id]);
 
   useEffect(() => {
     if (rightPanelFullWidth) setActiveTopPanel(null);
@@ -1588,6 +1593,46 @@ export function AppShell() {
           </svg>
           {!mobile && <span>{translate("history.label")}</span>}
         </button>
+        {selectedSession && (
+          <button
+            type="button"
+            onClick={() => toggleTopPanel("agents", mobile)}
+            title={translate("agentSwitcher.title")}
+            aria-label="代理切换"
+            data-agent-switcher
+            aria-pressed={activeTopPanel === "agents"}
+            style={{
+              position: "relative",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+              width: mobile ? TOP_BAR_ICON_BUTTON_SIZE : undefined,
+              height: "100%", padding: mobile ? 0 : "0 12px",
+              background: activeTopPanel === "agents" ? "var(--bg-selected)" : "none",
+              border: "none",
+              borderTop: activeTopPanel === "agents" ? "2px solid var(--accent)" : "2px solid transparent",
+              borderRight: "1px solid var(--border)",
+              color: activeTopPanel === "agents" ? "var(--text)" : "var(--text-muted)",
+              cursor: "pointer", flexShrink: 0, fontSize: 11, whiteSpace: "nowrap",
+              transition: "color 0.1s, background 0.1s",
+            }}
+            data-mobile-toolbar-action={mobile ? "agents" : undefined}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="5" y="7" width="14" height="11" rx="2" /><path d="M9 11h.01M15 11h.01M9 15h6M12 7V4M10 4h4" />
+            </svg>
+            {!mobile && <span>{packageTarget?.role ?? translate("agentSwitcher.main")}</span>}
+            <span
+              aria-hidden="true"
+              style={{
+                minWidth: 15, height: 15, padding: "0 4px", display: "grid", placeItems: "center",
+                borderRadius: 7, background: "var(--bg-selected)", color: "var(--accent)",
+                fontSize: 10, lineHeight: 1, fontVariantNumeric: "tabular-nums",
+                ...(mobile ? { position: "absolute", top: 2, right: 2, minWidth: 13, height: 13, padding: "0 3px", fontSize: 9 } : {}),
+              }}
+            >
+              {agentCount}
+            </span>
+          </button>
+        )}
         {(() => {
           // 上下文压缩后当前消息可能不再包含 user 消息，需同时参考会话文件的消息总数。
           const hasMessages = Boolean(
@@ -1666,45 +1711,6 @@ export function AppShell() {
             </button>
           );
         })()}
-        {hasSubagentSessions && (
-          <button
-            type="button"
-            onClick={() => toggleTopPanel("agents", mobile)}
-            title={translate("agentSwitcher.title")}
-            aria-label={translate("agentSwitcher.title")}
-            aria-pressed={activeTopPanel === "agents"}
-            style={{
-              position: "relative",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-              width: mobile ? TOP_BAR_ICON_BUTTON_SIZE : undefined,
-              height: "100%", padding: mobile ? 0 : "0 12px",
-              background: activeTopPanel === "agents" ? "var(--bg-selected)" : "none",
-              border: "none",
-              borderTop: activeTopPanel === "agents" ? "2px solid var(--accent)" : "2px solid transparent",
-              borderRight: "1px solid var(--border)",
-              color: activeTopPanel === "agents" ? "var(--text)" : "var(--text-muted)",
-              cursor: "pointer", flexShrink: 0, fontSize: 11, whiteSpace: "nowrap",
-              transition: "color 0.1s, background 0.1s",
-            }}
-            data-mobile-toolbar-action={mobile ? "agents" : undefined}
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <rect x="5" y="7" width="14" height="11" rx="2" /><path d="M9 11h.01M15 11h.01M9 15h6M12 7V4M10 4h4" />
-            </svg>
-            {!mobile && <span>{translate("agentSwitcher.title")}</span>}
-            <span
-              aria-hidden="true"
-              style={{
-                minWidth: 15, height: 15, padding: "0 4px", display: "grid", placeItems: "center",
-                borderRadius: 7, background: "var(--bg-selected)", color: "var(--accent)",
-                fontSize: 10, lineHeight: 1, fontVariantNumeric: "tabular-nums",
-                ...(mobile ? { position: "absolute", top: 2, right: 2, minWidth: 13, height: 13, padding: "0 3px", fontSize: 9 } : {}),
-              }}
-            >
-              {activeSessionFamily!.subagents.length}
-            </span>
-          </button>
-        )}
         {sessionHasBranches && (mobile ? (
           <button
             type="button"
@@ -2293,14 +2299,21 @@ export function AppShell() {
               overflowY: "auto",
               zIndex: 500,
             }}>
-              {activeTopPanel === "agents" && activeSessionFamily && selectedSession && (
-                <AgentSessionPanel
-                  rootSession={activeSessionFamily.root}
-                  subagents={activeSessionFamily.subagents}
-                  selectedSessionId={selectedSession.id}
-                  runningSessionIds={runningSessionIds}
-                  onSelectSession={handleSelectSession}
-                />
+              {activeTopPanel === "agents" && selectedSession && (
+                <div data-agent-switcher-panel>
+                  <AgentSessionPanel
+                    rootSession={activeSessionFamily?.root ?? selectedSession}
+                    subagents={[...(activeSessionFamily?.subagents ?? []), ...packageAgents.sessions]}
+                    selectedSessionId={packageTarget?.id ?? selectedSession.id}
+                    runningSessionIds={new Set([...runningSessionIds, ...packageAgents.running])}
+                    onSelectSession={(choice) => {
+                      const target = packageAgents.targets.find((target) => target.id === choice.id);
+                      setPackageSelection(target ? { sessionId: selectedSession.id, target } : null);
+                      setActiveTopPanel(null);
+                      if (!target && choice.id !== selectedSession.id) handleSelectSession(choice);
+                    }}
+                  />
+                </div>
               )}
               {activeTopPanel === "system" && (
                 <SystemPromptPanel
@@ -2532,9 +2545,12 @@ export function AppShell() {
         {/* Chat content */}
         <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
           {showChat ? (
+            <ConversationTransition transitionKey={sessionKey}>
             <ChatWindow
               key={sessionKey}
               session={selectedSession}
+              packageTarget={packageTarget}
+              onReturnToMain={returnToMain}
               searchTarget={searchTarget?.sessionId === selectedSession?.id ? searchTarget : null}
               onSearchTargetHandled={handleSearchTargetHandled}
               initialScrollPosition={selectedSession ? sessionScrollPositionsRef.current.get(selectedSession.id) ?? null : null}
@@ -2573,6 +2589,7 @@ export function AppShell() {
               unlockAudio={unlockAudio}
               holdAudio={holdAudio}
             />
+            </ConversationTransition>
           ) : initialCwdStatus === "validating" ? (
             <div
               role="status"

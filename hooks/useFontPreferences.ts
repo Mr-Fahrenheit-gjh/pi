@@ -37,6 +37,11 @@ function applyPreferences(next: FontPreferences): void {
     const value = fontFamilyOverride(kind, next[kind]);
     if (value) document.documentElement.style.setProperty(property, value);
     else document.documentElement.style.removeProperty(property);
+    // An explicit font choice still overrides the assistant's serif default.
+    if (kind === "ui") {
+      if (value) document.documentElement.style.setProperty("--font-answer", value.replace("var(--font-ui-default)", "var(--font-answer-default)"));
+      else document.documentElement.style.removeProperty("--font-answer");
+    }
     const weight = next[`${kind}Weight`];
     if (weight === FONT_WEIGHT_DEFAULT) document.documentElement.style.removeProperty(`${property}-weight`);
     else document.documentElement.style.setProperty(`${property}-weight`, String(weight));

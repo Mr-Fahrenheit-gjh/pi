@@ -15,9 +15,9 @@ const MAX_TRACKED_REPLIES = 32;
 const starts = new Map<string, StreamRateStart>();
 
 /** A streaming reply's identity: pi stamps its message when the request starts. */
-export function streamRateKey(message: { provider?: string; model?: string; timestamp?: number }): string | null {
+export function streamRateKey(message: { provider?: string; model?: string; timestamp?: number }, projection = "all"): string | null {
   if (typeof message.timestamp !== "number") return null;
-  return `${message.provider ?? ""}/${message.model ?? ""}@${message.timestamp}`;
+  return `${message.provider ?? ""}/${message.model ?? ""}@${message.timestamp}:${projection}`;
 }
 
 export function streamRateStart(key: string | null, tokens: number, now: number): StreamRateStart {
@@ -33,7 +33,36 @@ export function streamRateStart(key: string | null, tokens: number, now: number)
   return start;
 }
 
+interface RateSample {
+  at: number;
+  tokens: number;
+  lastGrowthAt: number;
+  lastTokens: number;
+  rate: number | null;
+}
+const samples = new WeakMap<StreamRateStart, RateSample>();
+const RATE_STALE_MS = 2000;
+
+/** Count growth, not interval ticks. Waiting is never displayed as zero speed. */
 export function streamTokensPerSecond(start: StreamRateStart, tokens: number, now: number): number | null {
-  const elapsedSeconds = (now - start.at) / 1000;
-  return elapsedSeconds > 0.5 ? (tokens - start.tokens) / elapsedSeconds : null;
+  if (!Number.isFinite(tokens) || !Number.isFinite(now)) return null;
+  const sample = samples.get(start) ?? {
+    at: start.at, tokens: start.tokens, lastGrowthAt: start.at, lastTokens: start.tokens, rate: null,
+  };
+  samples.set(start, sample);
+  const gap = now - sample.lastGrowthAt;
+  if (gap < 0 || tokens < sample.lastTokens || (gap > RATE_STALE_MS && tokens > sample.lastTokens)) {
+    // A long pause/rejoin or replacement snapshot has no measured generation interval.
+    Object.assign(sample, { at: now, tokens, lastGrowthAt: now, lastTokens: tokens, rate: null });
+    return null;
+  }
+  if (gap > RATE_STALE_MS) return null;
+  if (tokens > sample.lastTokens) {
+    sample.lastGrowthAt = now;
+    sample.lastTokens = tokens;
+    const elapsedSeconds = (now - sample.at) / 1000;
+    const rate = elapsedSeconds > 0.5 ? (tokens - sample.tokens) / elapsedSeconds : null;
+    sample.rate = rate !== null && Number.isFinite(rate) && rate >= 0.05 ? rate : null;
+  }
+  return sample.rate;
 }

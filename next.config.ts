@@ -17,6 +17,8 @@ try {
 const gfmAutolinkEmailLoader = join(configDir, "lib/gfm-autolink-email-loader.cjs");
 
 const nextConfig: NextConfig = {
+  // Local release pipeline runs tsc explicitly before building in an isolated tree.
+  typescript: { ignoreBuildErrors: process.env.PI_WEB_PRECHECKED_TYPES === "1" },
   outputFileTracingRoot: configDir,
   experimental: {
     // proxy.ts matches /api/:path*, and Next buffers the request body whenever

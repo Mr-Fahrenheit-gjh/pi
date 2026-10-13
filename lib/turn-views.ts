@@ -1,5 +1,5 @@
 import type { AssistantContentBlock, AssistantMessage } from "./types";
-import { getAssistantErrorMessage, isAssistantTruncated, splitFinalAssistantBlocks } from "./message-display";
+import { getAssistantErrorMessage, isAssistantTruncated, splitAssistantVisibleBlocks } from "./message-display";
 import type { WrittenFile } from "./turn-written-files";
 
 /** What the chat shows of a turn's final assistant message, apart. */
@@ -8,6 +8,8 @@ export interface FinalAnswerViews {
   answer: AssistantMessage | null;
   /** What the message did before its answer, inside the process group. */
   process: AssistantMessage;
+  /** Includes an error-only process, even when there are no content blocks. */
+  hasProcess: boolean;
   writtenFiles?: WrittenFile[];
 }
 
@@ -35,17 +37,18 @@ export function getFinalAnswerViews(
   const cached = cache.get(message);
   if (cached) return cached;
 
-  const { answerBlocks } = splitFinalAssistantBlocks(message);
+  const { answerBlocks, hasProcess } = splitAssistantVisibleBlocks(message);
   const answer = answerBlocks.length > 0 || getAssistantErrorMessage(message) || isAssistantTruncated(message)
     ? withAssistantBlocks(message, answerBlocks)
     : null;
-  const processEnd = message.content.indexOf(answerBlocks[0]);
   const views: FinalAnswerViews = {
     answer,
-    // Keep the original prefix so deferred thinking retains its stored block indices.
+    hasProcess,
+    // MessageView filters by assistantContent AFTER associating original indices.
+    // Retaining the full content avoids shifting thinking indices after progress prose.
     process: withAssistantBlocks(
       message,
-      message.content.slice(0, processEnd < 0 ? undefined : processEnd),
+      message.content,
       { omitUsage: Boolean(answer) },
     ),
   };

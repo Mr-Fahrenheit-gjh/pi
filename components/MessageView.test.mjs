@@ -32,10 +32,61 @@ function renderMessage(message, props = {}) {
   );
 }
 
+test("shows model maker icons beside the name, including gateway-hosted models", () => {
+  for (const [provider, model, symbol] of [
+    ["openai-codex", "gpt-6.1-sol", "openai"],
+    ["anthropic", "claude-sonnet-4-6", "anthropic"],
+    ["openrouter", "anthropic/claude-opus-4-6", "anthropic"],
+    ["google-vertex", "gemini-3-pro", "google"],
+    ["zenmux", "deepseek/deepseek-v3", "deepseek"],
+    ["zhipu", "glm-5", "zhipu"],
+  ]) {
+    const html = renderMessage({ role: "assistant", provider, model, content: [{ type: "text", text: "Answer" }] });
+    assert.ok(html.includes('/provider-icons.svg#' + symbol));
+    assert.match(html, /data-model-label/);
+    assert.ok(html.includes(model));
+    assert.match(html, /width="14"/);
+  }
+});
+
 test("updates a reused message when its written files change", () => {
   const props = { message: { role: "assistant", content: [] } };
   assert.equal(MessageView.compare(props, props), true);
   assert.equal(MessageView.compare(props, { ...props, writtenFiles: [{ path: "/tmp/result.txt" }] }), false);
+});
+
+test("separates visible progress from process without mutating message blocks", () => {
+  const message = { role: "assistant", content: [
+    { type: "text", text: "Visible progress before tools" },
+    { type: "thinking", thinking: "Internal work" },
+    { type: "toolCall", toolCallId: "filtered-call", toolName: "bash", input: { command: "true" } },
+    { type: "text", text: "Visible progress after tools" },
+  ] };
+  const answer = renderMessage(message, { assistantContent: "answer" });
+  const process = renderMessage(message, { assistantContent: "process" });
+  assert.match(answer, /Visible progress before tools/);
+  assert.match(answer, /Visible progress after tools/);
+  assert.doesNotMatch(answer, /Internal work/);
+  assert.doesNotMatch(process, /Visible progress/);
+  assert.match(process, /Internal work/);
+  assert.equal(MessageView.compare({ message, assistantContent: "answer" }, { message, assistantContent: "process" }), false);
+  assert.equal(message.content[1].type, "thinking");
+});
+
+test("shows fetch failures only in the process while keeping partial answers and other errors visible", () => {
+  const message = { role: "assistant", content: [], stopReason: "error", errorMessage: "  FeTcH FaIlEd  " };
+  assert.doesNotMatch(renderMessage(message), /FeTcH FaIlEd/);
+  assert.doesNotMatch(renderMessage(message, { assistantContent: "answer" }), /FeTcH FaIlEd/);
+  assert.match(renderMessage(message, { assistantContent: "process" }), /FeTcH FaIlEd/);
+  assert.doesNotMatch(renderMessage(message, { assistantContent: "process", isStreaming: true }), /FeTcH FaIlEd/);
+  const partial = { ...message, content: [{ type: "text", text: "Partial answer remains visible" }] };
+  assert.match(renderMessage(partial, { assistantContent: "answer" }), /Partial answer remains visible/);
+  assert.doesNotMatch(renderMessage(partial, { assistantContent: "answer" }), /FeTcH FaIlEd/);
+  assert.doesNotMatch(renderMessage(partial, { assistantContent: "process" }), /Partial answer remains visible/);
+  for (const errorMessage of ["fetch failed: 403 forbidden", "Error: fetch failed", "rate limit", "Unknown provider error"]) {
+    assert.ok(renderMessage({ ...message, errorMessage }, { assistantContent: "answer" }).includes(errorMessage));
+    assert.ok(!renderMessage({ ...message, errorMessage }, { assistantContent: "process" }).includes(errorMessage));
+  }
 });
 
 test("matches response model aliases and otherwise includes the provider", () => {
@@ -210,7 +261,7 @@ test("renders subagents as standard tool calls with only an extra side-panel but
     onOpenSubagent() {},
   });
 
-  assert.match(html, /border:1px solid rgba\(34,197,94,0\.25\)/);
+  assert.match(html, /border:1px solid rgba\(var\(--tool-success-rgb\),0\.25\)/);
   assert.match(html, />Agent</);
   assert.match(html, />Explore</);
   assert.match(html, /aria-label="View sub-agent work in side panel"/);
@@ -457,9 +508,9 @@ test("marks apply_patch returned failures as errors even when isError is unset",
     content: [block],
   }, { toolResults: new Map([[block.toolCallId, failed]]) });
 
-  assert.match(html, /border:1px solid rgba\(248,113,113,0\.45\)/);
+  assert.match(html, /border:1px solid rgba\(var\(--tool-error-rgb\),0\.45\)/);
   assert.match(html, />apply_patch</);
-  assert.doesNotMatch(html, /border:1px solid rgba\(34,197,94,0\.25\)/);
+  assert.doesNotMatch(html, /border:1px solid rgba\(var\(--tool-success-rgb\),0\.25\)/);
 });
 
 test("collapses a displayed custom message from its header alone", () => {
