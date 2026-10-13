@@ -41,22 +41,21 @@ export function TerminalOpenMenu({ suggestedUrl, onPreview }: { suggestedUrl: st
   </div>;
 }
 
-export function TerminalBrowserPreview({ url, onNavigate, onBack }: { url: string; onNavigate: (url: string) => void; onBack: () => void }) {
+export function TerminalBrowserPreview({ url, onNavigate, collapsed, controlsId }: { url: string; onNavigate: (url: string) => void; collapsed: boolean; controlsId: string }) {
   const { t } = useI18n();
   const [address, setAddress] = useState(url);
   const [error, setError] = useState(false);
   const [revision, setRevision] = useState(0);
   useEffect(() => { setAddress(url); setError(false); }, [url]);
-  return <div className="terminal-browser-preview">
-    <form className="terminal-browser-addressbar" onSubmit={event => {
+  return <div className={`terminal-browser-preview${collapsed ? " is-controls-collapsed" : ""}`}>
+    <form id={controlsId} className="terminal-browser-addressbar" hidden={collapsed} onSubmit={event => {
       event.preventDefault(); const next = normalizePreviewUrl(address); if (next) onNavigate(next); else setError(true);
     }}>
-      <button type="button" onClick={onBack}>{t("terminal.title")}</button>
       <input aria-label={t("browser.address")} value={address} onChange={event => setAddress(event.target.value)} inputMode="url" />
       <button type="button" onClick={() => setRevision(value => value + 1)} title={t("browser.reload")} aria-label={t("browser.reload")}>↻</button>
       <a href={url} target="_blank" rel="noopener noreferrer" title={t("browser.external")} aria-label={t("browser.external")}>↗</a>
     </form>
-    <div className="terminal-browser-note" role={error ? "alert" : undefined}>{t(error ? "browser.invalidUrl" : "browser.frameNote")}</div>
+    {error && <div className="terminal-browser-error" role="alert">{t("browser.invalidUrl")}</div>}
     <iframe key={revision} src={url} title={t("browser.preview")} sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads" referrerPolicy="no-referrer" />
   </div>;
 }

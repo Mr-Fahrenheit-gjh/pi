@@ -44,6 +44,7 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
   callbacksRef.current = { onClosed, onCloseError };
   const [previewUrl, setPreviewUrl] = useState("");
   const [browserVisible, setBrowserVisible] = useState(false);
+  const [browserControlsCollapsed, setBrowserControlsCollapsed] = useState(true);
   const [suggestedUrl, setSuggestedUrl] = useState("");
   const outputTailRef = useRef("");
   const activeRef = useRef(active);
@@ -368,16 +369,19 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
   }, [id, tab.closing]);
 
   return (
-    <section className={`terminal-panel${browserVisible ? " is-browser" : ""}`} aria-label={t("terminal.title")}  data-terminal-engine="ghostty" data-terminal-font-family={fontFamily} data-terminal-font-size={fontSize}>
+    <section className={`terminal-panel${browserVisible ? " is-browser" : ""}${browserVisible && browserControlsCollapsed ? " is-browser-controls-collapsed" : ""}`} aria-label={t("terminal.title")}  data-terminal-engine="ghostty" data-terminal-font-family={fontFamily} data-terminal-font-size={fontSize}>
       <header className="terminal-panel-header" style={{ fontFamily }}>
         <div className="terminal-panel-path">
-          <span className={`terminal-status-dot is-${status}`} title={t(`terminal.${status}`)} />
-          <span className="terminal-engine-label">Ghostty</span>
-          <span className="terminal-cwd" title={cwd}>{cwd}</span>
+          {!browserVisible && <>
+            <span className={`terminal-status-dot is-${status}`} title={t(`terminal.${status}`)} />
+            <span className="terminal-engine-label">Ghostty</span>
+            <span className="terminal-cwd" title={cwd}>{cwd}</span>
+          </>}
           {previewUrl && <div className="terminal-view-switch" role="group" aria-label={t("browser.view")}>
             <button type="button" aria-pressed={!browserVisible} onClick={() => setBrowserVisible(false)}>{t("terminal.title")}</button>
             <button type="button" aria-pressed={browserVisible} onClick={() => setBrowserVisible(true)}>{t("browser.title")}</button>
           </div>}
+          {browserVisible && browserControlsCollapsed && <span className="terminal-browser-location" title={previewUrl}>{new URL(previewUrl).host}</span>}
         </div>
         <div className="terminal-panel-actions">
           <button type="button" onClick={() => { fontSizeAdjustedRef.current = true; setFontSize((size) => clampTerminalFontSize(size - 1)); }} disabled={fontSize <= 8} title={t("terminal.smaller")} aria-label={t("terminal.smaller")}>A−</button>
@@ -387,16 +391,19 @@ export function TerminalPanel({ tab, active, onRestart, onClosed, onCloseError }
           <button type="button" onClick={() => { terminalRef.current?.clear(); terminalRef.current?.focus(); }} disabled={status === "connecting"} title={t("terminal.clear")} aria-label={t("terminal.clear")}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="m4 15 9-11 8 7-7 9H9zM4 21h17M9 9l8 7" /></svg></button>
           {status === "error" && <button type="button" onClick={() => setReconnectKey((key) => key + 1)} disabled={Boolean(tab.closing)} title={t("terminal.reconnect")} aria-label={t("terminal.reconnect")}>↻</button>}
           <button type="button" onClick={onRestart} disabled={Boolean(tab.closing)} title={t("terminal.restart")} aria-label={t("terminal.restart")}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66" /><polyline points="20 4 20 11 13 11" /></svg></button>
-          <TerminalOpenMenu suggestedUrl={suggestedUrl} onPreview={url => { setPreviewUrl(url); setBrowserVisible(true); }} />
+          <TerminalOpenMenu suggestedUrl={browserVisible ? previewUrl : suggestedUrl} onPreview={url => { setPreviewUrl(url); setBrowserVisible(true); }} />
+          {browserVisible && <button type="button" className="terminal-chrome-toggle" onClick={() => setBrowserControlsCollapsed(value => !value)} aria-expanded={!browserControlsCollapsed} aria-controls={`browser-controls-${id}`} title={t(browserControlsCollapsed ? "browser.expandControls" : "browser.collapseControls")} aria-label={t(browserControlsCollapsed ? "browser.expandControls" : "browser.collapseControls")}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={browserControlsCollapsed ? "m6 9 6 6 6-6" : "m6 15 6-6 6 6"} /></svg>
+          </button>}
         </div>
       </header>
       <div>
-        {(error || actionError) && <div className="terminal-panel-error" role="alert">{error || actionError}</div>}
-        {status === "exited" && <div className="terminal-panel-exit" role="status">{exitCode === null ? t("terminal.exited") : t("terminal.exitCode", { code: exitCode })}</div>}
+        {!browserVisible && (error || actionError) && <div className="terminal-panel-error" role="alert">{error || actionError}</div>}
+        {!browserVisible && status === "exited" && <div className="terminal-panel-exit" role="status">{exitCode === null ? t("terminal.exited") : t("terminal.exitCode", { code: exitCode })}</div>}
       </div>
       <div className="terminal-workspace-content">
         <div className="terminal-viewport" hidden={browserVisible}><div ref={containerRef} className="terminal-ghostty-host" /></div>
-        {previewUrl && <div className="terminal-browser-host" hidden={!browserVisible}><TerminalBrowserPreview url={previewUrl} onNavigate={setPreviewUrl} onBack={() => setBrowserVisible(false)} /></div>}
+        {previewUrl && <div className="terminal-browser-host" hidden={!browserVisible}><TerminalBrowserPreview url={previewUrl} onNavigate={setPreviewUrl} collapsed={browserControlsCollapsed} controlsId={`browser-controls-${id}`} /></div>}
       </div>
       {showExtraKeys && !browserVisible && <TerminalExtraKeys modifiers={modifiers} onKey={sendExtraKey} onToggleModifier={toggleModifier} />}
     </section>

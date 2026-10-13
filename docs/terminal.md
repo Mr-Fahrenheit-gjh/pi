@@ -55,6 +55,14 @@ site's frame/CSP or mixed-content restrictions are not bypassed. Terminal and
 preview stay mounted while switched; the existing PTY, canvas and history stay
 alive. Menu URLs can be suggested from a bounded tail of terminal output.
 
+Webpage mode defaults to one compact 32px toolbar. Its chevron reveals or hides
+the address bar without remounting or navigating the iframe. Ghostty engine/cwd
+metadata and terminal-only errors are shown only in terminal mode. The redundant
+Return to terminal button and permanent embedding-help banner are removed; the
+view switch remains available, and invalid-address errors appear only on failure.
+This reduces chrome, not the iframe's restrictions; a true independent browser
+renderer is a separate follow-up.
+
 `GET /api/terminal/preferences` invokes the installed native
 Ghostty's `+show-config` (bounded time/output, no shell or request-controlled args)
 and exposes **only** font family and logical font size. This respects the native
