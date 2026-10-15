@@ -86,23 +86,13 @@ try {
   assert.equal(await page.getByText('HIDDEN_OUTPUT', { exact: true }).count(), 0);
   assert.equal(await page.getByText('HIDDEN_FAILURE_DETAIL', { exact: true }).count(), 0);
   assert.equal(await page.getByText('有 1 次工具执行失败，可展开过程查看详情。', { exact: true }).count(), 0);
-  await page.locator('[data-process-details]').first().locator(':scope > button').click();
-  await page.getByRole('button', { name: /bash.*HIDDEN_COMMAND/ }).click();
-  await page.getByText('HIDDEN_OUTPUT', { exact: true }).waitFor();
-  await page.locator('[data-process-details]').first().locator(':scope > button').click();
+  assert.equal(await page.locator('[data-process-details]').count(), 0, 'finished history has no permanent process disclosure');
   const fetchError = page.getByText(/^Error: (fetch failed|FETCH FAILED)$/);
   assert.equal(await fetchError.count(), 0, 'history fetch failures are collapsed');
   await page.getByText('历史部分说明可见', { exact: true }).waitFor();
   await page.getByText('历史重试成功回答', { exact: true }).waitFor();
   await page.getByText(/fetch failed: 403 forbidden/).waitFor();
   await page.getByText(/输出在生成正文前就达到了上限/).waitFor();
-  for (const index of [1, 2]) {
-    const process = page.locator('[data-process-details]').nth(index);
-    await process.locator(':scope > button').click();
-    await process.getByText(/^Error: (fetch failed|FETCH FAILED)$/).waitFor();
-    await process.locator(':scope > button').click();
-    assert.equal(await fetchError.count(), 0);
-  }
   live = true;
   await page.evaluate(() => window.__feed({ type: 'agent_start' }));
   const active = page.locator('[data-process-details][data-running]');
@@ -189,24 +179,17 @@ try {
   assert.equal(await page.locator('[data-process-details][data-running]').count(), 0);
   assert.equal(await page.locator('[data-process-details] button[aria-expanded="true"]').count(), 0);
   assert.equal(await fetchError.count(), 0, 'retry success does not reveal prior failures');
-  const completed = page.locator('[data-process-details]').last();
-  await completed.locator(':scope > button').click();
-  await completed.getByText('Error: fetch failed', { exact: true }).waitFor();
-  await completed.locator(':scope > button').click();
+  assert.equal(await page.locator('[data-process-details]').count(), 0, 'completed process controls stay unmounted');
   add({ role: 'user', content: '最终空内容网络失败', timestamp: Date.now() });
   add(assistant([], { stopReason: 'error', errorMessage: 'fetch failed' }));
   save();
   await page.reload({ waitUntil: 'networkidle' });
   await page.getByText('最终空内容网络失败', { exact: true }).waitFor();
-  const finalProcess = page.locator('[data-process-details]').last();
-  assert.equal(await finalProcess.locator(':scope > button').getAttribute('aria-expanded'), 'false');
+  assert.equal(await page.locator('[data-process-details]').count(), 0, 'final failed history does not restore a finished-process entry');
   assert.equal(await fetchError.count(), 0);
-  await finalProcess.locator(':scope > button').click();
-  await finalProcess.getByText('Error: fetch failed', { exact: true }).waitFor();
-  await finalProcess.locator(':scope > button').click();
   await page.screenshot({ path: join(out, 'fetch-final-error-desktop.png'), fullPage: true });
   assert.deepEqual(errors, []);
-  const result = { passed: true, buildId: readFileSync(join(root, '.next/BUILD_ID'), 'utf8').trim(), packageRoot: root, isolatedAgentDir: agentDir, desktopAndMobile: process.env.PI_WEB_TEST_MOBILE === '1', tested: ['historical collapse', 'live collapse', 'expand and collapse', 'streaming reasoning hidden', 'streaming answer visible', 'tool failure summary absent; details available when expanded', 'provider error visible', 'extension confirm visible', 'completion collapse', 'fetch failed history/live/no-content/final-error folded with details preserved', 'partial answer with fetch failure visible', 'retry success retains collapsed fetch details', 'other model failures and truncation visible'], timestamp: new Date().toISOString() };
+  const result = { passed: true, buildId: readFileSync(join(root, '.next/BUILD_ID'), 'utf8').trim(), packageRoot: root, isolatedAgentDir: agentDir, desktopAndMobile: process.env.PI_WEB_TEST_MOBILE === '1', tested: ['finished history process controls absent', 'live collapse', 'running expand and collapse', 'streaming reasoning hidden', 'streaming answer visible', 'tool failure summary absent; running details available when expanded', 'provider error visible', 'extension confirm visible', 'completion removes process controls', 'fetch failed history/no-content/final-error hidden; running details expandable', 'partial answer with fetch failure visible', 'retry success keeps fetch errors hidden', 'other model failures and truncation visible'], timestamp: new Date().toISOString() };
   writeFileSync(join(out, 'result.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
 } finally {
