@@ -232,7 +232,7 @@ function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = fa
   );
 }
 
-export function ChatWindow({ session, packageTarget, showSubagentPanel = false, onCloseSubagentPanel, searchTarget, onSearchTargetHandled, initialScrollPosition, onScrollPositionChange, sessionRunning, newSessionCwd, newSessionDraftKey, newSessionContextBar, initialNewSessionChoices, onNewSessionChoicesChange, onAgentEnd, onToolEnd, onAttentionNeeded, onSessionCreated, onSessionForked, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSystemToolsChange, onSystemInfoLoaderChange, onSessionStatsChange, onSessionStatsPanelOpen, onOpenSettings, onContextUsageChange, onOpenFile, onOpenSubagent, onAskInNewChat, quoteSelectionEnabled = false, initialPrompt, onInitialPromptConsumed, soundEnabled = true, onSoundToggle, playDoneSound = () => {}, unlockAudio, holdAudio }: Props) {
+export function ChatWindow({ session, packageTarget, showSubagentPanel = false, onCloseSubagentPanel, searchTarget, onSearchTargetHandled, initialScrollPosition, onScrollPositionChange, sessionRunning, newSessionCwd, newSessionDraftKey, initialNewSessionChoices, onNewSessionChoicesChange, onAgentEnd, onToolEnd, onAttentionNeeded, onSessionCreated, onSessionForked, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSystemToolsChange, onSystemInfoLoaderChange, onSessionStatsChange, onSessionStatsPanelOpen, onOpenSettings, onContextUsageChange, onOpenFile, onOpenSubagent, onAskInNewChat, quoteSelectionEnabled = false, initialPrompt, onInitialPromptConsumed, soundEnabled = true, onSoundToggle, playDoneSound = () => {}, unlockAudio, holdAudio }: Props) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const completionNotificationsEnabled = session?.relation?.kind !== "subagent";
@@ -1457,7 +1457,7 @@ export function ChatWindow({ session, packageTarget, showSubagentPanel = false, 
             </button>
           </div>
         )}
-        {/* Keep the brand above the composer; project/Git controls follow below it. */}
+        {/* Keep the brand above the composer without extra project/Git controls. */}
         {isEmptyNew && (
           <div className="new-session-hero" style={{ paddingLeft: 16, paddingRight: 16 }}>
             <div className="new-session-hero-inner" style={{ maxWidth: "var(--chat-content-max-width, 820px)" }}>
@@ -1477,11 +1477,6 @@ export function ChatWindow({ session, packageTarget, showSubagentPanel = false, 
           </div>
         )}
         {chatInputElement}
-        {isEmptyNew && newSessionContextBar && (
-          <div className="new-session-context-footer">
-            {newSessionContextBar}
-          </div>
-        )}
       </div>
       {isEmptyNew && <div className="min-h-0 flex-1" />}
     </div>

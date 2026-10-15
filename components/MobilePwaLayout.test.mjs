@@ -11,6 +11,12 @@ const mcpSignInSource = await readFile(new URL("./McpSignIn.tsx", import.meta.ur
 const mcpAddSource = await readFile(new URL("./McpAddServer.tsx", import.meta.url), "utf8");
 const newSessionBarSource = await readFile(new URL("./NewSessionContextBar.tsx", import.meta.url), "utf8");
 
+test("the fresh composer keeps its brand and input without project/worktree footer controls", () => {
+  assert.match(chatWindowSource, /className="new-session-brand"/);
+  assert.match(chatWindowSource, /\{chatInputElement\}/);
+  assert.doesNotMatch(chatWindowSource, /className="new-session-context-footer"|\{newSessionContextBar\}/);
+});
+
 test("every class the keyboard-open rules target exists on its component", () => {
   // Every selector the keyboard rules target must exist on the element it
   // means; a renamed class would otherwise leave the rule silently dead.
