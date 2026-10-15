@@ -224,6 +224,17 @@ export function AppShell() {
   const [projectTrustError, setProjectTrustError] = useState<ProjectTrustFailure | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(() => !initialNavigation.sidebarCollapsed);
   const [sidebarPreviewOpen, setSidebarPreviewOpen] = useState(false);
+  const [sidebarPreviewExiting, setSidebarPreviewExiting] = useState(false);
+  const closeSidebarPreview = useCallback(() => {
+    if (sidebarPreviewOpen) setSidebarPreviewExiting(true);
+    setSidebarPreviewOpen(false);
+  }, [sidebarPreviewOpen]);
+  useEffect(() => {
+    if (!sidebarPreviewExiting) return;
+    // Keep the closing preview out of flex layout through the 200ms width transition.
+    const timer = setTimeout(() => setSidebarPreviewExiting(false), 240);
+    return () => clearTimeout(timer);
+  }, [sidebarPreviewExiting]);
   const sidebarHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearSidebarHoverTimer = useCallback(() => {
     if (sidebarHoverTimer.current) clearTimeout(sidebarHoverTimer.current);
@@ -232,31 +243,48 @@ export function AppShell() {
   const previewSidebar = useCallback((event: React.PointerEvent) => {
     if (isMobile || sidebarOpen || event.pointerType !== "mouse") return;
     clearSidebarHoverTimer();
-    sidebarHoverTimer.current = setTimeout(() => setSidebarPreviewOpen(true), 160);
+    sidebarHoverTimer.current = setTimeout(() => {
+      setSidebarPreviewExiting(false);
+      setSidebarPreviewOpen(true);
+    }, 160);
   }, [isMobile, sidebarOpen, clearSidebarHoverTimer]);
   const keepSidebarPreview = useCallback(() => {
     clearSidebarHoverTimer();
   }, [clearSidebarHoverTimer]);
   const dismissSidebarPreview = useCallback(() => {
     clearSidebarHoverTimer();
-    sidebarHoverTimer.current = setTimeout(() => setSidebarPreviewOpen(false), 220);
-  }, [clearSidebarHoverTimer]);
+    sidebarHoverTimer.current = setTimeout(closeSidebarPreview, 220);
+  }, [clearSidebarHoverTimer, closeSidebarPreview]);
   useEffect(() => {
     clearSidebarHoverTimer();
     setSidebarPreviewOpen(false);
+    setSidebarPreviewExiting(false);
   }, [isMobile, sidebarOpen, clearSidebarHoverTimer]);
   useEffect(() => clearSidebarHoverTimer, [clearSidebarHoverTimer]);
   useEffect(() => {
     if (!sidebarPreviewOpen) return;
     const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSidebarPreviewOpen(false);
+      if (event.key === "Escape") {
+        clearSidebarHoverTimer();
+        closeSidebarPreview();
+      }
     };
     document.addEventListener("keydown", close);
     return () => document.removeEventListener("keydown", close);
-  }, [sidebarPreviewOpen]);
+  }, [sidebarPreviewOpen, clearSidebarHoverTimer, closeSidebarPreview]);
   const desktopSidebarOpenRef = useRef(!initialNavigation.sidebarCollapsed);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [rightPanelPreviewOpen, setRightPanelPreviewOpen] = useState(false);
+  const [rightPanelPreviewExiting, setRightPanelPreviewExiting] = useState(false);
+  const closeRightPanelPreview = useCallback(() => {
+    if (rightPanelPreviewOpen) setRightPanelPreviewExiting(true);
+    setRightPanelPreviewOpen(false);
+  }, [rightPanelPreviewOpen]);
+  useEffect(() => {
+    if (!rightPanelPreviewExiting) return;
+    const timer = setTimeout(() => setRightPanelPreviewExiting(false), 240);
+    return () => clearTimeout(timer);
+  }, [rightPanelPreviewExiting]);
   const rightPanelHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearRightPanelHoverTimer = useCallback(() => {
     if (rightPanelHoverTimer.current) clearTimeout(rightPanelHoverTimer.current);
@@ -265,24 +293,33 @@ export function AppShell() {
   const previewRightPanel = useCallback((event: React.PointerEvent) => {
     if (isMobile || rightPanelOpen || event.pointerType !== "mouse") return;
     clearRightPanelHoverTimer();
-    rightPanelHoverTimer.current = setTimeout(() => setRightPanelPreviewOpen(true), 160);
+    rightPanelHoverTimer.current = setTimeout(() => {
+      setRightPanelPreviewExiting(false);
+      setRightPanelPreviewOpen(true);
+    }, 160);
   }, [isMobile, rightPanelOpen, clearRightPanelHoverTimer]);
   const keepRightPanelPreview = useCallback(() => clearRightPanelHoverTimer(), [clearRightPanelHoverTimer]);
   const dismissRightPanelPreview = useCallback(() => {
     clearRightPanelHoverTimer();
-    rightPanelHoverTimer.current = setTimeout(() => setRightPanelPreviewOpen(false), 220);
-  }, [clearRightPanelHoverTimer]);
+    rightPanelHoverTimer.current = setTimeout(closeRightPanelPreview, 220);
+  }, [clearRightPanelHoverTimer, closeRightPanelPreview]);
   useEffect(() => {
     clearRightPanelHoverTimer();
     setRightPanelPreviewOpen(false);
+    setRightPanelPreviewExiting(false);
   }, [isMobile, rightPanelOpen, clearRightPanelHoverTimer]);
   useEffect(() => clearRightPanelHoverTimer, [clearRightPanelHoverTimer]);
   useEffect(() => {
     if (!rightPanelPreviewOpen) return;
-    const close = (event: KeyboardEvent) => { if (event.key === "Escape") setRightPanelPreviewOpen(false); };
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        clearRightPanelHoverTimer();
+        closeRightPanelPreview();
+      }
+    };
     document.addEventListener("keydown", close);
     return () => document.removeEventListener("keydown", close);
-  }, [rightPanelPreviewOpen]);
+  }, [rightPanelPreviewOpen, clearRightPanelHoverTimer, closeRightPanelPreview]);
   const [rightPanelExpanded, setRightPanelExpanded] = useState(false);
   const rightPanelFullWidth = rightPanelOpen && rightPanelExpanded && !isMobile;
   useEffect(() => {
@@ -1695,7 +1732,10 @@ export function AppShell() {
         inert={rightPanelFullWidth}
         onPointerEnter={keepSidebarPreview}
         onPointerLeave={dismissSidebarPreview}
-        className={`sidebar-container${sidebarPreviewOpen && !sidebarOpen && !isMobile ? " sidebar-preview" : ""}${sidebarOpen ? " sidebar-open" : " sidebar-closed"}${mobileSidebarReady ? "" : " sidebar-mobile-pending"}${sidebarResizer.isResizing ? " sidebar-resizing" : ""}`}
+        onTransitionEnd={(event) => {
+          if (event.target === event.currentTarget && event.propertyName === "width") setSidebarPreviewExiting(false);
+        }}
+        className={`sidebar-container${!sidebarOpen && !isMobile ? sidebarPreviewOpen ? " sidebar-preview" : sidebarPreviewExiting ? " sidebar-preview-exiting" : "" : ""}${sidebarOpen ? " sidebar-open" : " sidebar-closed"}${mobileSidebarReady ? "" : " sidebar-mobile-pending"}${sidebarResizer.isResizing ? " sidebar-resizing" : ""}`}
         style={{
           "--sidebar-width": `${sidebarResizer.width}px`,
           background: "var(--bg-panel)",
@@ -2198,7 +2238,10 @@ export function AppShell() {
         id="file-panel"
         onPointerEnter={keepRightPanelPreview}
         onPointerLeave={dismissRightPanelPreview}
-        className={`right-panel-container${rightPanelPreviewOpen && !rightPanelOpen && !isMobile ? " right-panel-preview" : ""}${rightPanelOpen ? " right-panel-open" : " right-panel-closed"}${rightPanelFullWidth ? " right-panel-full-width" : ""}${rightPanelResizer.isResizing ? " right-panel-resizing" : ""}`}
+        onTransitionEnd={(event) => {
+          if (event.target === event.currentTarget && event.propertyName === "width") setRightPanelPreviewExiting(false);
+        }}
+        className={`right-panel-container${!rightPanelOpen && !isMobile ? rightPanelPreviewOpen ? " right-panel-preview" : rightPanelPreviewExiting ? " right-panel-preview-exiting" : "" : ""}${rightPanelOpen ? " right-panel-open" : " right-panel-closed"}${rightPanelFullWidth ? " right-panel-full-width" : ""}${rightPanelResizer.isResizing ? " right-panel-resizing" : ""}`}
         style={{
           "--right-panel-width": `${rightPanelResizer.width}px`,
           display: "flex",

@@ -40,7 +40,9 @@ import {
   ArchiveIcon,
   BranchIcon,
   ChevronIcon,
-  FolderPlusIcon,
+  FolderIcon,
+  FolderOpenIcon,
+  PinOffIcon,
   MoreIcon,
   PinIcon,
   PlusIcon,
@@ -110,6 +112,7 @@ export interface SessionTreeProps {
   /** Back to the base limit; key is a projectKey or PINNED_MORE_KEY. */
   onShowLess(key: string): void;
   onTogglePinned(): void;
+  onPinFamily?(family: SessionFamily, pinned: boolean): void;
   onArchiveFamily(family: SessionFamily): void;
   onRestoreFamily(family: SessionFamily): void;
   onOpenRowMenu(row: SessionRow, anchor: SidebarMenuAnchor, opener: HTMLElement | null): void;
@@ -659,6 +662,15 @@ const SessionRowView = memo(function SessionRowView({
       )}
       {!status.transient && (
         <span className="session-tree-actions">
+          {context !== "archive" && handlers.current.onPinFamily && <button
+            type="button"
+            className="session-tree-action session-tree-pin-action"
+            aria-label={t(context === "pinned" ? "sidebar.unpin" : "sidebar.pin")}
+            title={t(context === "pinned" ? "sidebar.unpin" : "sidebar.pin")}
+            onClick={(event) => { event.stopPropagation(); handlers.current.onPinFamily?.(family, context !== "pinned"); }}
+          >
+            {context === "pinned" ? <PinOffIcon size={14} /> : <PinIcon size={14} />}
+          </button>}
           {quickAction && (context === "archive" ? (
             <button
               type="button"
@@ -918,6 +930,7 @@ const GroupRowView = memo(function GroupRowView({
             column of its own, so the name starts where the session titles
             below it do and every header's chevron lines up. */}
         <ChevronIcon size={12} strokeWidth={3} className={`session-tree-chevron${expanded ? " is-open" : ""}`} />
+        <FolderIcon size={15} className="session-tree-folder-icon" />
         <span className="session-tree-group-name">{project.name}</span>
         {project.pinned && <PinIcon size={10} className="session-tree-group-pin" label={t("sidebar.pinnedProject")} />}
         {!expanded && <ActivitySummary running={row.running} unread={row.unread} t={t} />}
@@ -1045,7 +1058,7 @@ const PlainRowView = memo(function PlainRowView({
             className="session-tree-footer-button"
             onClick={(event) => handlers.current.onOpenOtherProject(event.currentTarget)}
           >
-            <FolderPlusIcon size={12} />
+            <FolderOpenIcon size={16} />
             <span className="session-tree-footer-label">{t("sidebar.openOtherProject")}</span>
           </button>
         </div>
@@ -1054,7 +1067,7 @@ const PlainRowView = memo(function PlainRowView({
       return (
         <div className="session-tree-row session-tree-footer" style={style} data-row-key={row.key}>
           <button type="button" className="session-tree-footer-button" onClick={() => handlers.current.onOpenArchive()}>
-            <ArchiveIcon size={12} />
+            <ArchiveIcon size={16} />
             <span className="session-tree-footer-label">{t("sidebar.archivedCount", { count: row.count })}</span>
             <ChevronIcon size={10} className="session-tree-footer-chevron" />
           </button>

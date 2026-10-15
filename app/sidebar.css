@@ -368,6 +368,9 @@ a.session-tree-main {
 }
 
 /* A pinned row's project: meta, in the time's type (.session-tree-meta). */
+.session-tree-folder-icon { flex: none; color: var(--text-muted); }
+.session-tree-session.is-selected .session-tree-pin-action { display: flex; }
+
 .session-tree-project {
   display: inline-block;
   max-width: 70px;

@@ -141,10 +141,10 @@ test("a collapsed group shows its running and unread counts and labelled actions
   assert.match(html, /<button type="button" class="session-tree-group-toggle" aria-expanded="false" title="\/work\/app">/);
   // The chevron leads, inside the toggle (the whole header still toggles)
   // and hidden from its accessible name; then the name, its pin, the summary.
-  assert.match(html, /title="\/work\/app"><svg width="12" height="12"[^>]*stroke-width="3"[^>]*class="session-tree-chevron" aria-hidden="true"><path[^>]*><\/path><\/svg><span class="session-tree-group-name">app<\/span>/, "the chevron precedes the name");
+  assert.match(html, /title="\/work\/app"><svg width="12" height="12"[^>]*stroke-width="3"[^>]*class="session-tree-chevron" aria-hidden="true"><path[^>]*><\/path><\/svg><svg[^>]*class="session-tree-folder-icon"[^>]*>[\s\S]*?<\/svg><span class="session-tree-group-name">app<\/span>/, "the chevron precedes the name");
   assert.match(html, /<span class="session-tree-group-name">app<\/span><svg[^>]*class="session-tree-group-pin"[\s\S]*?<\/svg><span class="session-tree-summary">/);
-  // No folder: a project group is no second file tree.
-  assert.doesNotMatch(html, /session-tree-group-icon/);
+  // Project folders get one small decorative icon, not an extra control.
+  assert.match(html, /class="session-tree-folder-icon" aria-hidden="true"/);
   assert.match(html, /<svg[^>]*class="session-tree-group-pin" role="img" aria-label="Pinned"/);
   assert.match(html, /aria-label="Agent running… \(2\)"/);
   assert.match(html, /aria-label="New session activity \(1\)"/);
@@ -325,7 +325,7 @@ test("rename mode swaps the row for a field seeded with the title", () => {
 test("a named project shows its name as plain text in its header, the path as the tooltip", () => {
   const named = { name: "Thermal <b>Models</b>", customName: "Thermal <b>Models</b>" };
   const raw = renderToStaticMarkup(h(I18nProvider, null, h(SessionTree, { ...defaults, rows: [groupRow({}, named)] })));
-  assert.match(raw, /title="\/work\/app"><svg[^>]*class="session-tree-chevron is-open"[\s\S]*?<\/svg><span class="session-tree-group-name">Thermal &lt;b&gt;Models&lt;\/b&gt;<\/span>/);
+  assert.match(raw, /title="\/work\/app"><svg[^>]*class="session-tree-chevron is-open"[\s\S]*?<\/svg><svg[^>]*class="session-tree-folder-icon"[^>]*>[\s\S]*?<\/svg><span class="session-tree-group-name">Thermal &lt;b&gt;Models&lt;\/b&gt;<\/span>/);
   assert.doesNotMatch(raw, /<b>/, "never markup");
   const html = render({ rows: [groupRow({}, named)] });
   assert.match(html, /aria-label="New session in Thermal <b>Models<\/b>"/);
@@ -520,7 +520,7 @@ test("headers lead with their chevron, and every row's text starts in one column
   // A group header's toggle starts at the row's own left edge.
   assert.match(cssRule(".session-tree-group"), /padding: 0 4px 0 0;/);
   assert.equal(lastPx(".session-tree-footer-button", "padding") + 12 + lastPx(".session-tree-footer-button", "gap"), textStart);
-  assert.deepEqual([...source.matchAll(/<(?:FolderPlus|Archive)Icon size=\{(\d+)\} \/>\s*<span className="session-tree-footer-label">/g)].map((match) => Number(match[1])), [12, 12]);
+  assert.deepEqual([...source.matchAll(/<(?:FolderOpen|Archive)Icon size=\{(\d+)\} \/>\s*<span className="session-tree-footer-label">/g)].map((match) => Number(match[1])), [16, 16]);
   // These rows span the whole width, so their padding adds the rows' inset.
   assert.match(css, /\.session-tree-group-empty,\s*\.session-tree-more \{\s*padding-left: calc\(var\(--session-tree-inset-left\) \+ 20px\);/);
   assert.match(cssRule(".session-tree-archive-group"), /padding: 0 8px 3px calc\(var\(--session-tree-inset-left\) \+ 20px\);/);

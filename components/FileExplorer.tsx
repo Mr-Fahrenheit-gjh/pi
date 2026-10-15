@@ -1010,7 +1010,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(function FileE
   }, [cwd, onAtMentions, uploadSummary]);
 
   return (
-    <div style={{ minHeight: "100%" }}>
+    <div className="file-explorer" style={{ minHeight: "100%" }}>
       <input ref={uploadInputRef} type="file" multiple hidden onChange={handleUploadInput} />
       {showUploadFeedback && (
         <div style={{ padding: "6px 8px", borderBottom: "1px solid var(--border)" }}>
@@ -1144,7 +1144,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(function FileE
             onKeyDown={(event) => { if (event.key === "Escape") onFileSearchOpenChange?.(false); }}
             placeholder={t("sidebar.searchFilesPlaceholder")}
             aria-label={t("sidebar.searchFiles")}
-            style={{ width: "100%", boxSizing: "border-box", padding: "6px 24px", border: "1px solid var(--border)", borderRadius: 8, outline: "none", background: "var(--bg)", color: "var(--text)", fontFamily: "var(--font-mono)", fontSize: 11 }}
+            style={{ width: "100%", boxSizing: "border-box", padding: "6px 24px", border: "1px solid var(--border)", borderRadius: 8, outline: "none", background: "var(--bg)", color: "var(--text)", fontFamily: "var(--font-ui)", fontSize: 12 }}
           />
           {searchQuery && (
             <button

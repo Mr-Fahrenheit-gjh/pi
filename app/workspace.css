@@ -39,7 +39,7 @@
 
 .sidebar-container {
   background: color-mix(in srgb, var(--bg-panel) 42%, var(--bg)) !important;
-  font-family: 'Anthropic Sans', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: var(--font-ui);
   font-weight: 400;
 }
 .sidebar-container .sidebar-brand {
@@ -75,22 +75,48 @@
   min-height: 0;
 }
 .agent-workspace-picker {
-  display: flex;
+  position: relative;
   flex-shrink: 0;
+  min-width: 0;
   padding: 10px 12px;
   border-bottom: 1px solid var(--workspace-divider);
+  font-family: var(--font-ui);
 }
-.agent-workspace-picker select {
-  width: 100%;
-  min-width: 0;
-  padding: 8px 10px;
-  border: 1px solid var(--workspace-divider);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-  font-size: 13px;
+.agent-picker-trigger {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; min-width: 0; padding: 8px 10px;
+  border: 1px solid var(--workspace-divider); border-radius: 8px;
+  background: var(--bg); color: var(--text); font: inherit; font-size: 13px; cursor: pointer;
 }
+.agent-picker-trigger > span:first-child, .agent-picker-summary {
+  display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.agent-picker-popover {
+  position: absolute; top: calc(100% - 3px); left: 12px; right: 12px; z-index: 20;
+  max-height: min(360px, 55dvh); overflow: auto; overscroll-behavior: contain;
+  padding: 4px; border: 1px solid var(--workspace-divider); border-radius: 10px;
+  background: var(--bg-panel); box-shadow: 0 8px 24px color-mix(in srgb, var(--text) 12%, transparent);
+}
+.agent-picker-option {
+  display: block; width: 100%; min-width: 0; border: 0; border-radius: 6px;
+  padding: 9px 10px; text-align: left; background: transparent; color: var(--text);
+  font: inherit; font-size: 13px; cursor: pointer;
+}
+.agent-picker-option:hover, .agent-picker-option:focus-visible { background: var(--bg-hover); }
+.agent-picker-option[aria-selected="true"] { background: var(--bg-selected); }
+.agent-picker-meta { display: flex; justify-content: space-between; gap: 8px; margin-top: 3px; color: var(--text-dim); font-size: 11px; }
+.agent-picker-meta > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-picker-meta [data-agent-state="running"] { color: var(--accent); }
+.agent-picker-group details > summary { padding: 5px 10px; font-size: 11px; color: var(--text-muted); cursor: pointer; }
+.agent-picker-group + .agent-picker-group { border-top: 1px solid var(--workspace-divider); }
+.new-session-context-footer { width: 100%; max-width: calc(var(--chat-content-max-width, 820px) + 32px); margin: 2px auto 0; padding: 0 16px; }
+.new-session-context-footer .new-session-context { margin: 0; }
+.file-explorer, .project-picker, .todo-workspace, .agent-workspace, .settings-panel { font-family: var(--font-ui); }
+.project-picker .project-picker-path, .project-picker .project-picker-name { font-family: var(--font-ui); font-size: 12px; }
+.file-explorer [role="treeitem"] { font-family: var(--font-ui); }
+.chat-input-textarea::placeholder { font-family: var(--font-ui); font-weight: 400; }
+.process-toggle { font-family: var(--font-ui); font-weight: 400; letter-spacing: 0; }
+
 .sidebar-container .session-tree-title {
   font-family: inherit;
   font-size: 14px;
@@ -432,32 +458,83 @@
   }
 }
 
+@media (min-width: 960px) {
+  /* Timer/transition events can arrive before the compositor's final frame.
+     Closed panels must never rejoin flex with residual animated width. */
+  .right-panel-container.right-panel-closed {
+    position: fixed;
+    top: 0; bottom: 0;
+    right: env(safe-area-inset-right, 0px);
+  }
+}
 @media (min-width: 641px) {
-  .sidebar-container.sidebar-preview {
+  .sidebar-container.sidebar-closed {
+    position: fixed;
+    top: 0; bottom: 0;
+    left: env(safe-area-inset-left, 0px);
+  }
+  /* Exiting previews stay outside flex layout until their width reaches zero. */
+  .sidebar-container.sidebar-preview,
+  .sidebar-container.sidebar-preview-exiting {
     position: fixed;
     top: 0;
     bottom: 0;
     left: env(safe-area-inset-left, 0px);
+    --sidebar-preview-surface: color-mix(in srgb, var(--bg-panel) 42%, var(--bg));
+    background: linear-gradient(to right, var(--sidebar-preview-surface) 0%, color-mix(in srgb, var(--sidebar-preview-surface) 88%, transparent) 55%, transparent 100%) !important;
+    transition: width 0.2s ease, min-width 0.2s ease;
+  }
+  .sidebar-container.sidebar-preview {
     width: var(--sidebar-width, 260px);
     min-width: var(--sidebar-width, 260px);
     border-right: 1px solid var(--border) !important;
     border-radius: 0 14px 14px 0;
     box-shadow: 8px 0 28px color-mix(in srgb, var(--text) 9%, transparent);
   }
-  .right-panel-container.right-panel-preview {
+  .right-panel-container.right-panel-preview,
+  .right-panel-container.right-panel-preview-exiting {
     position: fixed;
     top: 0;
     bottom: 0;
     right: env(safe-area-inset-right, 0px);
-    width: min(var(--right-panel-width, 640px), calc(100vw - 64px));
-    min-width: min(var(--right-panel-width, 640px), calc(100vw - 64px));
     max-width: calc(100vw - 64px);
     z-index: 250;
     transform: translateX(0);
+    background: linear-gradient(to left, var(--bg) 0%, color-mix(in srgb, var(--bg) 88%, transparent) 55%, transparent 100%) !important;
+    transition: width 0.2s ease, min-width 0.2s ease, transform 0.2s ease;
+  }
+  .right-panel-container.right-panel-preview {
+    width: min(var(--right-panel-width, 640px), calc(100vw - 64px));
+    min-width: min(var(--right-panel-width, 640px), calc(100vw - 64px));
     pointer-events: auto;
     border-left: 1px solid var(--border) !important;
     border-radius: 14px 0 0 14px;
     box-shadow: -8px 0 28px color-mix(in srgb, var(--text) 9%, transparent);
+  }
+  .sidebar-container.sidebar-preview-exiting,
+  .right-panel-container.right-panel-preview-exiting {
+    width: 0;
+    min-width: 0;
+    pointer-events: none;
+  }
+  .right-panel-container.right-panel-preview-exiting {
+    /* Match compact desktop's resting transform before the exit class is removed. */
+    transform: translateX(100%);
+  }
+  /* Only surface paint fades. Text, icons, selection and hover colours stay intact. */
+  .sidebar-container:is(.sidebar-preview, .sidebar-preview-exiting) .sidebar-archive-view,
+  .right-panel-container:is(.right-panel-preview, .right-panel-preview-exiting) .file-workspace-header {
+    background: transparent !important;
+  }
+  /* FileViewer's source/media shells and subagent headers use inline theme surfaces.
+     Match both SSR and CSSOM spacing; leave controls and semantic diff colours alone. */
+  .right-panel-container:is(.right-panel-preview, .right-panel-preview-exiting) :where(div, section, pre):is(
+    [style*="background:var(--bg)"], [style*="background: var(--bg)"],
+    [style*="background:var(--bg-panel)"], [style*="background: var(--bg-panel)"],
+    [style*="background-color:var(--bg)"], [style*="background-color: var(--bg)"],
+    [style*="background-color:var(--bg-panel)"], [style*="background-color: var(--bg-panel)"]
+  ) {
+    background: transparent !important;
   }
   .workspace-right-panel-toggle {
     position: fixed;
@@ -466,7 +543,9 @@
     width: 32px !important;
     height: 32px !important;
     z-index: 270;
-    background: var(--bg) !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
   }
   .workspace-sidebar-toggle {
     position: fixed;
@@ -475,26 +554,36 @@
     width: 32px !important;
     height: 32px !important;
     z-index: 201;
-    background: var(--bg-panel) !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
   }
   .sidebar-container .sidebar-header {
     padding-left: 52px;
     height: 42px;
     min-height: 42px;
   }
-  .workspace-topbar-row::before {
-    content: "";
-    width: 32px;
-    flex-shrink: 0;
+  /* No full-width header surface or hit target over the conversation. */
+  .workspace-topbar {
+    position: relative;
+    height: 0; min-height: 0;
+    background: transparent !important;
+    pointer-events: none;
+    z-index: 200;
   }
-
+  .workspace-topbar-row::before { display: none; }
   .workspace-topbar-row {
-    height: 42px !important;
+    height: 0 !important;
     gap: 4px;
-    padding: 0 52px 0 12px;
-    background: var(--bg);
-    border-bottom-color: transparent !important;
+    padding: 0;
+    background: transparent;
+    border: 0 !important;
+    box-shadow: none;
+    backdrop-filter: none;
   }
+  .workspace-topbar-row > button, .workspace-topbar-row [role="alert"] { pointer-events: auto; }
+  .workspace-sidebar-toggle, .workspace-right-panel-toggle { pointer-events: auto; }
+
   .workspace-topbar-row > button {
     height: 32px !important;
     border: 0 !important;

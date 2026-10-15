@@ -51,10 +51,9 @@ export function MoreIcon(props: SidebarIconProps) {
 
 export function ArchiveIcon(props: SidebarIconProps) {
   return (
-    <SidebarIcon {...props}>
-      <rect x="3" y="4" width="18" height="5" rx="1" />
-      <path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9" />
-      <path d="M10 13h4" />
+    <SidebarIcon {...props} strokeWidth={1.7}>
+      <path d="M5 8.5h14l-1.3 10a2 2 0 0 1-2 1.5h-7.4a2 2 0 0 1-2-1.5Z" />
+      <path d="M4 5.5h16M7 2.5h10M9.5 12h5" />
     </SidebarIcon>
   );
 }
@@ -168,6 +167,10 @@ export function CloseIcon(props: SidebarIconProps) {
 
 export function FolderIcon(props: SidebarIconProps) {
   return <SidebarIcon {...props}><path d="M3 8a2 2 0 0 1 2-2h3.4l1.9 1.9H19a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /></SidebarIcon>;
+}
+
+export function FolderOpenIcon(props: SidebarIconProps) {
+  return <SidebarIcon {...props} strokeWidth={1.7}><path d="M3 9V6a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v1" /><path d="M5 9h15a1 1 0 0 1 1 1.3l-2 7.2a2 2 0 0 1-1.9 1.5H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Z" /></SidebarIcon>;
 }
 
 export function FolderPlusIcon(props: SidebarIconProps) {

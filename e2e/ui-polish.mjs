@@ -53,7 +53,7 @@ export async function runUiPolishChecks(page, { baseURL, outputDir }) {
     check(await page.locator(".extension-status-shelf").count() === 0, "Bottom extension shelf remains visible");
     await screenshot("right-todo-workspace");
     await page.locator('#file-panel [role="tab"]').filter({ hasText: "子代理" }).first().click();
-    await page.locator(".agent-workspace select").waitFor();
+    await page.locator(".agent-picker-trigger").waitFor();
     await page.route("**/api/agent/*/subagents**", (route) => {
       const query = new URL(route.request().url()).searchParams;
       return route.fulfill({ json: query.get("view") === "chat" ? { messages: [], text: "只读子代理对话验收" } : {
@@ -62,13 +62,14 @@ export async function runUiPolishChecks(page, { baseURL, outputDir }) {
     });
     // A visibility event requests the current snapshot without waiting for polling.
     await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
-    await page.locator('.agent-workspace option[value="package:ui-polish-child"]').waitFor({ state: "attached" });
-    await page.locator(".agent-workspace select").selectOption("package:ui-polish-child");
+    await page.locator(".agent-picker-trigger").click();
+    await page.locator('[role="option"][data-agent-id="package:ui-polish-child"]').click();
     await page.getByText("只读子代理对话验收", { exact: true }).waitFor();
     check(await page.locator('.workspace-topbar [data-agent-switcher]').count() === 0, "Agent icon remains in header");
     check(await page.locator('.conversation-transition [aria-label="子代理记录"]').count() === 0, "Child selection replaces the main chat");
     await screenshot("right-subagent-workspace");
-    await page.locator(".agent-workspace select").selectOption("workspace-design-fixture");
+    await page.locator(".agent-picker-trigger").click();
+    await page.locator('[role="option"][data-agent-id="workspace-design-fixture"]').click();
     await page.locator("#file-panel .markdown-assistant-message").first().waitFor();
     await page.locator(".file-panel-expand-button").click();
     await page.locator("#file-panel.right-panel-full-width").waitFor();

@@ -17,6 +17,7 @@ import {
 import { useEnterSendMode, setEnterSendMode } from "@/hooks/useEnterSendMode";
 import { useRunningSendMode, setRunningSendMode } from "@/hooks/useRunningSendMode";
 import { useFilesPlacement, setFilesPlacement } from "@/hooks/useFilesPlacement";
+import { useArchiveVisibility, setArchiveVisibility } from "@/hooks/useArchiveVisibility";
 import { sendAgentCommand } from "@/lib/agent-client";
 import type { ProjectTrustStatus, ToolSettingsResponse } from "@/lib/api-types";
 import {
@@ -83,6 +84,7 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
   const enterSendMode = useEnterSendMode();
   const runningSendMode = useRunningSendMode();
   const filesPlacement = useFilesPlacement();
+  const showArchived = useArchiveVisibility();
   const [shellSettings, setShellSettings] = useState<ToolSettingsResponse | null>(null);
   const [shellSaving, setShellSaving] = useState(false);
   const [shellError, setShellError] = useState<string | null>(null);
@@ -366,6 +368,10 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
           </div>
         </div>
         <p id="settings-files-placement-description" className="settings-general-description">{t("settings.filesPlacementDescription")}</p>
+        <label className="settings-chat-option settings-chat-switch-option">
+          <span>{t("settings.showArchived")}</span>
+          <input type="checkbox" role="switch" checked={showArchived} onChange={event => setArchiveVisibility(event.target.checked)} aria-label={t("settings.showArchived")} />
+        </label>
       </section>
 
       {shellSettings?.isWindows && (

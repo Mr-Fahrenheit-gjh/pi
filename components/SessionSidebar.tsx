@@ -71,6 +71,7 @@ import {
 } from "@/lib/session-ui-state-shared";
 import { focusIfLost, type FocusDocument } from "@/lib/stacked-dialog";
 import { useFilesPlacement } from "@/hooks/useFilesPlacement";
+import { useArchiveVisibility } from "@/hooks/useArchiveVisibility";
 import { useI18n } from "@/hooks/useI18n";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useResizablePanel } from "@/hooks/useResizablePanel";
@@ -559,7 +560,9 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   const [keptOpenGroups, setKeptOpenGroups] = useState<ReadonlySet<string>>(() => new Set());
   const [moreShown, setMoreShown] = useState<Readonly<Record<string, number>>>({});
   const [pinnedCollapsed, setPinnedCollapsed] = useState(false);
+  const showArchivedEntry = useArchiveVisibility();
   const [archiveView, setArchiveViewState] = useState(false);
+  useEffect(() => { if (!showArchivedEntry) setArchiveViewState(false); }, [showArchivedEntry]);
   // The fold and the archive view move (hooks/useSidebarMotion.ts): only
   // when the user folds or goes in or out, never on a restore, a drag, keys,
   // a resize or a layout switch, and not at all under reduced motion. The
@@ -1404,7 +1407,8 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     groupExpansion: shownGroupExpansion,
     moreShown,
     pinnedCollapsed,
-  }), [allSessions, uiState, runningSessionIds, awaitingInputSessionIds, unreadSessionIds, selectedSessionId, currentProject, shownGroupExpansion, moreShown, pinnedCollapsed]);
+    showArchivedEntry,
+  }), [allSessions, uiState, runningSessionIds, awaitingInputSessionIds, unreadSessionIds, selectedSessionId, currentProject, shownGroupExpansion, moreShown, pinnedCollapsed, showArchivedEntry]);
   // Built while the archive view is rendered, its way out included: it
   // leaves as it was, not empty.
   const archiveMounted = archiveMotion.archiveMounted;
@@ -2276,7 +2280,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         id: "view-archived",
         label: t("sidebar.viewArchived", { count: archivedCount }),
         icon: <ArchiveIcon />,
-        disabled: archivedCount === 0,
+        disabled: archivedCount === 0 || !showArchivedEntry,
         onSelect: openArchiveView,
       },
       { type: "separator", id: "separator-delete" },
@@ -2368,6 +2372,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     onShowMore: handleShowMore,
     onShowLess: handleShowLess,
     onTogglePinned: handleTogglePinned,
+    onPinFamily: setFamilyPinned,
     onArchiveFamily: archiveFamily,
     onRestoreFamily: restoreFamily,
     onOpenRowMenu: openRowMenu,

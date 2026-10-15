@@ -202,6 +202,9 @@ function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = fa
   useLayoutEffect(() => {
     if (reveal) setExpanded(true);
   }, [reveal]);
+  // Finished turns keep their persisted history, but no permanent process row.
+  // An explicit search reveal may still expose the matching historical record.
+  if (!running && !reveal) return null;
   const label = running ? t("chat.working") : t("chat.viewProcess");
   const details = `${messageCount} ${t(messageCount === 1 ? "chat.message" : "chat.messages")} · ${toolCallCount} ${t(toolCallCount === 1 ? "chat.toolCall" : "chat.toolCalls")}`;
 
@@ -1454,11 +1457,7 @@ export function ChatWindow({ session, packageTarget, showSubagentPanel = false, 
             </button>
           </div>
         )}
-        {/* The brand (the logo, "Pi Web" and its versions line), then the
-            project/worktree row right above the composer, all on the
-            composer's left edge (.new-session-brand, .new-session-meta and
-            .new-session-context in app/globals.css; the side padding and
-            width are inline here). */}
+        {/* Keep the brand above the composer; project/Git controls follow below it. */}
         {isEmptyNew && (
           <div className="new-session-hero" style={{ paddingLeft: 16, paddingRight: 16 }}>
             <div className="new-session-hero-inner" style={{ maxWidth: "var(--chat-content-max-width, 820px)" }}>
@@ -1474,11 +1473,15 @@ export function ChatWindow({ session, packageTarget, showSubagentPanel = false, 
                   </span>
                 </div>
               </div>
-              {newSessionContextBar}
             </div>
           </div>
         )}
         {chatInputElement}
+        {isEmptyNew && newSessionContextBar && (
+          <div className="new-session-context-footer">
+            {newSessionContextBar}
+          </div>
+        )}
       </div>
       {isEmptyNew && <div className="min-h-0 flex-1" />}
     </div>

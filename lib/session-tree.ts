@@ -84,6 +84,8 @@ export interface SessionTreeInput {
   /** Families revealed beyond the base limit by "show more", per projectKey or PINNED_MORE_KEY. */
   moreShown: Readonly<Record<string, number>>;
   pinnedCollapsed: boolean;
+  /** Presentation only; archived sessions remain stored and excluded from the main tree. */
+  showArchivedEntry?: boolean;
 }
 
 export interface SessionTreeModel {
@@ -537,7 +539,7 @@ export function buildSessionTree(input: SessionTreeInput): SessionTreeModel {
   // the footer, as one parts the pinned section from them.
   if (orderedProjects.length > 0) rows.push({ kind: "spacer", key: "footer-spacer" });
   rows.push({ kind: "footer-open", key: "footer-open" });
-  if (archivedCount > 0) rows.push({ kind: "footer-archived", key: "footer-archived", count: archivedCount });
+  if (archivedCount > 0 && input.showArchivedEntry !== false) rows.push({ kind: "footer-archived", key: "footer-archived", count: archivedCount });
 
   return { rows, projects: orderedProjects, archivedCount, unorderedKeysByBand, projectKeysToRecord };
 }
