@@ -42,17 +42,19 @@ test("per-message accounting stays absent from the content-first interface", () 
   assert.doesNotMatch(renderMessage({ ...message, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: { total: 0 } } }), /class="message-usage"/);
 });
 
-test("answer bubbles exclude identity, process and footer, preserving content", () => {
+test("assistant answers stay unframed with identity and footer preserved", () => {
   const content = [{ type: "text", text: "Answer one" }, { type: "text", text: "Answer two" }];
   const message = { role: "assistant", provider: "openai", model: "gpt-test", content };
   const html = renderMessage(message, { assistantContent: "answer" });
-  assert.equal((html.match(/class="assistant-answer-bubble"/g) || []).length, 1);
-  assert.ok(html.indexOf("data-model-label") < html.indexOf("assistant-answer-bubble"));
+  assert.doesNotMatch(html, /assistant-answer-bubble/);
+  assert.match(html, /class="assistant-response-content"/);
+  assert.ok(html.indexOf("data-model-label") < html.indexOf("assistant-response-content"));
   assert.ok(html.indexOf("assistant-message-footer") > html.indexOf("Answer two"));
   assert.match(html, /Answer one/);
   const mixed = { ...message, content: [{ type: "thinking", thinking: "Internal work" }, ...content] };
   assert.doesNotMatch(renderMessage(mixed, { assistantContent: "process" }), /assistant-answer-bubble/);
-  assert.ok(renderMessage(mixed).indexOf("Thinking") < renderMessage(mixed).indexOf("assistant-answer-bubble"));
+  assert.match(renderMessage(mixed), /Thinking/);
+  assert.doesNotMatch(renderMessage(mixed), /assistant-answer-bubble/);
 });
 
 test("footer displays only a positive rate from recorded tokens and request duration", () => {

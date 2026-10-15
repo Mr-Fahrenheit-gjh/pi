@@ -17,7 +17,7 @@
     "hooks/useRunningSendMode.ts": ["pi-running-send-mode", "RUNNING_SEND_MODE_DEFAULT"],
     "components/ActionMenuButton.tsx": ["SidebarMenu", "aria-haspopup=\"menu\""],
     "components/RevealFileButton.tsx": ["files.revealInFinder", "reveal: true"],
-    "components/MessageView.tsx": ["message-footer", "TurnWrittenFiles", "assistant-answer-bubble", "message-output-rate"],
+    "components/MessageView.tsx": ["message-footer", "TurnWrittenFiles", "assistant-response-content", "message-output-rate"],
     "lib/stream-token-rate.ts": ["recordedOutputTokensPerSecond", "streamTokensPerSecond"],
     "components/AgentWorkspace.tsx": ["PackageSubagentChat", "SubagentViewer", "agent-picker-trigger", "data-agent-id"],
     "lib/agent-picker.ts": ["agentPickerGroups", "agentSummary"],

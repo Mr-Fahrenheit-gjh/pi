@@ -31,13 +31,14 @@ export async function runSidebarPreviewLayoutChecks(page, { baseURL }) {
         const paint = await page.locator(`#${side.id}`).evaluate((panel) => {
           const style = getComputedStyle(panel);
           const surfaces = [...panel.querySelectorAll(".sidebar-archive-view, .file-workspace-header, .file-viewer-toolbar, .file-viewer-content, .file-source-view")];
-          return { background: style.backgroundImage, opacity: style.opacity, mask: style.maskImage,
+          return { background: style.backgroundImage, color: style.backgroundColor, opacity: style.opacity, mask: style.maskImage,
             coveringSurfaces: surfaces.filter((node) => getComputedStyle(node).backgroundColor !== "rgba(0, 0, 0, 0)").map((node) => node.className) };
         });
-        assert.ok(paint.background.includes(`to ${side.prefix === "sidebar" ? "right" : "left"}`), "Preview background gradient points away from the screen edge");
+        assert.equal(paint.background, "none", "Preview has no gradient");
+        assert.ok(paint.color !== "rgba(0, 0, 0, 0)" && !/rgba\([^)]*,\s*0\./.test(paint.color), "Preview uses an opaque theme surface");
         assert.equal(paint.opacity, "1", "Preview text/icons must remain opaque");
         assert.equal(paint.mask, "none", "Preview must not mask content");
-        assert.deepEqual(paint.coveringSurfaces, [], "An inner surface hides the preview gradient");
+        // Native inner surfaces stay intact; only the former gradient was removed.
         // Capture the whole main/document geometry on every frame, not just final positions.
         await page.evaluate(() => {
           const main = document.querySelector(".workspace-topbar").parentElement;

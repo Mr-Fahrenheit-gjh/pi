@@ -686,16 +686,6 @@ function AssistantMessageView({
       return !assistantContent || (assistantContent === "answer" ? prose : !prose);
     }), [message.content, isStreaming, assistantContent]);
   const blocks = useMemo(() => blockItems.map(({ block }) => block), [blockItems]);
-  const contentGroups = useMemo(() => {
-    const groups: { answer: boolean; items: typeof blockItems }[] = [];
-    for (const item of blockItems) {
-      const answer = item.block.type === "text" || item.block.type === "image";
-      const previous = groups.at(-1);
-      if (previous?.answer === answer) previous.items.push(item);
-      else groups.push({ answer, items: [item] });
-    }
-    return groups;
-  }, [blockItems]);
   const providerError = getAssistantErrorMessage(message, { isStreaming, assistantContent });
   const truncated = assistantContent !== "process" && isAssistantTruncated(message, { isStreaming });
   const unansweredTruncation = truncated && !hasAssistantAnswer(message);
@@ -850,13 +840,9 @@ function AssistantMessageView({
 
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {contentGroups.map(group => (
-          <div key={group.items[0].originalIndex} className={group.answer ? "assistant-answer-bubble" : undefined} style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
-            {group.items.map(({ block, originalIndex }) => (
-              <BlockView key={`${entryId ?? "stream"}-${originalIndex}`} block={block} searchTarget={block === searchBlock} toolResults={toolResults} isStreaming={isStreaming} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} />
-            ))}
-          </div>
+      <div className="assistant-response-content" style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+        {blockItems.map(({ block, originalIndex }) => (
+          <BlockView key={`${entryId ?? "stream"}-${originalIndex}`} block={block} searchTarget={block === searchBlock} toolResults={toolResults} isStreaming={isStreaming} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} />
         ))}
       </div>
 

@@ -116,19 +116,7 @@
 .file-explorer [role="treeitem"] { font-family: var(--font-ui); }
 .chat-input-textarea::placeholder { font-family: var(--font-ui); font-weight: 400; }
 .process-toggle { font-family: var(--font-ui); font-weight: 400; letter-spacing: 0; }
-/* Answer-only surface: identity, process, alerts and footer remain siblings. */
-.assistant-answer-bubble {
-  align-self: flex-start;
-  width: fit-content;
-  max-width: 100%;
-  box-sizing: border-box;
-  padding: 13px 17px;
-  border: 1px solid color-mix(in srgb, var(--text) 11%, transparent);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--bg) 70%, var(--bg-panel));
-  overflow-wrap: anywhere;
-}
-.assistant-answer-bubble > *, .assistant-answer-bubble .markdown-body { min-width: 0; max-width: 100%; }
+/* Assistant answers remain unframed; keep the quiet copy/rate footer. */
 .assistant-message-footer {
   min-height: 22px;
   font-family: var(--font-ui);
@@ -140,7 +128,6 @@
 .assistant-message-footer:focus-within { opacity: 1; }
 .message-output-rate { font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (hover: none) { .assistant-message-footer { opacity: 1; } }
-@media (max-width: 640px) { .assistant-answer-bubble { padding: 11px 13px; border-radius: 12px; } }
 
 .sidebar-container .session-tree-title {
   font-family: inherit;
@@ -506,7 +493,7 @@
     bottom: 0;
     left: env(safe-area-inset-left, 0px);
     --sidebar-preview-surface: color-mix(in srgb, var(--bg-panel) 42%, var(--bg));
-    background: linear-gradient(to right, var(--sidebar-preview-surface) 0%, color-mix(in srgb, var(--sidebar-preview-surface) 88%, transparent) 55%, transparent 100%) !important;
+    background: var(--sidebar-preview-surface) !important;
     transition: width 0.2s ease, min-width 0.2s ease;
   }
   .sidebar-container.sidebar-preview {
@@ -525,7 +512,7 @@
     max-width: calc(100vw - 64px);
     z-index: 250;
     transform: translateX(0);
-    background: linear-gradient(to left, var(--bg) 0%, color-mix(in srgb, var(--bg) 88%, transparent) 55%, transparent 100%) !important;
+    background: var(--bg) !important;
     transition: width 0.2s ease, min-width 0.2s ease, transform 0.2s ease;
   }
   .right-panel-container.right-panel-preview {
@@ -545,21 +532,6 @@
   .right-panel-container.right-panel-preview-exiting {
     /* Match compact desktop's resting transform before the exit class is removed. */
     transform: translateX(100%);
-  }
-  /* Only surface paint fades. Text, icons, selection and hover colours stay intact. */
-  .sidebar-container:is(.sidebar-preview, .sidebar-preview-exiting) .sidebar-archive-view,
-  .right-panel-container:is(.right-panel-preview, .right-panel-preview-exiting) .file-workspace-header {
-    background: transparent !important;
-  }
-  /* FileViewer's source/media shells and subagent headers use inline theme surfaces.
-     Match both SSR and CSSOM spacing; leave controls and semantic diff colours alone. */
-  .right-panel-container:is(.right-panel-preview, .right-panel-preview-exiting) :where(div, section, pre):is(
-    [style*="background:var(--bg)"], [style*="background: var(--bg)"],
-    [style*="background:var(--bg-panel)"], [style*="background: var(--bg-panel)"],
-    [style*="background-color:var(--bg)"], [style*="background-color: var(--bg)"],
-    [style*="background-color:var(--bg-panel)"], [style*="background-color: var(--bg-panel)"]
-  ) {
-    background: transparent !important;
   }
   .workspace-right-panel-toggle {
     position: fixed;

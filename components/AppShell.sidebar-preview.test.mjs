@@ -82,11 +82,11 @@ for (const [state, setter, prefix, container] of [
     assert.match(exiting.transition, /width 0\.2s ease, min-width 0\.2s ease/);
   });
 
-  test(`${prefix} previews fade only background paint toward the main content`, () => {
+  test(`${prefix} previews use solid theme surfaces without fading content`, () => {
     for (const suffix of ["preview", "preview-exiting"]) {
       const paint = declarationsFor(`.${container}-container.${prefix}-${suffix}`);
-      assert.match(paint.background, new RegExp(`^linear-gradient\\(to ${prefix === "sidebar" ? "right" : "left"},`));
-      assert.match(paint.background, /transparent 100%\)$/);
+      assert.equal(paint.background, prefix === "sidebar" ? "var(--sidebar-preview-surface)" : "var(--bg)");
+      assert.doesNotMatch(paint.background, /gradient|transparent/);
       assert.equal(paint.opacity, undefined, "text and icons must not fade");
       assert.equal(paint["mask-image"], undefined, "a mask would fade the content too");
     }
@@ -145,22 +145,12 @@ for (const [state, setter, prefix, container] of [
   });
 }
 
-test("preview gradients clear covering inner surfaces without changing content opacity", () => {
-  const surfaceRules = [];
-  css.walkRules((rule) => {
-    if (rule.selector.includes(".sidebar-archive-view") || rule.selector.includes('[style*="background:var(--bg)"]')) surfaceRules.push(rule);
+test("solid previews do not erase inner theme surfaces", () => {
+  css.walkRules(rule => {
+    if (!rule.selector.includes("-preview")) return;
+    assert.ok(!rule.selector.includes('[style*="background'), "no broad transparent inline-surface override");
+    rule.walkDecls("background", declaration => assert.doesNotMatch(declaration.value, /gradient|transparent/));
   });
-  assert.equal(surfaceRules.length, 2);
-  for (const rule of surfaceRules) {
-    assert.equal(rule.parent.params, "(min-width: 641px)");
-    assert.ok(rule.selector.includes("-preview-exiting"));
-    assert.ok(rule.selector.includes("-preview"));
-    const background = rule.nodes.find((node) => node.prop === "background");
-    assert.equal(background.value, "transparent");
-    assert.equal(background.important, true, "inner inline/theme backgrounds must not obscure the gradient");
-    assert.ok(rule.nodes.every((node) => node.type !== "decl" || node.prop === "background"));
-  }
-  assert.ok(surfaceRules[1].selector.includes(":where(div, section, pre)"), "do not clear button/input/select or semantic diff colours");
 });
 
 test("right preview finishes offscreen before compact desktop's closed style takes over", () => {
