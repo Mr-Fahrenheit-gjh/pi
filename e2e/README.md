@@ -53,3 +53,33 @@ Model prompts, live model streaming, and agent execution are outside this suite.
 Failures save a screenshot, Playwright trace, and server log under
 `test-results/e2e/`; CI uploads that directory. Open a trace with
 `npx playwright show-trace test-results/e2e/trace.zip`.
+
+## Local practical-interaction check (playwright-mcp)
+
+`interaction-practical.mjs` is a separate desktop-only check. Reuse existing
+local dependencies; do not run the installation commands above for this check.
+Build a separate candidate first, never the live checkout. Prepare its isolated
+agent directory with `prepareInteractionFixture('/tmp/<task>/agent')` and start
+that candidate with `PI_CODING_AGENT_DIR=/tmp/<task>/agent`, an empty
+`PI_WEB_PASSWORD`, and `next start -H 127.0.0.1 -p 30158`.
+
+Use the headless, independent-profile playwright-mcp page, not a newly launched
+Playwright browser. Its VM does not support dynamic imports: import the module
+in a local Node command and form the tool's code as follows (write only to the
+task's temporary directory):
+
+```js
+import { runInteractionChecks } from './e2e/interaction-practical.mjs';
+const options = { baseURL: 'http://127.0.0.1:30158', outputDir: '/tmp/<task>/evidence' };
+const code = `async (page) => await (${runInteractionChecks.toString()})(page, ${JSON.stringify(options)})`;
+```
+
+Create `outputDir` before passing `code` to `browser_run_code_unsafe`. The check
+returns `{ passed, checks, pageErrors, error? }`; verify `passed === true` rather
+than treating tool/process exit as success. Save that result with the candidate's
+`.next/BUILD_ID`. It uses synthetic SSE and an isolated screenshot image, without
+model calls or user sessions. Coverage: cursor-anchor zoom, drag threshold and
+pan, reset/keyboard/Escape/focus, iframe-crossing split drag and rollback/storage,
+queued follow cancellation, detached reading and attached height-change follow.
+Finally close the test page and stop the exact candidate process. Candidate
+verification is not a production publish or a live-service acceptance.

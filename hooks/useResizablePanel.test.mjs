@@ -32,7 +32,16 @@ globalThis.window = emitter({
     setItem: (key, value) => stored.set(key, value),
   },
 });
-globalThis.document = emitter({ body: { style: { cursor: "", userSelect: "" } } });
+const shields = new Set();
+globalThis.document = emitter({
+  body: {
+    style: { cursor: "", userSelect: "" },
+    appendChild(node) { shields.add(node); },
+  },
+  createElement() {
+    return { style: {}, setAttribute() {}, remove() { shields.delete(this); } };
+  },
+});
 
 // One panel at a time: the previous test's stops listening to the window.
 let mounted = null;
@@ -41,6 +50,7 @@ function mount({ storedHeight, persistClamp, room }) {
   mounted?.unmount();
   stored.clear();
   if (storedHeight !== undefined) stored.set(KEY, String(storedHeight));
+  assert.equal(shields.size, 0, "the previous panel removed its drag shield");
   const space = { room };
   const widthRef = { current: 0 };
   const view = renderHook(() => useResizablePanel({
@@ -159,4 +169,65 @@ test("without persistClamp a click on the separator saves nothing", () => {
   assert.equal(panel.saved(), "400", "not the short window's clamp");
   panel.resize(1000);
   assert.equal(panel.shown(), 400, "back to the user's size");
+});
+
+test("a sub-4px move is a click, not a saved drag", () => {
+  const panel = mount({ persistClamp: false, room: 500 });
+  const props = () => panel.view.result.separatorProps;
+  props().onPointerDown(pointer(100));
+  panel.view.flush();
+  props().onPointerMove(pointer(103));
+  assert.equal(shields.size, 0);
+  props().onPointerUp(pointer(103));
+  panel.view.flush();
+  assert.equal(panel.shown(), 240);
+  assert.equal(panel.saved(), undefined);
+});
+
+test("Escape rolls a live drag back without saving, even after window resizing", () => {
+  const panel = mount({ storedHeight: 400, room: 600 });
+  const props = () => panel.view.result.separatorProps;
+  props().onPointerDown(pointer(100));
+  panel.view.flush();
+  props().onPointerMove(pointer(180));
+  assert.equal(shields.size, 1);
+  panel.resize(650);
+  assert.equal(panel.shown(), 480);
+  assert.equal(panel.saved(), "400", "live widths are not persisted");
+  let stopped = false;
+  window.emit("keydown", { key: "Escape", preventDefault() {}, stopPropagation() { stopped = true; } });
+  panel.view.flush();
+  assert.equal(stopped, true);
+  assert.equal(panel.shown(), 400);
+  assert.equal(panel.saved(), "400");
+  assert.equal(shields.size, 0);
+  assert.equal(panel.view.result.isResizing, false);
+  assert.equal(document.body.style.userSelect, "");
+});
+
+for (const cancelMethod of ["onPointerCancel", "onLostPointerCapture"]) {
+  test(`${cancelMethod} restores the initial width and removes the iframe shield`, () => {
+    const panel = mount({ storedHeight: 300, room: 600 });
+    const props = () => panel.view.result.separatorProps;
+    props().onPointerDown(pointer(100));
+    panel.view.flush();
+    props().onPointerMove(pointer(180));
+    props()[cancelMethod](pointer(180));
+    panel.view.flush();
+    assert.equal(panel.shown(), 300);
+    assert.equal(panel.saved(), "300");
+    assert.equal(shields.size, 0);
+  });
+}
+
+test("unmounting during a drag restores body state and removes its shield", () => {
+  const panel = mount({ room: 600 });
+  panel.view.result.separatorProps.onPointerDown(pointer(100));
+  panel.view.flush();
+  panel.view.result.separatorProps.onPointerMove(pointer(180));
+  assert.equal(shields.size, 1);
+  panel.view.unmount();
+  mounted = null;
+  assert.equal(shields.size, 0);
+  assert.equal(document.body.style.cursor, "");
 });

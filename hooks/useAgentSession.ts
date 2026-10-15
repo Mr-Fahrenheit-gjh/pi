@@ -33,6 +33,7 @@ import { getToolExecutionProgress } from "@/lib/tool-execution-progress";
 import { CODEMODE_TOOL_NAME, getCodemodeProgress } from "@/lib/codemode-view";
 import { updateExtensionWidgets } from "@/lib/extension-widgets";
 import { bareMcpOpensSettings } from "@/lib/mcp-command";
+import { bindChatScrollIntent } from "@/lib/chat-scroll-intent";
 import type { SettingsSection } from "@/lib/settings-navigation";
 import {
   enqueueExtensionUiRequest,
@@ -427,6 +428,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const lastUserMsgRef = useRef<HTMLDivElement | null>(null);
   const pendingScrollToUserRef = useRef(false);
   const isNearBottomRef = useRef(true);
+  const userScrollingAwayRef = useRef(false);
   const previousScrollTopRef = useRef(0);
   const liveFollowFrameRef = useRef<number | null>(null);
   const executeBashRef = useRef<(command: string, excludeFromContext: boolean) => Promise<void> | undefined>(undefined);
@@ -513,6 +515,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     // into view: that propagates to every scrollable ancestor, and on mobile
     // the keyboard-shifted document layer visibly jumps the whole app while
     // streaming content follows the tail.
+    userScrollingAwayRef.current = false;
+    isNearBottomRef.current = true;
     container.scrollTo({ top: container.scrollHeight, behavior });
     previousScrollTopRef.current = container.scrollTop;
   }, []);
@@ -2449,6 +2453,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     initialScrollDoneRef.current = true;
     pendingScrollToUserRef.current = false;
     isNearBottomRef.current = false;
+    userScrollingAwayRef.current = true;
     setPromptAnchorActive(false);
     container.scrollTo({
       top: element.getBoundingClientRect().top
@@ -2472,6 +2477,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       cancelAnimationFrame(liveFollowFrameRef.current);
       liveFollowFrameRef.current = null;
     }
+    userScrollingAwayRef.current = false;
     isNearBottomRef.current = true;
     previousScrollTopRef.current = targetTop;
     container.scrollTo({ top: targetTop, behavior: "auto" });
@@ -2483,7 +2489,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       const { scrollTop, clientHeight, scrollHeight } = container;
       const isAgentRunning = agentRunningRef.current;
       const wasAttached = isNearBottomRef.current;
-      const isAttached = getLiveFollowAttached(
+      const isAttached = !userScrollingAwayRef.current && getLiveFollowAttached(
         wasAttached,
         previousScrollTopRef.current,
         scrollTop,
@@ -2645,11 +2651,38 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     const container = scrollContainerRef.current;
     if (!container) return;
     previousScrollTopRef.current = container.scrollTop;
+    const unbindIntent = bindChatScrollIntent(container, (direction) => {
+      userScrollingAwayRef.current = direction === "away";
+      if (direction !== "away") return;
+      isNearBottomRef.current = false;
+      if (liveFollowFrameRef.current !== null) {
+        cancelAnimationFrame(liveFollowFrameRef.current);
+        liveFollowFrameRef.current = null;
+      }
+    });
     container.addEventListener("scroll", handleScrollPositionChange, { passive: true });
+    // Images, diagrams and expanded tool results can change height without a
+    // new token. Follow those changes only while the reader is still attached.
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => {
+      if (!initialScrollDoneRef.current || pendingScrollToUserRef.current
+        || !isNearBottomRef.current || userScrollingAwayRef.current
+        || liveFollowFrameRef.current !== null) return;
+      liveFollowFrameRef.current = requestAnimationFrame(() => {
+        liveFollowFrameRef.current = null;
+        if (isNearBottomRef.current && !userScrollingAwayRef.current) scrollToBottom("auto");
+      });
+    });
+    if (container.firstElementChild) observer?.observe(container.firstElementChild);
     return () => {
+      unbindIntent();
+      observer?.disconnect();
       container.removeEventListener("scroll", handleScrollPositionChange);
+      if (liveFollowFrameRef.current !== null) {
+        cancelAnimationFrame(liveFollowFrameRef.current);
+        liveFollowFrameRef.current = null;
+      }
     };
-  }, [messages.length, loading, handleScrollPositionChange]);
+  }, [messages.length, loading, handleScrollPositionChange, scrollToBottom]);
 
   useEffect(() => {
     if (!agentRunning) setPromptAnchorActive(false);

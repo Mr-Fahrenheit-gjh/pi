@@ -18,6 +18,8 @@ interface DragState {
   target: HTMLDivElement;
   previousCursor: string;
   previousUserSelect: string;
+  moved: boolean;
+  shield: HTMLDivElement | null;
 }
 
 interface UseResizablePanelOptions {
@@ -126,23 +128,30 @@ export function useResizablePanel(options: UseResizablePanelOptions) {
   // Fits the panel to the window again: as it is now, or the user's size
   // (a drag under way keeps the size under the pointer).
   const fitWidth = useCallback(() => {
-    commitWidth(persistClamp || dragRef.current ? widthRef.current : preferredRef.current);
+    commitWidth(persistClamp || dragRef.current ? widthRef.current : preferredRef.current, {
+      persist: !dragRef.current,
+    });
   }, [commitWidth, persistClamp, widthRef]);
 
   const restoreBodyState = useCallback((drag: DragState) => {
     document.body.style.cursor = drag.previousCursor;
     document.body.style.userSelect = drag.previousUserSelect;
+    drag.shield?.remove();
   }, []);
 
-  const finishResize = useCallback((pointerId: number) => {
+  const finishResize = useCallback((pointerId: number, cancelled = false) => {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== pointerId) return;
     dragRef.current = null;
     restoreBodyState(drag);
     setIsResizing(false);
-    // Kept apart from the size shown, the user's size changes only when the
-    // drag moved: a plain click would save what a short window clamped it to.
-    commitWidth(widthRef.current, { forcePersist: persistClamp || widthRef.current !== drag.startWidth });
+    // A click, cancelled pointer or Escape never overwrites the saved choice.
+    const nextWidth = commitWidth(cancelled ? drag.startWidth : widthRef.current, {
+      persist: !cancelled && drag.moved,
+      forcePersist: !cancelled && drag.moved,
+    });
+    drag.target.setAttribute("aria-valuenow", String(nextWidth));
+    drag.target.setAttribute("aria-valuetext", `${nextWidth} px`);
 
     try {
       if (drag.target.hasPointerCapture(pointerId)) {
@@ -151,7 +160,7 @@ export function useResizablePanel(options: UseResizablePanelOptions) {
     } catch {
       // The browser may have already released capture after pointer cancellation.
     }
-  }, [commitWidth, persistClamp, restoreBodyState, widthRef]);
+  }, [commitWidth, restoreBodyState, widthRef]);
 
   const onPointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
@@ -171,6 +180,8 @@ export function useResizablePanel(options: UseResizablePanelOptions) {
       target,
       previousCursor: document.body.style.cursor,
       previousUserSelect: document.body.style.userSelect,
+      moved: false,
+      shield: null,
     };
     document.body.style.cursor = axis === "vertical" ? "row-resize" : "col-resize";
     document.body.style.userSelect = "none";
@@ -188,7 +199,23 @@ export function useResizablePanel(options: UseResizablePanelOptions) {
 
     const direction = growthDirection === "right" || growthDirection === "down" ? 1 : -1;
     const position = axis === "vertical" ? event.clientY : event.clientX;
-    const nextWidth = clampWidth(drag.startWidth + ((position - drag.startPosition) * direction));
+    const delta = position - drag.startPosition;
+    if (!drag.moved) {
+      if (Math.abs(delta) < 4) return;
+      drag.moved = true;
+      // A real hit-test shield, not a pointer-events:none overlay: keep embedded
+      // previews from swallowing the pointer when crossing their frame boundary.
+      const shield = document.createElement("div");
+      shield.setAttribute("data-panel-drag-shield", "");
+      shield.setAttribute("aria-hidden", "true");
+      Object.assign(shield.style, {
+        position: "fixed", inset: "0", zIndex: "2147483647",
+        cursor: document.body.style.cursor, touchAction: "none", userSelect: "none",
+      });
+      document.body.appendChild(shield);
+      drag.shield = shield;
+    }
+    const nextWidth = clampWidth(drag.startWidth + (delta * direction));
     applyLiveWidth(nextWidth);
     event.currentTarget.setAttribute("aria-valuenow", String(nextWidth));
     event.currentTarget.setAttribute("aria-valuetext", `${nextWidth} px`);
@@ -199,11 +226,11 @@ export function useResizablePanel(options: UseResizablePanelOptions) {
   }, [finishResize]);
 
   const onPointerCancel = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    finishResize(event.pointerId);
+    finishResize(event.pointerId, true);
   }, [finishResize]);
 
   const onLostPointerCapture = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    finishResize(event.pointerId);
+    finishResize(event.pointerId, true);
   }, [finishResize]);
 
   const resetWidth = useCallback(() => {
@@ -274,15 +301,23 @@ export function useResizablePanel(options: UseResizablePanelOptions) {
     if (!isResizing) return;
     const cancelResize = () => {
       const drag = dragRef.current;
-      if (drag) finishResize(drag.pointerId);
+      if (drag) finishResize(drag.pointerId, true);
+    };
+    const onEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape" || !dragRef.current) return;
+      event.preventDefault();
+      event.stopPropagation();
+      cancelResize();
     };
     const onVisibilityChange = () => {
       if (document.visibilityState !== "visible") cancelResize();
     };
     window.addEventListener("blur", cancelResize);
+    window.addEventListener("keydown", onEscape, true);
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       window.removeEventListener("blur", cancelResize);
+      window.removeEventListener("keydown", onEscape, true);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [finishResize, isResizing]);

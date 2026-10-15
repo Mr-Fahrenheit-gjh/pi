@@ -12,6 +12,11 @@
     "components/TerminalPanel.tsx": ["is-toolbarless", "data-terminal-status", "terminal-ghostty"],
     "components/FileViewer.tsx": ["srcDoc=", "sandbox=\"allow-scripts\"", "effectiveDisplayMode"],
     "components/ChatWindow.tsx": ["data-process-details"],
+    "hooks/useAgentSession.ts": ["bindChatScrollIntent", "userScrollingAwayRef"],
+    "hooks/useResizablePanel.ts": ["data-panel-drag-shield", "event.key !== \"Escape\""],
+    "components/ImagePreview.tsx": ["zoomImageAt", "image-preview-viewport"],
+    "lib/chat-scroll-intent.ts": ["bindChatScrollIntent"],
+    "lib/image-viewport.ts": ["zoomImageAt", "clampImageTransform"],
     "lib/package-subagent-bridge.ts": ["export"],
     "app/api/agent/[id]/subagents/route.ts": ["export"]
   }
