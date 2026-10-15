@@ -65,6 +65,15 @@ test("the menu waits for the client before portaling, so server markup is empty"
   assert.equal(html, "");
 });
 
+test("independent view toggles use checkbox semantics without changing existing radio choices", () => {
+  const html = surface({ items: [
+    { type: "item", id: "ignored", label: "Ignored files", checked: true, checkType: "checkbox", onSelect: noop },
+    { type: "item", id: "branch", label: "main", checked: true, onSelect: noop },
+  ] });
+  assert.match(html, /role="menuitemcheckbox"[^>]*aria-checked="true"/);
+  assert.match(html, /role="menuitemradio"[^>]*aria-checked="true"/);
+});
+
 test("desktop menu markup: menu roles, check marks, shortcuts, notes and disabled reasons", () => {
   const html = surface();
   assert.match(html, /^<div class="sidebar-menu" role="menu" aria-label="Session actions" style="width:208px">/);

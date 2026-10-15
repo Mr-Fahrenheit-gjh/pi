@@ -32,6 +32,16 @@ function renderMessage(message, props = {}) {
   );
 }
 
+test("per-message accounting is preserved behind a closed, keyboard-accessible disclosure", () => {
+  const message = { role: "assistant", content: [{ type: "text", text: "Answer" }], usage: { input: 123, output: 45, cacheRead: 67, cacheWrite: 0, cost: { total: .12 } } };
+  const html = renderMessage(message);
+  assert.match(html, /<details class="message-usage"><summary title="Message usage" aria-label="Message usage">/);
+  assert.doesNotMatch(html, /<details[^>]*open/);
+  assert.match(html, /class="message-usage-content">123 in · 45 out · 67 cache R<\/div>/);
+  assert.doesNotMatch(html, /\$0\.1200/);
+  assert.doesNotMatch(renderMessage({ ...message, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: { total: 0 } } }), /class="message-usage"/);
+});
+
 test("shows model maker icons beside the name, including gateway-hosted models", () => {
   for (const [provider, model, symbol] of [
     ["openai-codex", "gpt-6.1-sol", "openai"],

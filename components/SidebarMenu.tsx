@@ -54,6 +54,8 @@ export type SidebarMenuItem =
       title?: string;
       /** A choice: shows a check mark (true) or an empty slot (false) instead of `icon`. */
       checked?: boolean;
+      /** Independent toggles use checkbox; mutually exclusive choices default to radio. */
+      checkType?: "checkbox" | "radio";
       mono?: boolean;
       /** A path (or a branch): cut at its left, where it differs least. */
       path?: boolean;
@@ -416,7 +418,7 @@ function MenuItemButton({ item, onActivate }: { item: ActionItem; onActivate: Si
   const button = (
     <button
       type="button"
-      role={choice ? "menuitemradio" : "menuitem"}
+      role={choice ? item.checkType === "checkbox" ? "menuitemcheckbox" : "menuitemradio" : "menuitem"}
       aria-checked={choice ? item.checked : undefined}
       aria-disabled={item.disabled ? true : undefined}
       aria-keyshortcuts={item.shortcut && !item.disabled ? item.shortcut.toUpperCase() : undefined}

@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   return NextResponse.json({ supported, reason, platform: process.platform });
 }
 
-/** Opens the session workspace in the OS file manager. */
+/** Opens the workspace, or reveals an allowed file, in the OS file manager. */
 export async function POST(request: Request) {
   try {
     const { supported, reason } = availabilityFor(request);
@@ -28,7 +28,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: reason }, { status: 403 });
     }
 
-    const body = await request.json() as { cwd?: unknown };
+    const body = await request.json() as { cwd?: unknown; reveal?: unknown };
+    if (body.reveal !== undefined && typeof body.reveal !== "boolean") {
+      return NextResponse.json({ error: "invalid-reveal" }, { status: 400 });
+    }
     if (typeof body.cwd !== "string" || !body.cwd.trim()) {
       return NextResponse.json({ error: "cwd-required" }, { status: 400 });
     }
@@ -39,11 +42,12 @@ export async function POST(request: Request) {
     if (!isExistingFilePathAllowed(target, roots)) {
       return NextResponse.json({ error: "access-denied" }, { status: 403 });
     }
-    if (!(await stat(target)).isDirectory()) {
-      return NextResponse.json({ error: "not-a-directory" }, { status: 400 });
+    const info = await stat(target);
+    if (body.reveal ? !info.isFile() : !info.isDirectory()) {
+      return NextResponse.json({ error: body.reveal ? "not-a-file" : "not-a-directory" }, { status: 400 });
     }
 
-    await launchFileManager(target);
+    await launchFileManager(target, process.platform, body.reveal === true);
     return NextResponse.json({ opened: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });

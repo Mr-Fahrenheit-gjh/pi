@@ -1286,15 +1286,15 @@ a.session-tree-main {
 }
 
 /* The keys' group, right-aligned by the toggle before it: never under its
-   seven keys' minimum (no shrink from 7 x 18px), never over their maximum
-   (7 x 26px). Its grow factor, far above the toggle's, gives it the room
+   four keys' minimum (no shrink from 4 x 18px), never over their maximum
+   (4 x 26px). Its grow factor, far above the toggle's, gives it the room
    the toggle's content leaves until the keys reach 26px; the toggle gets
    the rest (a fraction of a pixel until then). */
 .sidebar-files-keys {
   display: flex;
-  flex: 1000 0 calc(7 * 18px);
+  flex: 1000 0 calc(4 * 18px);
   align-items: center;
-  max-width: calc(7 * 26px);
+  max-width: calc(4 * 26px);
 }
 
 /* The section's keys: the files tab's square keys, a step under the row's

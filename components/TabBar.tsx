@@ -32,6 +32,7 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab }: Props) {
 
   return (
     <div
+      className="file-workspace-tabs"
       role="tablist"
       style={{
         display: "flex",

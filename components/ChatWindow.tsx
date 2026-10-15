@@ -981,6 +981,8 @@ export function ChatWindow({ session, packageTarget, onReturnToMain, showSubagen
       onBuiltinCommand={handleBuiltinSlashCommand}
       soundEnabled={soundEnabled}
       onSoundToggle={onSoundToggle}
+      contextUsage={contextUsage}
+      onContextUsageClick={onSessionStatsPanelOpen}
       onAudioUnlock={unlockAudio}
       draftKey={session?.id ?? newSessionDraftKey ?? undefined}
       cwd={session?.cwd ?? newSessionCwd}

@@ -81,6 +81,7 @@ import { DirectoryPicker } from "./DirectoryPicker";
 import { DismissButton } from "./DismissButton";
 import { FileExplorer, type FileExplorerHandle } from "./FileExplorer";
 import { PiWebTitle } from "./PiWebTitle";
+import { ActionMenuButton } from "./ActionMenuButton";
 import { ProjectWorktreePicker, type ProjectWorktreePickerHandle, type WorktreeRemoval } from "./ProjectWorktreePicker";
 import { SessionSearch } from "./SessionSearch";
 import { SessionTree, sessionRowTitle, type SessionTreeReveal } from "./SessionTree";
@@ -93,7 +94,6 @@ import {
   ChevronIcon,
   DotIcon,
   DotOutlineIcon,
-  EyeIcon,
   FolderIcon,
   MessageIcon,
   ForkIcon,
@@ -2435,67 +2435,39 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
       <TerminalIcon size={keyIconSize} />
     </ToolbarIconButton>
   );
-  const fileManagerButton = (
-    <ToolbarIconButton
-      onClick={() => {
-        void openInFileManager().then((failed) => {
-          // Its failure shows in the files' body. Below the sessions this key
-          // is in the header row, there while the section is folded too: a
-          // folded section opens, else the message would wait unseen.
-          if (failed && stacked) setFilesSectionCollapsed(false);
-        });
-      }}
-      disabled={!explorerCwd || fileManagerUnavailable}
-      title={fileManagerUnavailable
-        ? t(fileManager?.reason === "remote" ? "sidebar.openInExplorerRemoteOnly" : "sidebar.openInExplorerUnsupported")
-        : fileManagerLabel}
-    >
-      <FolderIcon size={keyIconSize} />
-    </ToolbarIconButton>
-  );
-  const uploadButton = (
-    <ToolbarIconButton
-      onClick={() => {
-        // The upload's progress and summary are the tree's: a folded section opens.
-        if (stacked && filesCollapsed) setFilesSectionCollapsed(false);
-        fileExplorerRef.current?.openUploadPicker();
-      }}
-      disabled={!explorerCwd || explorerUploadBusy}
-      title={t("sidebar.uploadFilesTitle")}
-    >
-      <UploadIcon size={keyIconSize} />
-    </ToolbarIconButton>
-  );
-  const refreshButton = (
-    <ToolbarIconButton
-      onClick={() => {
-        if (onExplorerRefresh) onExplorerRefresh();
-        else setExplorerKey((k) => k + 1);
-        setExplorerRefreshDone(true);
-        if (explorerRefreshTimerRef.current) clearTimeout(explorerRefreshTimerRef.current);
-        explorerRefreshTimerRef.current = setTimeout(() => setExplorerRefreshDone(false), 2000);
-      }}
+  const fileOptions = (
+    <ActionMenuButton
+      key={explorerCwd}
+      className="sidebar-file-options"
+      label={t("sidebar.moreFileActions")}
+      mobile={isMobile}
       disabled={!explorerCwd}
-      title={t("sidebar.refreshExplorer")}
-      done={explorerRefreshDone}
+      items={[
+        { type: "item", id: "file-manager", label: fileManagerLabel, icon: <FolderIcon />, disabled: fileManagerUnavailable, disabledReason: fileManagerUnavailable ? t(fileManager?.reason === "remote" ? "sidebar.openInExplorerRemoteOnly" : "sidebar.openInExplorerUnsupported") : undefined, onSelect: () => {
+          void openInFileManager().then((failed) => { if (failed && stacked) setFilesSectionCollapsed(false); });
+        } },
+        { type: "item", id: "upload", label: t("sidebar.uploadFilesTitle"), icon: <UploadIcon />, disabled: explorerUploadBusy, onSelect: () => {
+          // Keep the explorer mounted, but reveal its upload progress if folded.
+          if (stacked && filesCollapsed) setFilesSectionCollapsed(false);
+          fileExplorerRef.current?.openUploadPicker();
+        } },
+        { type: "item", id: "refresh", label: t("sidebar.refreshExplorer"), icon: explorerRefreshDone ? <CheckIcon /> : <RefreshIcon />, onSelect: () => {
+          if (onExplorerRefresh) onExplorerRefresh();
+          else setExplorerKey((k) => k + 1);
+          setExplorerRefreshDone(true);
+          if (explorerRefreshTimerRef.current) clearTimeout(explorerRefreshTimerRef.current);
+          explorerRefreshTimerRef.current = setTimeout(() => setExplorerRefreshDone(false), 2000);
+        } },
+        { type: "separator", id: "views" },
+        { type: "item", id: "ignored", label: t("sidebar.showIgnoredFiles"), checked: showIgnoredFiles, checkType: "checkbox", onSelect: () => {
+          const next = !showIgnoredFiles;
+          setShowIgnoredFiles(next);
+          saveShowIgnoredFiles(next);
+        } },
+      ]}
     >
-      {explorerRefreshDone ? <CheckIcon size={keyIconSize} /> : <RefreshIcon size={keyIconSize} />}
-    </ToolbarIconButton>
-  );
-  const ignoredFilesButton = (className?: string) => (
-    <ToolbarIconButton
-      onClick={() => {
-        const next = !showIgnoredFiles;
-        setShowIgnoredFiles(next);
-        saveShowIgnoredFiles(next);
-      }}
-      disabled={!explorerCwd}
-      title={t("sidebar.showIgnoredFiles")}
-      pressed={showIgnoredFiles}
-      className={className}
-    >
-      <EyeIcon size={keyIconSize} />
-    </ToolbarIconButton>
+      {explorerRefreshDone ? <CheckIcon size={keyIconSize} /> : undefined}
+    </ActionMenuButton>
   );
   // The tree's second view, its changes: there without changes too,
   // disabled, so nothing moves as an agent edits files and commits.
@@ -2760,11 +2732,8 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
             </button>
             <div className="sidebar-files-keys" role="group" aria-label={t("sidebar.fileActions")}>
               {terminalButton}
-              {fileManagerButton}
-              {uploadButton}
-              {refreshButton}
-              {ignoredFilesButton()}
               {changesButton}
+              {fileOptions}
               <ToolbarIconButton
                 onClick={() => {
                   // Folded, the section opens first, with the field open and focused.
@@ -2831,11 +2800,8 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
             {!stacked && explorerCwd && (
               <div className="sidebar-files-actions" role="group" aria-label={t("sidebar.fileActions")}>
                 {onOpenTerminal && terminalButton}
-                {fileManagerButton}
-                {uploadButton}
-                {refreshButton}
-                {ignoredFilesButton("sidebar-files-views-start")}
                 {changesButton}
+                {fileOptions}
               </div>
             )}
           </div>

@@ -43,8 +43,12 @@ function actionsRow(html) {
 
 /** Each key's name and state, in order (as SessionSidebar.test.mjs reads the stacked row's). */
 function keyLabels(markup) {
-  return [...markup.matchAll(/<button type="button"( disabled="")? title="([^"]+)" aria-label="\2"( aria-pressed="(true|false)")?( aria-expanded="(true|false)" aria-controls="[^"]+")? class="[^"]+"/g)]
-    .map((match) => `${match[2]}${match[1] ? " (disabled)" : ""}${match[4] ? ` pressed=${match[4]}` : ""}${match[6] ? ` expanded=${match[6]}` : ""}`);
+  return [...markup.matchAll(/<button\b([^>]*)>/g)].map(([, attrs]) => {
+    const label = attrs.match(/aria-label="([^"]+)"/)?.[1];
+    const pressed = attrs.match(/aria-pressed="([^"]+)"/)?.[1];
+    const expanded = attrs.match(/aria-expanded="([^"]+)"/)?.[1];
+    return `${label}${/\bdisabled=""/.test(attrs) ? " (disabled)" : ""}${pressed ? ` pressed=${pressed}` : ""}${expanded ? ` expanded=${expanded}` : ""}`;
+  });
 }
 
 test("the fixture stands in for the whole hook module", async () => {
@@ -69,35 +73,22 @@ test("the tabs layout renders its tabs, no brand and no files section header", (
   assert.doesNotMatch(html, /aria-controls="file-search-input"/);
 });
 
-test("the files tab's keys: the folder's four, then the tree's two views, always the same", () => {
+test("the files tab keeps terminal and changes direct and secondary actions in one menu", () => {
   const row = actionsRow(render({ selectedCwd: "/work/alpha", onOpenTerminal: noop }));
   assert.match(row, /^<div class="sidebar-files-actions" role="group" aria-label="File actions">/);
-  // The changes view is there without changes too, disabled, and its count
-  // is the tab's.
   assert.deepEqual(keyLabels(row), [
     "Open workspace terminal",
-    "Open in file manager",
-    "Upload files to project root",
-    "Refresh file list",
-    "Show ignored files pressed=false",
     "0 changed files (disabled) pressed=false",
+    "More file actions expanded=false",
   ]);
-  // The tree's views start at the right end.
-  assert.match(row, /title="Show ignored files" aria-label="Show ignored files" aria-pressed="false" class="sidebar-tool-button sidebar-files-views-start"/);
-  assert.equal((row.match(/sidebar-files-views-start/g) ?? []).length, 1);
-  // Their icons stay 14px here (the section header row's are 13px).
-  assert.deepEqual([...row.matchAll(/<svg width="(\d+)" height="(\d+)"/g)].map((match) => `${match[1]}x${match[2]}`), Array(6).fill("14x14"));
+  assert.match(row, /aria-haspopup="menu"/);
+  assert.doesNotMatch(row, /aria-label="(?:Open in file manager|Upload files to project root|Refresh file list|Show ignored files)"/);
+  assert.deepEqual([...row.matchAll(/<svg width="(\d+)" height="(\d+)"/g)].map((match) => `${match[1]}x${match[2]}`), ["14x14", "14x14", "16x16"]);
 
-  // Without a terminal (no onOpenTerminal) the other five stay; the files
-  // tab leaves it out where the row below the sessions disables it.
+  // Without a terminal handler the changes and options stay.
   assert.deepEqual(keyLabels(actionsRow(render({ selectedCwd: "/work/alpha" }))), [
-    "Open in file manager",
-    "Upload files to project root",
-    "Refresh file list",
-    "Show ignored files pressed=false",
     "0 changed files (disabled) pressed=false",
+    "More file actions expanded=false",
   ]);
-
-  // Without a folder there is nothing to act on: no row.
   assert.doesNotMatch(render(), /sidebar-files-actions/);
 });

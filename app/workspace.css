@@ -1,0 +1,362 @@
+/* Content first: a quiet application shell, not another theme.
+   Keep the user's fonts, content scale, theme palette and Pi logo unchanged. */
+:root {
+  --workspace-divider: color-mix(in srgb, var(--border) 66%, transparent);
+}
+
+.quiet-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  gap: 6px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  transition: background 120ms, color 120ms;
+}
+.quiet-action-button:hover,
+.quiet-action-button[aria-expanded="true"],
+.quiet-action-button[aria-pressed="true"] {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.quiet-action-button:disabled {
+  opacity: .4;
+  cursor: default;
+}
+.quiet-action-button:focus-visible,
+.composer-stop:focus-visible,
+.composer-send-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.workspace-settings-entry {
+  display: flex;
+  flex-shrink: 0;
+  padding: 8px 12px;
+}
+.workspace-settings-entry > button {
+  justify-content: flex-start !important;
+  padding: 0 10px !important;
+}
+.workspace-session-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.workspace-title-menu {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+  max-width: min(480px, calc(100% - 36px));
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 8px;
+  color: var(--text);
+}
+.workspace-title-menu > svg {
+  flex-shrink: 0;
+}
+.workspace-header-spacer {
+  flex: 1;
+  min-width: 0;
+}
+.workspace-title-status {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.workspace-session-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+.workspace-agent-button {
+  width: auto;
+  padding: 0 8px;
+  font-size: 12px;
+}
+.workspace-agent-count {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.sidebar-file-options {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+}
+.sidebar-files-keys .sidebar-file-options {
+  flex: 1 1 0;
+  min-width: 18px;
+  max-width: 26px;
+  height: 26px;
+}
+
+/* The composer is one object. Notices and permission requests remain outside it. */
+.composer-card {
+  container-type: inline-size;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 16px;
+  background: var(--bg);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 3%, transparent);
+  transition: border-color 150ms;
+}
+.composer-card:focus-within {
+  border-color: color-mix(in srgb, var(--text-muted) 48%, var(--border));
+}
+.composer-entry {
+  border: 0 !important;
+  border-radius: 16px 16px 0 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 14px 12px 6px 16px !important;
+}
+.composer-card .chat-input-controls {
+  margin-top: 0 !important;
+  padding: 2px 8px 6px;
+}
+.composer-options {
+  border-color: var(--workspace-divider) !important;
+  background: var(--bg) !important;
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--text) 9%, transparent) !important;
+}
+.composer-stop,
+.composer-send-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: var(--bg-panel);
+  color: var(--text);
+  cursor: pointer;
+}
+.composer-send-button {
+  align-self: flex-end;
+}
+.composer-send-button:not(:disabled) {
+  background: var(--text);
+  color: var(--bg);
+}
+.composer-send-button:disabled {
+  color: var(--text-dim);
+  cursor: not-allowed;
+}
+.composer-stop:hover {
+  background: var(--bg-hover);
+}
+.composer-send-button:not(:disabled):hover {
+  opacity: .85;
+}
+.context-usage-ring {
+  width: 28px;
+  height: 28px;
+  color: var(--text-muted);
+}
+
+/* File actions are unboxed until hovered; mode selection is a single group. */
+.file-viewer-shell {
+  container-type: inline-size;
+}
+.file-viewer-live-indicator {
+  width: 5px;
+  height: 5px;
+  flex-basis: 5px;
+  box-shadow: none !important;
+}
+.file-viewer-toolbar {
+  border-bottom-color: var(--workspace-divider) !important;
+}
+.file-viewer-icon-button {
+  border-color: transparent;
+  background: transparent;
+}
+.file-viewer-mode-switch {
+  padding: 2px;
+  height: 27px;
+  border-color: transparent;
+  border-radius: 6px;
+  background: var(--bg-panel);
+}
+.file-viewer-mode-button {
+  border-left: 0;
+  border-radius: 4px;
+}
+.file-local-actions {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+}
+.file-reveal-button {
+  flex: 0 0 auto;
+  width: auto;
+  gap: 4px;
+  padding: 0 6px;
+  font-size: 11px;
+}
+.file-reveal-error {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 10;
+  width: max-content;
+  max-width: 220px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  white-space: normal;
+}
+
+/* Detailed per-message accounting is a disclosure, not another line of prose. */
+.message-usage {
+  position: relative;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+.message-usage > summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  border-radius: 5px;
+  list-style: none;
+  cursor: pointer;
+}
+.message-usage > summary::-webkit-details-marker {
+  display: none;
+}
+.message-usage > summary:hover,
+.message-usage[open] > summary {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.message-usage > summary:focus-visible {
+  outline: 2px solid var(--accent);
+}
+.message-usage-content {
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 0;
+  z-index: 20;
+  width: max-content;
+  max-width: min(360px, 70vw);
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text-muted);
+  line-height: 1.5;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+@container (max-width: 520px) {
+  .file-viewer-meta {
+    display: none;
+  }
+}
+
+@media (min-width: 641px) {
+  .composer-options {
+    max-width: calc(100cqw - 16px) !important;
+    flex-wrap: wrap !important;
+  }
+  .workspace-topbar-row {
+    height: 52px !important;
+    gap: 4px;
+    padding: 0 12px;
+    background: var(--bg);
+    border-bottom-color: transparent !important;
+  }
+  .workspace-topbar-row > button {
+    height: 32px !important;
+    border: 0 !important;
+    border-radius: 7px;
+  }
+  .sidebar-header {
+    height: 52px;
+    min-height: 52px;
+  }
+  .file-workspace-header {
+    height: 52px !important;
+    gap: 4px;
+    padding-right: 8px;
+    background: var(--bg) !important;
+    border-bottom-color: transparent !important;
+  }
+  .file-workspace-tabs {
+    height: 52px !important;
+    padding: 8px;
+    align-items: center !important;
+    gap: 4px;
+    background: transparent !important;
+  }
+  .file-workspace-tabs [role="tab"] {
+    height: 32px !important;
+    border: 0 !important;
+    border-radius: 6px;
+    background: transparent !important;
+  }
+  .file-workspace-tabs [role="tab"][aria-selected="true"] {
+    background: var(--bg-panel) !important;
+  }
+  .file-workspace-header > button {
+    width: 32px !important;
+    height: 32px !important;
+    border: 0 !important;
+    border-radius: 7px;
+    background: transparent !important;
+  }
+  .file-workspace-header > button:hover {
+    background: var(--bg-hover) !important;
+  }
+  .sidebar-files-section {
+    border-top-color: var(--workspace-divider);
+  }
+  .chat-input-shell {
+    padding-bottom: 14px !important;
+  }
+  /* Detailed build versions belong in About; keep update notices available. */
+  .new-session-meta > span {
+    display: none;
+  }
+  .new-session-meta:has(.new-session-update) {
+    display: flex;
+  }
+  .new-session-meta:not(:has(.new-session-update)) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quiet-action-button,
+  .composer-card {
+    transition: none;
+  }
+}

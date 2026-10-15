@@ -52,6 +52,8 @@ test("follow-up shortcuts preserve newline, IME, mobile and completion behavior"
   }).outputText);
   const cases = [
     ["Enter steers", {}, {}, "steer"],
+    ["the running-send preference routes Enter to follow-up", {}, { runningSendMode: "followup" }, "followup"],
+    ["the preference falls back to steer if follow-up is unavailable", {}, { runningSendMode: "followup", onFollowUp: undefined }, "steer"],
     ["Alt+Enter follows up", { altKey: true }, {}, "followup"],
     ["idle Alt+Enter sends", { altKey: true }, { isStreaming: false }, "send"],
     ["Shift+Enter inserts a newline", { shiftKey: true }, {}, "native"],
@@ -88,7 +90,7 @@ test("follow-up shortcuts preserve newline, IME, mobile and completion behavior"
     const handler = script.runInNewContext({
       Date: { now: () => 1000 },
       COMPOSITION_END_ENTER_GRACE_MS: 100,
-      isMobile: false, isStreaming: true, enterSendMode: "enter",
+      isMobile: false, isStreaming: true, enterSendMode: "enter", runningSendMode: "steer",
       isComposingRef: { current: false }, lastCompositionEndAtRef: { current: 0 },
       historyMenuOpen: false, inputHistory: ["previous"], historyActiveIndex: 0,
       slashMenuOpen: false, slashQuery: null, displayedSlashCommands: [{}], slashActiveIndex: 0,
@@ -403,7 +405,8 @@ test("renders the compact composer with the standard Send button and no session 
   );
 
   assert.match(html, /<textarea/);
-  assert.match(html, />Send<\/button>/);
+  assert.match(html, /aria-label="Send"/);
+  assert.doesNotMatch(html, />Send<\/button>/);
   assert.equal((html.match(/<button\b/g) ?? []).length, 1);
   assert.doesNotMatch(html, /type="file"|Attach files|Change tool preset/);
 });

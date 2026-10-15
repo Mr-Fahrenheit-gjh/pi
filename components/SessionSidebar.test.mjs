@@ -135,7 +135,7 @@ test("on a desktop the files sit below the sessions by default, both in view", (
   assert.equal(files, '<div id="session-sidebar-panel-files" role="region" aria-label="Files" class="sidebar-panel sidebar-files-panel">');
   const separator = html.slice(html.indexOf('role="separator"') - 200, html.indexOf(files));
   assert.ok(html.indexOf(sessions) < html.indexOf('role="separator"') && html.indexOf('role="separator"') < html.indexOf(files), "sessions, separator, files");
-  assert.match(separator, /<div aria-label="Resize file browser" aria-orientation="horizontal" aria-valuemax="2000" aria-valuemin="220" aria-valuenow="320" aria-valuetext="320 px" role="separator" tabindex="0" aria-controls="session-sidebar-panel-files" class="panel-resize-handle sidebar-files-resize-handle" data-resize-handle="sidebar-files" title="Resize file browser: Drag to resize\. Double-click or press Enter to reset\."><\/div>$/);
+  assert.match(separator, /<div aria-label="Resize file browser" aria-orientation="horizontal" aria-valuemax="2000" aria-valuemin="220" aria-valuenow="320" aria-valuetext="320 px" role="separator" tabindex="0" aria-controls="session-sidebar-panel-files" class="panel-resize-handle sidebar-files-resize-handle" data-resize-handle="sidebar-files" title="Resize file browser: Drag to resize\. Double-click or press Enter to reset\. Esc cancels a drag\."><\/div>$/);
   // The files section: one header row (folds it; the files' keys at its
   // end in the files tab's order, the file search last), then its body: the
   // picker's one row and the tree. No row of keys under the picker; nothing
@@ -183,8 +183,12 @@ function sectionKeys(html) {
 
 /** Each key's name and state, in order. */
 function keyLabels(markup) {
-  return [...markup.matchAll(/<button type="button"( disabled="")? title="([^"]+)" aria-label="\2"( aria-pressed="(true|false)")?( aria-expanded="(true|false)" aria-controls="[^"]+")? class="[^"]+"/g)]
-    .map((match) => `${match[2]}${match[1] ? " (disabled)" : ""}${match[4] ? ` pressed=${match[4]}` : ""}${match[6] ? ` expanded=${match[6]}` : ""}`);
+  return [...markup.matchAll(/<button\b([^>]*)>/g)].map(([, attrs]) => {
+    const label = attrs.match(/aria-label="([^"]+)"/)?.[1];
+    const pressed = attrs.match(/aria-pressed="([^"]+)"/)?.[1];
+    const expanded = attrs.match(/aria-expanded="([^"]+)"/)?.[1];
+    return `${label}${/\bdisabled=""/.test(attrs) ? " (disabled)" : ""}${pressed ? ` pressed=${pressed}` : ""}${expanded ? ` expanded=${expanded}` : ""}`;
+  });
 }
 
 /** A rule's declarations in app/sidebar.css (its first rule for the selector). */
@@ -213,27 +217,19 @@ function filesInsetRight(scrollbar) {
 test("below the sessions the section's header row holds the files' keys in the files tab's order, the search last", () => {
   const html = render({ selectedCwd: "/work/alpha", onOpenTerminal: noop });
   const keys = sectionKeys(html);
-  // A group of their own (the picker's names only the project and
-  // worktree), in the files tab's order: the folder's actions, then the
-  // tree's two views (what it lists, its changes), then the file search,
-  // which the files tab leaves to the toolbar row. The search is the
-  // files' (the toolbar row's is the sessions'), an expandable control,
-  // not a toggle. Seven keys always there, so none ever moves.
+  // Keep terminal, changed files and search direct. Secondary file actions
+  // share one accessible menu instead of competing with the folder label.
   assert.match(keys, /^<div class="sidebar-files-keys" role="group" aria-label="File actions">/);
   assert.deepEqual(keyLabels(keys), [
     "Open workspace terminal",
-    "Open in file manager",
-    "Upload files to project root",
-    "Refresh file list",
-    "Show ignored files pressed=false",
     "0 changed files (disabled) pressed=false",
+    "More file actions expanded=false",
     "Search files expanded=false",
   ]);
-  assert.equal((keys.match(/<button /g) ?? []).length, 7);
-  // Their icons are 13px, a size under the files tab's 14px, in the sidebar
-  // icons' one stroke (the files tab's keys keep 14px:
-  // SessionSidebar.tabs.test.mjs).
-  assert.deepEqual([...keys.matchAll(/<svg width="(\d+)" height="(\d+)"[^>]*stroke-width="(\d+)"/g)].map((match) => match.slice(1).join(",")), Array(7).fill("13,13,2"));
+  assert.equal((keys.match(/<button /g) ?? []).length, 4);
+  assert.match(keys, /aria-haspopup="menu"/);
+  assert.doesNotMatch(keys, /aria-label="(?:Open in file manager|Upload files to project root|Refresh file list|Show ignored files)"/);
+  assert.deepEqual([...keys.matchAll(/<svg width="(\d+)" height="(\d+)"[^>]*stroke-width="(\d+)"/g)].map((match) => match.slice(1).join(",")), Array(3).fill("13,13,2"));
   // The head under the row is the picker alone: no second row of keys, no
   // search in the toolbar row's place.
   const head = html.slice(html.indexOf('<div class="sidebar-files-head">'), html.indexOf('<div class="sidebar-files-scroll'));
@@ -242,21 +238,18 @@ test("below the sessions the section's header row holds the files' keys in the f
   // terminal without a handler, where the files tab leaves it out.
   assert.deepEqual(keyLabels(sectionKeys(render())), [
     "Open workspace terminal (disabled)",
-    "Open in file manager (disabled)",
-    "Upload files to project root (disabled)",
-    "Refresh file list (disabled)",
-    "Show ignored files (disabled) pressed=false",
     "0 changed files (disabled) pressed=false",
+    "More file actions (disabled) expanded=false",
     "Search files (disabled) expanded=false",
   ]);
   assert.deepEqual(keyLabels(sectionKeys(render({ selectedCwd: "/work/alpha" }))).slice(0, 3), [
     "Open workspace terminal (disabled)",
-    "Open in file manager",
-    "Upload files to project root",
+    "0 changed files (disabled) pressed=false",
+    "More file actions expanded=false",
   ]);
 
   // The keys share their group's width alike, 18 to 26px each. The group
-  // never shrinks under its seven keys' minimum nor grows past their
+  // never shrinks under its four keys' minimum nor grows past their
   // maximum, and its grow factor, far above the toggle's (1), gives it the
   // room the toggle's content leaves before the toggle takes any.
   const keyRule = sidebarRule(".sidebar-files-keys .sidebar-tool-button");
@@ -267,7 +260,7 @@ test("below the sessions the section's header row holds the files' keys in the f
   assert.ok(keysGroup, "the keys' group: a grow factor, no shrink, its keys' minimum and maximum");
   const [, groupGrow, minCount, groupKeyMin, maxCount, groupKeyMax] = keysGroup.map(Number);
   assert.ok(groupGrow >= 1000, "the toggle gets a fraction of a pixel until the keys are at their widest");
-  assert.deepEqual([minCount, groupKeyMin, maxCount, groupKeyMax], [7, keyMin, 7, keyMax]);
+  assert.deepEqual([minCount, groupKeyMin, maxCount, groupKeyMax], [4, keyMin, 4, keyMax]);
   assert.match(sidebarRule(".sidebar-files-section-toggle"), /(?:^|\s)flex: 1 1 auto;/);
 
   // The fit, added up from the CSS: the sidebar's width less its line, the
@@ -286,8 +279,8 @@ test("below the sessions the section's header row holds the files' keys in the f
   const content = (label, count = 0) => 2 * toggleInset + 12 + 3 + label + (count ? 3 + count : 0);
   const fit = (width, toggleContent) => {
     const room = width - 1 - left - right - gap;
-    const key = Math.min(keyMax, Math.max(keyMin, (room - toggleContent) / 7));
-    return { key, toggle: room - 7 * key };
+    const key = Math.min(keyMax, Math.max(keyMin, (room - toggleContent) / 4));
+    return { key, toggle: room - 4 * key };
   };
   // At the default 260px the toggle keeps all of its content, the keys
   // wider than at their minimum: about 21px beside "Files · 123", 24px
@@ -302,7 +295,7 @@ test("below the sessions the section's header row holds the files' keys in the f
   // in it wraps out of view, whole).
   const narrowest = fit(SIDEBAR_MIN_WIDTH, content(34, 26));
   assert.equal(narrowest.key, keyMin);
-  assert.ok(narrowest.toggle >= toggleMin, `${toggleMin} + ${gap} + 7 × ${keyMin} fits ${SIDEBAR_MIN_WIDTH - 1 - left - right}`);
+  assert.ok(narrowest.toggle >= toggleMin, `${toggleMin} + ${gap} + 4 × ${keyMin} fits ${SIDEBAR_MIN_WIDTH - 1 - left - right}`);
 });
 
 test("a key disabled under the focus hands it to the nearest key still enabled, the next one first", () => {

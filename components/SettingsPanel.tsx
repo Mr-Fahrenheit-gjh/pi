@@ -15,6 +15,7 @@ import {
   useChatAppearance,
 } from "@/hooks/useChatAppearance";
 import { useEnterSendMode, setEnterSendMode } from "@/hooks/useEnterSendMode";
+import { useRunningSendMode, setRunningSendMode } from "@/hooks/useRunningSendMode";
 import { useFilesPlacement, setFilesPlacement } from "@/hooks/useFilesPlacement";
 import { sendAgentCommand } from "@/lib/agent-client";
 import type { ProjectTrustStatus, ToolSettingsResponse } from "@/lib/api-types";
@@ -80,6 +81,7 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
   const { preference, setThemePreference } = useTheme();
   const { width: chatContentWidth, setWidth: setChatContentWidth, fontSize, setFontSize } = useChatAppearance();
   const enterSendMode = useEnterSendMode();
+  const runningSendMode = useRunningSendMode();
   const filesPlacement = useFilesPlacement();
   const [shellSettings, setShellSettings] = useState<ToolSettingsResponse | null>(null);
   const [shellSaving, setShellSaving] = useState(false);
@@ -311,6 +313,17 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
                 />
                 <span className="settings-send-mode-label">{t("settings.enterSendModeCtrlEnter")}</span>
               </label>
+            </div>
+          </div>
+          <div className="settings-chat-option settings-chat-switch-option" role="radiogroup" aria-label={t("settings.runningSendMode")}>
+            <span>{t("settings.runningSendMode")}</span>
+            <div className="settings-send-mode-options">
+              {(["steer", "followup"] as const).map(mode => (
+                <label className="settings-send-mode-option" key={mode}>
+                  <input type="radio" name="running-send-mode" value={mode} checked={runningSendMode === mode} onChange={() => setRunningSendMode(mode)} className="sr-only" />
+                  <span className="settings-send-mode-label">{t(mode === "steer" ? "settings.runningSendModeSteer" : "settings.runningSendModeFollowUp")}</span>
+                </label>
+              ))}
             </div>
           </div>
         </div>

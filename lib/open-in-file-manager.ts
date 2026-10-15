@@ -1,5 +1,6 @@
 import { spawn } from "child_process";
 import { isIP } from "net";
+import { dirname } from "path";
 
 const FILE_MANAGER_BY_PLATFORM = new Map<string, string>([
   ["win32", "explorer.exe"],
@@ -13,7 +14,7 @@ export function isFileManagerSupported(platform: string): boolean {
 }
 
 /**
- * Builds the command that opens a directory in the OS file manager.
+ * Opens a directory, or reveals a selected file (its containing directory on Linux).
  * @param platform A Node `process.platform` value
  * @param target The directory to open
  * @returns The command and its arguments, or null on an unsupported platform
@@ -21,9 +22,13 @@ export function isFileManagerSupported(platform: string): boolean {
 export function fileManagerCommand(
   platform: string,
   target: string,
+  reveal = false,
 ): { command: string; args: string[] } | null {
   const command = FILE_MANAGER_BY_PLATFORM.get(platform);
-  return command ? { command, args: [target] } : null;
+  if (!command) return null;
+  if (reveal && platform === "darwin") return { command, args: ["-R", target] };
+  if (reveal && platform === "win32") return { command, args: [`/select,${target}`] };
+  return { command, args: [reveal ? dirname(target) : target] };
 }
 
 /**
@@ -50,10 +55,10 @@ export function isLoopbackHost(host: string | null | undefined): boolean {
 }
 
 /**
- * Opens a directory in the OS file manager.
+ * Opens a directory, or reveals a file, in the OS file manager.
  *
  * On macOS, `open` launches an `.app` bundle instead of showing it, so callers
- * should only pass project directories such as the explorer root.
+ * should only pass project directories such as the explorer root unless revealing.
  * @param target The directory to open (the caller checks access)
  * @param platform A Node `process.platform` value
  * @returns Resolves once the command has started
@@ -61,8 +66,9 @@ export function isLoopbackHost(host: string | null | undefined): boolean {
 export function launchFileManager(
   target: string,
   platform: string = process.platform,
+  reveal = false,
 ): Promise<void> {
-  const spec = fileManagerCommand(platform, target);
+  const spec = fileManagerCommand(platform, target, reveal);
   if (!spec) return Promise.reject(new Error(`Unsupported platform: ${platform}`));
   return new Promise((resolve, reject) => {
     const child = spawn(spec.command, spec.args, { detached: true, stdio: "ignore" });
