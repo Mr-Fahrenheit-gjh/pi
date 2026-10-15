@@ -42,6 +42,29 @@ test("per-message accounting stays absent from the content-first interface", () 
   assert.doesNotMatch(renderMessage({ ...message, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: { total: 0 } } }), /class="message-usage"/);
 });
 
+test("answer bubbles exclude identity, process and footer, preserving content", () => {
+  const content = [{ type: "text", text: "Answer one" }, { type: "text", text: "Answer two" }];
+  const message = { role: "assistant", provider: "openai", model: "gpt-test", content };
+  const html = renderMessage(message, { assistantContent: "answer" });
+  assert.equal((html.match(/class="assistant-answer-bubble"/g) || []).length, 1);
+  assert.ok(html.indexOf("data-model-label") < html.indexOf("assistant-answer-bubble"));
+  assert.ok(html.indexOf("assistant-message-footer") > html.indexOf("Answer two"));
+  assert.match(html, /Answer one/);
+  const mixed = { ...message, content: [{ type: "thinking", thinking: "Internal work" }, ...content] };
+  assert.doesNotMatch(renderMessage(mixed, { assistantContent: "process" }), /assistant-answer-bubble/);
+  assert.ok(renderMessage(mixed).indexOf("Thinking") < renderMessage(mixed).indexOf("assistant-answer-bubble"));
+});
+
+test("footer displays only a positive rate from recorded tokens and request duration", () => {
+  const message = { role: "assistant", content: [{ type: "text", text: "Answer" }], usage: { output: 100 }, durationMs: 4000 };
+  const html = renderMessage(message);
+  assert.match(html, /class="message-output-rate"[^>]*>25.0 t\/s<\/span>/);
+  assert.ok(html.indexOf("assistant-message-footer") < html.indexOf("message-output-rate"));
+  for (const override of [{ durationMs: undefined }, { durationMs: 0 }, { usage: { output: 0 } }]) {
+    assert.doesNotMatch(renderMessage({ ...message, ...override }), /message-output-rate|0.0 t\/s/);
+  }
+});
+
 test("shows model maker icons beside the name, including gateway-hosted models", () => {
   for (const [provider, model, symbol] of [
     ["openai-codex", "gpt-6.1-sol", "openai"],

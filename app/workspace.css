@@ -116,6 +116,31 @@
 .file-explorer [role="treeitem"] { font-family: var(--font-ui); }
 .chat-input-textarea::placeholder { font-family: var(--font-ui); font-weight: 400; }
 .process-toggle { font-family: var(--font-ui); font-weight: 400; letter-spacing: 0; }
+/* Answer-only surface: identity, process, alerts and footer remain siblings. */
+.assistant-answer-bubble {
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 13px 17px;
+  border: 1px solid color-mix(in srgb, var(--text) 11%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg) 70%, var(--bg-panel));
+  overflow-wrap: anywhere;
+}
+.assistant-answer-bubble > *, .assistant-answer-bubble .markdown-body { min-width: 0; max-width: 100%; }
+.assistant-message-footer {
+  min-height: 22px;
+  font-family: var(--font-ui);
+  color: var(--text-dim);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+[data-message-role="assistant"]:hover > .assistant-message-footer,
+.assistant-message-footer:focus-within { opacity: 1; }
+.message-output-rate { font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (hover: none) { .assistant-message-footer { opacity: 1; } }
+@media (max-width: 640px) { .assistant-answer-bubble { padding: 11px 13px; border-radius: 12px; } }
 
 .sidebar-container .session-tree-title {
   font-family: inherit;

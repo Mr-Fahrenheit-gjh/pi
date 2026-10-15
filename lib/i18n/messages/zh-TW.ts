@@ -5,6 +5,8 @@ export const zhTWLocale: LocalePlugin = {
   id: "zh-TW",
   label: "繁體中文",
   messages: {
+    "chat.estimatedOutputRate": "即時估算輸出速度",
+    "chat.recordedOutputRate": "平均輸出速度：輸出 token / 已記錄請求時長（含等待）",
     "settings.showArchived": "在側欄顯示已封存對話",
     "settings.runningSendMode": "執行中傳送",
     "settings.runningSendModeSteer": "引導目前任務",

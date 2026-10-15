@@ -23,7 +23,7 @@ import type { SubagentToolDetails } from "@/lib/subagent-extension";
 import { CODEMODE_TOOL_NAME, codemodeCalls, codemodeScript, codemodeScriptPreview, stripCodemodeHeader } from "@/lib/codemode-view";
 import { CodemodeCallList } from "./CodemodeToolView";
 import { mcpToolLabel, prettyMcpResultText } from "@/lib/mcp-tool-display";
-import { streamRateKey, streamRateStart, streamTokensPerSecond, type StreamRateStart } from "@/lib/stream-token-rate";
+import { recordedOutputTokensPerSecond, streamRateKey, streamRateStart, streamTokensPerSecond, type StreamRateStart } from "@/lib/stream-token-rate";
 import type {
   AgentMessage,
   UserMessage,
@@ -686,10 +686,19 @@ function AssistantMessageView({
       return !assistantContent || (assistantContent === "answer" ? prose : !prose);
     }), [message.content, isStreaming, assistantContent]);
   const blocks = useMemo(() => blockItems.map(({ block }) => block), [blockItems]);
+  const contentGroups = useMemo(() => {
+    const groups: { answer: boolean; items: typeof blockItems }[] = [];
+    for (const item of blockItems) {
+      const answer = item.block.type === "text" || item.block.type === "image";
+      const previous = groups.at(-1);
+      if (previous?.answer === answer) previous.items.push(item);
+      else groups.push({ answer, items: [item] });
+    }
+    return groups;
+  }, [blockItems]);
   const providerError = getAssistantErrorMessage(message, { isStreaming, assistantContent });
   const truncated = assistantContent !== "process" && isAssistantTruncated(message, { isStreaming });
   const unansweredTruncation = truncated && !hasAssistantAnswer(message);
-  const [hovered, setHovered] = useState(false);
   const [copied, setCopied] = useState(false);
   const streamStartRef = useRef<StreamRateStart | null>(null);
   const rateKey = streamRateKey(message, assistantContent ?? "all");
@@ -727,6 +736,7 @@ function AssistantMessageView({
   // records since 1.1 (`durationMs`, from the request's start). Older messages only have
   // timestamps: the time since the previous message.
   const messageDurationMs = message.role === "assistant" ? recordedDurationMs(message.durationMs) : undefined;
+  const outputRate = isStreaming ? tps : recordedOutputTokensPerSecond(message.usage?.output, messageDurationMs);
   const thinkingDurationFromFile = useMemo<number | undefined>(() => {
     const ms = messageDurationMs ?? (message.timestamp && prevTimestamp ? message.timestamp - prevTimestamp : undefined);
     if (ms === undefined) return undefined;
@@ -819,8 +829,6 @@ function AssistantMessageView({
       data-message-role="assistant"
       data-entry-id={entryId}
       style={{ marginBottom: 16 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
       {/* Model label */}
       <div
@@ -839,36 +847,16 @@ function AssistantMessageView({
             <span>{getModelDisplayName(message.provider, message.model, modelNames)}</span>
           </span>
         )}
-        {isStreaming && (() => {
-          const est = Math.round(estimatedTokens);
-          return (
-            <>
 
-              {est > 0 && (
-                <span style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--text)" }} title={t("i18n.estimatedTokens")}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 11, fontWeight: 400 }}>
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="5" y1="1.5" x2="5" y2="8.5" /><polyline points="2 6 5 8.5 8 6" />
-                    </svg>
-                    {est}
-                  </span>
-                  {tps !== null && (() => {
-                    return (
-                      <span style={{ marginLeft: 6, color: "var(--text-dim)", fontSize: 11, fontWeight: 400 }}>
-                        {tps.toFixed(1)} t/s
-                      </span>
-                    );
-                  })()}
-                </span>
-              )}
-            </>
-          );
-        })()}
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {blockItems.map(({ block, originalIndex }) => (
-          <BlockView key={`${entryId ?? "stream"}-${originalIndex}`} block={block} searchTarget={block === searchBlock} toolResults={toolResults} isStreaming={isStreaming} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} />
+        {contentGroups.map(group => (
+          <div key={group.items[0].originalIndex} className={group.answer ? "assistant-answer-bubble" : undefined} style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+            {group.items.map(({ block, originalIndex }) => (
+              <BlockView key={`${entryId ?? "stream"}-${originalIndex}`} block={block} searchTarget={block === searchBlock} toolResults={toolResults} isStreaming={isStreaming} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} />
+            ))}
+          </div>
         ))}
       </div>
 
@@ -941,8 +929,8 @@ function AssistantMessageView({
         <TurnWrittenFiles files={writtenFiles} onOpenFile={onOpenFile} />
       )}
 
-      <div className="message-footer" style={{
-        display: "flex", alignItems: "center", gap: 8, marginTop: 4,
+      <div className="message-footer assistant-message-footer" style={{
+        display: "flex", alignItems: "center", gap: 10, marginTop: 5,
       }}>
         {textContent && !isStreaming && (
           <button
@@ -957,9 +945,7 @@ function AssistantMessageView({
               cursor: "pointer",
               fontSize: 11, fontWeight: 400,
               whiteSpace: "nowrap",
-              opacity: hovered ? 1 : 0,
-              pointerEvents: hovered ? "auto" : "none",
-              transition: "opacity 0.12s, color 0.12s",
+              transition: "color 0.12s",
             }}
             onMouseEnter={(e) => { if (!copied) e.currentTarget.style.color = "var(--accent)"; }}
             onMouseLeave={(e) => { if (!copied) e.currentTarget.style.color = "var(--text-dim)"; }}
@@ -976,6 +962,11 @@ function AssistantMessageView({
             )}
              {copied ? t("i18n.copied") : t("i18n.copy")}
           </button>
+        )}
+        {assistantContent !== "process" && textContent && outputRate !== null && (
+          <span className="message-output-rate" title={t(isStreaming ? "chat.estimatedOutputRate" : "chat.recordedOutputRate")}>
+            {outputRate.toFixed(1)} t/s
+          </span>
         )}
         {time && !isStreaming && (
           <span style={{ fontSize: 10, color: "var(--text-dim)", marginLeft: "auto" }}>{time}</span>

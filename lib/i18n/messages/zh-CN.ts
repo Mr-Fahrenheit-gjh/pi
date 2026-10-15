@@ -5,6 +5,8 @@ export const zhCNLocale: LocalePlugin = {
   id: "zh-CN",
   label: "简体中文",
   messages: {
+    "chat.estimatedOutputRate": "实时估算输出速度",
+    "chat.recordedOutputRate": "平均输出速度：输出 token / 已记录请求时长（含等待）",
     "settings.showArchived": "在侧栏显示已归档对话",
     "settings.runningSendMode": "运行中发送",
     "settings.runningSendModeSteer": "引导当前任务",

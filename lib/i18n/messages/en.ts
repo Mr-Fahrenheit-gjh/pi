@@ -5,6 +5,8 @@ export const enLocale: LocalePlugin = {
   id: "en",
   label: "English",
   messages: {
+    "chat.estimatedOutputRate": "Estimated live output speed",
+    "chat.recordedOutputRate": "Average output tokens / recorded request duration (includes waiting)",
     "settings.showArchived": "Show archived conversations in sidebar",
     "settings.runningSendMode": "Messages while running",
     "settings.runningSendModeSteer": "Guide current task",

@@ -12,6 +12,11 @@ This is the local composition contract layered over the upstream sidebar/session
 - The minimap reserves no permanent column. Rail/lock/preview appear only on hover or keyboard focus, with a compact scrollable preview, normal-weight text and theme-derived colours. Leave the real scrollbar usable.
 - ChatWindow does not mount the bottom extension status/widget shelf. This is a presentation decision only: keep extension state/protocol and blocking permission/input/custom UI functional.
 
+## Answer surfaces
+- Wrap only contiguous assistant text/image blocks in a left-aligned lightweight bubble. Keep model icon/name, process/tool blocks, alerts, written files and copy/speed footer outside it. Preserve original block indices, streaming, answer/code fonts and markdown scrolling.
+- Answer background is a theme-derived neutral surface distinct from the existing user bubble, with a thin border and no heavy shadow. Long code/tables scroll inside their existing wrappers; compact screens must not overflow.
+- Footer stays quiet until hover/keyboard focus (always usable on touch). Show copy plus a positive t/s value only when supported: live estimates use observed token growth; completed averages use output tokens divided by SDK-recorded request duration, including waiting. No timestamp-difference speed guesses, empty zero badges or added cost panels.
+
 ## Right workspace
 - Permanent Tasks and Sub-agents tabs share the existing file/terminal workspace. They cannot be closed like documents. Mount their viewers only while the panel is open or previewed.
 - AgentWorkspace selection is local and read-only. Use a width-bounded custom dropdown, short display summaries, status and exact run/step IDs. Identical display summaries may group records visually, never merge their identities; unknown revival scaffolding must not imply common lineage. Keep keyboard navigation, Escape, outside dismiss and per-record access. Native conversations use SubagentViewer; package children use PackageSubagentChat. Never call a main-session selection handler, start an agent or redirect the composer from that picker.

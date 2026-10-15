@@ -43,6 +43,14 @@ interface RateSample {
 const samples = new WeakMap<StreamRateStart, RateSample>();
 const RATE_STALE_MS = 2000;
 
+/** Average output rate over the SDK-recorded request duration, not a guessed decode rate. */
+export function recordedOutputTokensPerSecond(output: unknown, durationMs: unknown): number | null {
+  if (typeof output !== "number" || !Number.isFinite(output) || output <= 0
+    || typeof durationMs !== "number" || !Number.isFinite(durationMs) || durationMs <= 0) return null;
+  const rate = output * 1000 / durationMs;
+  return Number.isFinite(rate) && rate >= 0.05 ? rate : null;
+}
+
 /** Count growth, not interval ticks. Waiting is never displayed as zero speed. */
 export function streamTokensPerSecond(start: StreamRateStart, tokens: number, now: number): number | null {
   if (!Number.isFinite(tokens) || !Number.isFinite(now)) return null;
