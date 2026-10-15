@@ -96,6 +96,17 @@ test("renders widgets and status text in one footer", () => {
   assert.match(html, /connected/);
 });
 
+test("hides subagent footer widgets/status without hiding LSP", () => {
+  const props = {
+    statuses: [{ key: "subagent-slash", text: "running child" }, { key: "lsp", text: "LSP: 1/8 servers" }],
+    widgets: [{ key: "subagent-fleet-status", lines: ["fleet"], placement: "aboveEditor" }, { key: "subagent-async", lines: ["async"], placement: "belowEditor" }],
+  };
+  const html = renderStatusBar(props);
+  assert.match(html, /LSP: 1\/8 servers/);
+  assert.doesNotMatch(html, /subagent|running child|fleet|async|extension-widget-triggers/);
+  assert.equal(renderStatusBar({ statuses: props.statuses.slice(0, 1), widgets: props.widgets }), "");
+});
+
 test("reads a slash command from a command: status key", () => {
   assert.equal(extensionStatusCommand("command:/mode toggle"), "/mode toggle");
   assert.equal(extensionStatusCommand("command:  /mode  "), "/mode");

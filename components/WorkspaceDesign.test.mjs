@@ -46,20 +46,22 @@ test("sending and cancellation are icon-only, with a single default steering act
   assert.match(html, /<div class="composer-card">/);
 });
 
-test("context usage is a neutral ring with exact figures on hover", () => {
+test("context usage is a read-only percentage ring with no inspector", () => {
   const usage = { percent: 8, tokens: 32000, contextWindow: 400000 };
-  const html = render(ContextUsageRing, { usage, onOpen() {} });
+  const html = render(ContextUsageRing, { usage });
   assert.match(html, /aria-label="Context: 8%"/);
-  assert.match(html, /32,000 \/ 400,000 tokens/);
+  assert.match(html, /role="meter"/);
+  assert.doesNotMatch(html, /<button|tokens|onClick/);
   assert.match(html, /stroke-dasharray="8 100"/);
   assert.equal(contextUsagePercent({ ...usage, percent: -20 }), 0);
   assert.equal(contextUsagePercent({ ...usage, percent: 120 }), 100);
   assert.equal(contextUsagePercent({ ...usage, percent: NaN }), null);
 });
 
-test("the session title is the menu and displayed billing is removed", async () => {
+test("the header has no session menu, title or agent icon", async () => {
   const source = await readFile(new URL("./AppShell.tsx", import.meta.url), "utf8");
-  assert.match(source, /className="workspace-title-menu"/);
+  assert.doesNotMatch(source, /<ActionMenuButton|className="workspace-session-title"|data-agent-switcher\s/);
+  assert.match(source, /<AgentWorkspace/);
   assert.doesNotMatch(source, /sessionStats\.cost|const costText|renderSessionStatsButton\(false\)/);
 });
 
@@ -87,6 +89,7 @@ test("all file viewer types share reveal and download, deleted files expose neit
 
 test("the visual layer preserves user typography, themes and logo size", async () => {
   const css = await readFile(new URL("../app/workspace.css", import.meta.url), "utf8");
-  assert.doesNotMatch(css, /font-family\s*:|--chat-content-font-size\s*:|--font-ui\s*:|\.new-session-logo\s*\{/);
+  assert.doesNotMatch(css, /--chat-content-font-size\s*:|--font-ui\s*:|\.new-session-logo\s*\{/);
+  assert.match(css, /\.sidebar-container[\s\S]*?font-family:/);
   assert.match(css, /prefers-reduced-motion/);
 });

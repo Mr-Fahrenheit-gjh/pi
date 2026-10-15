@@ -29,8 +29,13 @@ export function sanitizeExtensionStatusText(text: string): string {
     .trim();
 }
 
+/** Hide package subagent footer chrome only; preserve LSP and other extensions. */
+export function isSubagentFooterKey(key: string): boolean {
+  return /^subagents?(?:[-_:]|$)/i.test(key);
+}
+
 function sortedStatuses(statuses: ExtensionStatusItem[]): ExtensionStatusItem[] {
-  return [...statuses].sort((a, b) => a.key.localeCompare(b.key));
+  return statuses.filter((item) => !isSubagentFooterKey(item.key)).sort((a, b) => a.key.localeCompare(b.key));
 }
 
 export function formatExtensionStatusLine(statuses: ExtensionStatusItem[]): string {
@@ -72,6 +77,7 @@ export function ExtensionStatusBar({
   commandsDisabled?: boolean;
 }) {
   const cells = buildExtensionStatusCells(statuses);
+  widgets = widgets.filter((widget) => !isSubagentFooterKey(widget.key));
   if (cells.length === 0 && widgets.length === 0) return null;
 
   const hasCommands = cells.some((cell) => cell.kind === "command");

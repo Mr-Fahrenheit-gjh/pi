@@ -61,6 +61,22 @@ export function uploadFiles(
   });
 }
 
+export interface ChatAttachmentUpload {
+  attachments?: Array<{ name: string; path: string }>;
+  error?: string;
+}
+/** Chat references belong to private attachment storage, never to a project directory. */
+export async function uploadChatAttachments(files: File[]): Promise<{ status: number; data: ChatAttachmentUpload }> {
+  const body = new FormData();
+  files.forEach((file) => body.append("files", file, file.name));
+  const response = await fetch("/api/chat-attachments", { method: "POST", body });
+  return { status: response.status, data: await response.json() as ChatAttachmentUpload };
+}
+
+export function chatAttachmentMentionText(attachments: Array<{ name: string; path: string }>): string {
+  return attachments.map((file) => buildAtMentionText(file.path, false)).join("");
+}
+
 /** One file or folder dropped onto the chat. */
 export type DroppedItem = { kind: "file"; file: File } | { kind: "folder"; name: string };
 

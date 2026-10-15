@@ -645,6 +645,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   // The toolbar row's search button: always there and enabled, so focus has
   // somewhere to go when there are no tabs (selectedTabButton).
   const searchButtonRef = useRef<HTMLButtonElement>(null);
+  const quickSearchRef = useRef<HTMLInputElement>(null);
 
   // The files section's height below the sessions, on the sidebar's root
   // (--sidebar-files-height: the files panel's height, and what the toast
@@ -1508,7 +1509,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
    * null): the toolbar row's search button, always there and enabled.
    */
   const selectedTabButton = useCallback(
-    () => (sessionsPanelRef.current?.hidden ? filesTabRef : sessionsTabRef).current ?? searchButtonRef.current,
+    () => (sessionsPanelRef.current?.hidden ? filesTabRef : sessionsTabRef).current ?? quickSearchRef.current ?? searchButtonRef.current,
     [],
   );
 
@@ -2563,6 +2564,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
           </div>
         )}
         <span className="sidebar-header-spacer" />
+        {!stacked && <>
         <button
           type="button"
           className="sidebar-new-button"
@@ -2598,7 +2600,37 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         >
           <SearchIcon size={16} />
         </button>
+        </>}
       </div>
+      {stacked && (
+        <div className="sidebar-quick-actions">
+          <div className="sidebar-quick-search">
+            <SearchIcon size={16} />
+            <input
+              ref={quickSearchRef}
+              id="session-search-input"
+              type="search"
+              value={sessionSearchQuery}
+              maxLength={200}
+              placeholder={t("sidebar.searchSessions")}
+              aria-label={t("sidebar.searchSessions")}
+              onFocus={() => setSessionSearchOpen(true)}
+              onChange={(event) => { setSessionSearchQuery(event.target.value); setSessionSearchOpen(true); }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape" && !event.nativeEvent.isComposing) {
+                  event.stopPropagation();
+                  setSessionSearchQuery("");
+                  setSessionSearchOpen(false);
+                }
+              }}
+            />
+          </div>
+          <button type="button" className="sidebar-quick-new" onClick={handleNewSession} disabled={!selectedCwd} title={selectedCwd ? t("sidebar.newSessionTitle", { path: selectedCwd }) : t("sidebar.selectProject")}>
+            <PlusIcon size={18} />
+            <span>{t("sidebar.new")}</span>
+          </button>
+        </div>
+      )}
 
       {/* Sessions: every project's sessions, or the archive. A tab's panel,
           or the top section, always shown, filling what the files leave. */}
@@ -2612,7 +2644,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         className="sidebar-panel sidebar-sessions-panel"
         onScrollCapture={rememberScroll}
       >
-        {sessionSearchOpen && (
+        {sessionSearchOpen && !stacked && (
           <div className="sidebar-search">
             <input
               id="session-search-input"

@@ -20,13 +20,16 @@ test("child transcript has no redundant toolbar in running or completed state", 
   }
 });
 
-test("automatic refresh and existing native parent selection remain", () => {
+test("automatic refresh stays read-only and selection lives in the right workspace", () => {
   const child = readFileSync(new URL("./PackageSubagentChat.tsx", import.meta.url), "utf8");
   assert.match(child, /setInterval\(\(\) => void load\(\), 2000\)/);
   assert.match(child, /visibilitychange/);
   assert.match(child, /controller\?\.abort\(\)/);
   assert.doesNotMatch(child, /setRefresh|onReturn|fleetStateLabel/);
   const shell = readFileSync(new URL("./AppShell.tsx", import.meta.url), "utf8");
-  assert.match(shell, /data-agent-switcher-panel/);
-  assert.match(shell, /setPackageSelection\(target \? \{ sessionId: selectedSession\.id, target \} : null\)/);
+  assert.match(shell, /<AgentWorkspace/);
+  assert.doesNotMatch(shell, /setPackageSelection|data-agent-switcher-panel/);
+  const workspace = readFileSync(new URL("./AgentWorkspace.tsx", import.meta.url), "utf8");
+  assert.match(workspace, /setSelection\(event\.target\.value\)/);
+  assert.doesNotMatch(workspace, /handleSelectSession|onSend|startRpcSession/);
 });

@@ -175,11 +175,9 @@ export function AgentSessionPanel({ rootSession, subagents, selectedSessionId, r
       aria-label={t("agentSwitcher.title")}
       style={{
         background: "var(--bg-panel)",
-        borderLeft: "1px solid var(--border)",
-        borderRight: "1px solid var(--border)",
-        borderBottom: "1px solid var(--border)",
-        borderRadius: "0 0 6px 6px",
-        boxShadow: "0 10px 28px rgba(0,0,0,0.10)",
+        border: "1px solid var(--border)",
+        borderRadius: 12,
+        boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
         overflow: "hidden",
       }}
     >
@@ -187,7 +185,7 @@ export function AgentSessionPanel({ rootSession, subagents, selectedSessionId, r
         <div style={{ minHeight: 44, display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", borderBottom: "1px solid var(--border)" }}>
           <strong style={{ fontSize: 12, fontWeight: 600 }}>{t("agentSwitcher.title")}</strong>
           <span style={{ color: "var(--text-dim)", fontSize: 11 }}>
-            {t("agentSwitcher.count", { count: subagents.length })}
+            {subagents.length > 0 ? t("agentSwitcher.count", { count: subagents.length }) : null}
           </span>
           {runningCount > 0 && (
             <span style={{ marginLeft: "auto", color: "var(--accent)", fontSize: 11 }}>
@@ -195,7 +193,7 @@ export function AgentSessionPanel({ rootSession, subagents, selectedSessionId, r
             </span>
           )}
         </div>
-        {subagents.length > 8 && (
+        {(subagents.length > 8 || query.length > 0) && (
           <div style={{ padding: 8, borderBottom: "1px solid var(--border)" }}>
             <input
               type="search"
@@ -228,7 +226,7 @@ export function AgentSessionPanel({ rootSession, subagents, selectedSessionId, r
               onSelect={() => onSelectSession(session)}
             />
           ))}
-          {visibleSubagents.length === 0 && (
+          {normalizedQuery && visibleSubagents.length === 0 && (
             <div style={{ padding: "22px 12px", color: "var(--text-dim)", fontSize: 12, textAlign: "center" }}>
               {t("agentSwitcher.noMatches")}
             </div>

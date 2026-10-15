@@ -25,6 +25,11 @@ export function prepareWorkspaceFixture(agentDir) {
     { type: "message", id: "work", parentId: "user", timestamp, message: assistant([{ type: "text", text: "我会保留已有能力，先整理信息层级。" }, { type: "thinking", thinking: "HIDDEN_DESIGN_THINKING" }, { type: "toolCall", id: "inspect", name: "read", arguments: { path: "工作约定 notes.md" } }]) },
     { type: "message", id: "tool", parentId: "work", timestamp, message: { role: "toolResult", toolCallId: "inspect", toolName: "read", content: [{ type: "text", text: "HIDDEN_DESIGN_TOOL_OUTPUT" }], isError: false, timestamp: Date.now() } },
     { type: "message", id: "answer", parentId: "tool", timestamp, message: assistant([{ type: "text", text: answer }]) },
+    { type: "custom", id: "todos", parentId: "answer", timestamp, customType: "rpiv-todo-state", data: { nextId: 4, tasks: [
+      { id: 1, subject: "调整输入区与侧栏", activeForm: "验证界面布局", status: "in_progress" },
+      { id: 2, subject: "验证上传引用", status: "pending" },
+      { id: 3, subject: "保留官方 Pi 图标", status: "completed" },
+    ] } },
   ];
   writeFileSync(join(agentDir, "sessions/design/workspace-design-fixture.jsonl"), entries.map(entry => JSON.stringify(entry)).join("\n") + "\n");
   return { project, file: join(project, "工作约定 notes.md"), image: join(project, "diagram.svg") };
@@ -96,7 +101,7 @@ export async function runWorkspaceDesignChecks(page, { baseURL, outputDir, proje
   try {
     await page.goto(`${baseURL}/?cwd=${encodeURIComponent(project)}`, { waitUntil: "networkidle" });
     await page.locator(".composer-card").waitFor();
-    check(await page.locator(".workspace-settings-entry button").count() === 1, "Settings is the only persistent footer entry");
+    check(await page.locator(".workspace-settings-entry button").count() === 2, "Settings and restart share the footer");
     check(!(await page.locator(".composer-options").isVisible()), "Options start collapsed");
     check(await page.locator(".sidebar-files-keys button").count() === 4, "Four direct file keys replace seven");
     await assertNoOverflow();
@@ -106,44 +111,22 @@ export async function runWorkspaceDesignChecks(page, { baseURL, outputDir, proje
     await page.goto(`${baseURL}/?session=workspace-design-fixture`, { waitUntil: "networkidle" });
     await page.locator(".markdown-assistant-message").first().waitFor();
     await page.getByText("一个更安静的工作界面", { exact: true }).waitFor();
-    check((await page.locator(".workspace-session-title").innerText()).includes("重新整理"), "The session title leads the header");
+    check(await page.locator(".workspace-session-title, [data-agent-switcher]").count() === 0, "No title or agent icon clutters the header");
     check(await page.getByText("HIDDEN_DESIGN_TOOL_OUTPUT", { exact: true }).count() === 0, "Tool output remains folded");
     const beforeTypography = await page.locator(".markdown-assistant-message").first().evaluate(node => ({ font: getComputedStyle(node).fontFamily, size: getComputedStyle(node).fontSize }));
-    const usage = page.locator(".message-usage").last();
-    check(!(await usage.locator(".message-usage-content").isVisible()), "Per-message accounting starts closed");
-    await usage.locator("summary").click();
-    check(await usage.locator(".message-usage-content").isVisible(), "Detailed accounting remains reachable");
-    await usage.locator("summary").press("Enter");
-    check(!(await usage.locator(".message-usage-content").isVisible()), "Native disclosure supports keyboard toggling");
+    check(await page.locator(".message-usage").count() === 0, "Per-message accounting is removed");
     check(!/\$\d/.test(await page.locator(".workspace-topbar").innerText()), "Billing is not shown in the header");
-    check(!/\$\d/.test(await usage.locator(".message-usage-content").innerText()), "Per-message billing is not shown");
     await screenshot("conversation");
-    checks.push("long conversation: title, typography, folded process and on-demand token accounting without billing");
+    checks.push("long conversation: no title or accounting, preserved typography and folded process");
 
     const ring = page.locator(".chat-input-controls [data-context-ring]");
     await ring.waitFor();
     check((await ring.getAttribute("title")).includes("8%"), "Context usage is represented by the bottom ring");
+    check(await ring.getAttribute("role") === "meter", "Context ring is read-only");
     await ring.click();
-    await page.locator(".session-info-popover").waitFor();
-    check(!/\$\d/.test(await page.locator(".session-info-popover").innerText()), "Session information omits billing too");
-    await page.keyboard.press("Escape");
-    check(await ring.evaluate(node => node === document.activeElement), "Context inspector returns focus to the ring");
-    checks.push("context: bottom ring, exact hover figures, inspector access and no displayed fees");
-
-    const actions = page.getByRole("button", { name: "会话操作", exact: true });
-    await actions.click();
-    const menu = page.getByRole("menu", { name: "会话操作", exact: true });
-    await menu.waitFor();
-    check(await menu.getByRole("menuitem").count() === 5, "All secondary session actions remain reachable");
-    await page.keyboard.press("Escape");
-    check(await actions.evaluate(node => node === document.activeElement), "Esc returns menu focus");
-    await actions.click();
-    await menu.getByRole("menuitem", { name: "系统提示词", exact: true }).click();
-    await page.getByText("隔离设计验收：保留所有能力，减少常驻入口。", { exact: true }).waitFor();
-    check(commands.some(command => command.type === "get_state") && commands.some(command => command.type === "get_tools"), "System info remains lazily loaded");
-    await page.keyboard.press("Escape");
-    check(!(await page.getByText("隔离设计验收：保留所有能力，减少常驻入口。", { exact: true }).isVisible()), "Esc dismisses the temporary inspector");
-    checks.push("session menu: complete action set, focus, lazy inspector and direct dismissal");
+    check(await page.locator(".session-info-popover").count() === 0, "Context ring does not open an inspector");
+    check(await page.getByRole("button", { name: "会话操作", exact: true }).count() === 0, "Session menu is removed");
+    checks.push("context: percentage ring without popup; no session action menu");
 
     const optionsTrigger = page.locator("[data-composer-options-trigger]");
     await optionsTrigger.click();
@@ -164,10 +147,8 @@ export async function runWorkspaceDesignChecks(page, { baseURL, outputDir, proje
     await ignored.click();
     await page.getByRole("button", { name: "更多文件操作", exact: true }).click();
     check(await ignored.getAttribute("aria-checked") !== ignoredBefore, "Ignored-file choice is still a working toggle");
-    const picker = page.waitForEvent("filechooser");
-    await fileMenu.getByRole("menuitem", { name: /上传/ }).click();
-    await (await picker).setFiles([]);
-    checks.push("file menu: upload picker works, ignored-file state toggles, folder and refresh stay reachable");
+    await page.keyboard.press("Escape");
+    checks.push("file menu: upload entry exists, ignored-file state toggles, folder and refresh stay reachable");
 
     await page.locator("#session-sidebar").getByTitle(file, { exact: true }).click();
     const panel = page.locator("#file-panel");
@@ -209,7 +190,7 @@ export async function runWorkspaceDesignChecks(page, { baseURL, outputDir, proje
     await panel.getByRole("button", { name: "全宽展示文件面板", exact: true }).click();
     check(Math.round((await panel.boundingBox()).width) === 1440, "Full-width file workspace still works");
     await panel.getByRole("button", { name: "还原文件面板宽度", exact: true }).click();
-    await panel.getByRole("button", { name: "隐藏文件面板", exact: true }).click();
+    await page.locator("[data-right-panel-toggle]").click();
     await page.waitForFunction(() => document.querySelector("#file-panel")?.getBoundingClientRect().width === 0);
     checks.push("file workspace: unavailable native action hidden; full-width/restore preserved");
 

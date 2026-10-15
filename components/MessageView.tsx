@@ -813,7 +813,6 @@ function AssistantMessageView({
   }, [isStreaming, rateKey]);
 
   if (blocks.length === 0 && !isStreaming && !providerError && !truncated) return null;
-  const usageText = !isStreaming && message.usage ? formatUsage(message.usage) : "";
 
   return (
     <div
@@ -945,14 +944,6 @@ function AssistantMessageView({
       <div className="message-footer" style={{
         display: "flex", alignItems: "center", gap: 8, marginTop: 4,
       }}>
-        {usageText && (
-          <details className="message-usage">
-            <summary title={t("chat.messageUsage")} aria-label={t("chat.messageUsage")}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7v1" /></svg>
-            </summary>
-            <div className="message-usage-content">{usageText}</div>
-          </details>
-        )}
         {textContent && !isStreaming && (
           <button
             onClick={copyContent}
@@ -2036,21 +2027,6 @@ function getToolPreview(block: ToolCallContent): string {
 
   const first = input[keys[0]];
   return String(first).slice(0, 120);
-}
-
-function formatUsage(usage: {
-  input: number;
-  output: number;
-  cacheRead: number;
-  cacheWrite: number;
-  cost: { total: number };
-}): string {
-  const parts = [];
-  if (usage.input) parts.push(`${usage.input.toLocaleString()} in`);
-  if (usage.output) parts.push(`${usage.output.toLocaleString()} out`);
-  if (usage.cacheRead) parts.push(`${usage.cacheRead.toLocaleString()} cache R`);
-  if (usage.cacheWrite) parts.push(`${usage.cacheWrite.toLocaleString()} cache W`);
-  return parts.join(" · ");
 }
 
 function BashExecutionView({ message, sessionId }: { message: BashExecutionMessage; sessionId?: string }) {

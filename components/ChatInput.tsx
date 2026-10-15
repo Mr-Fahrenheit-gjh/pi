@@ -97,7 +97,7 @@ interface Props {
   soundEnabled?: boolean;
   onSoundToggle?: () => void;
   contextUsage?: ContextUsage | null;
-  onContextUsageClick?: () => void;
+  welcome?: boolean;
   onAudioUnlock?: () => void;
   draftKey?: string;
   /** Session working directory — enables the @ file autocomplete menu */
@@ -662,7 +662,8 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
   slashCommands, slashCommandsLoading, onLoadSlashCommands,
   onBuiltinCommand,
   soundEnabled, onSoundToggle, onAudioUnlock,
-  contextUsage, onContextUsageClick,
+  contextUsage,
+  welcome = false,
   onPromptWithStreamingBehavior,
   draftKey,
   cwd,
@@ -1710,11 +1711,29 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
 
 
 
+  const sendButton = (!isStreaming || onSteer || onFollowUp) && (
+            <button
+              type="button"
+              className="composer-send-button"
+              data-composer-send
+              onClick={() => isStreaming ? sendQueued(runningSendAction) : handleSend()}
+              disabled={isStreaming ? !canQueueStreamingMessage : !value.trim() && !attachedImages.length}
+              title={isStreaming ? runningSendAction === "steer" ? t("chat.steerHint") : `${t("chat.followUpHint")} (${isMobile ? "Ctrl/Cmd+" : ""}Alt/Option+Enter)` : t("chat.send")}
+              aria-label={isStreaming ? t(runningSendAction === "steer" ? "chat.steer" : "chat.followUp") : t("chat.send")}
+              aria-keyshortcuts={isStreaming && runningSendAction === "followup" ? isMobile ? "Control+Alt+Enter Meta+Alt+Enter" : "Alt+Enter" : undefined}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 19V5m-6 6 6-6 6 6" />
+              </svg>
+            </button>
+          );
+
   return (
     <fieldset
       disabled={builtinCommandPending}
       aria-busy={builtinCommandPending}
       className={compact ? undefined : "chat-input-shell"}
+      data-composer-layout={compact ? undefined : welcome ? "welcome" : "reply"}
       style={{
         flexShrink: 0,
         minWidth: 0,
@@ -1722,7 +1741,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
         border: 0,
         background: "transparent",
         padding: compact ? 0 : "0 16px 8px",
-        paddingRight: compact ? 0 : isMobile ? 16 : 52, // desktop: 16px base + 36px for ChatMinimap alignment
+        paddingRight: compact ? 0 : 16, // the hover-only minimap reserves no layout column
         opacity: builtinCommandPending ? 0.5 : 1,
         transition: "opacity 0.15s",
       }}
@@ -2293,7 +2312,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
               isStreaming && (onSteer || onFollowUp)
                 ? t(runningSendAction === "steer" ? "chat.steerOnlyPlaceholder" : "chat.followUpOnlyPlaceholder")
                 : isStreaming ? t("chat.agentPlaceholder")
-                : t("chat.messagePlaceholder")
+                : t(welcome ? "chat.welcomePlaceholder" : "chat.replyPlaceholder")
             }
             rows={1}
             style={{
@@ -2313,23 +2332,9 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
               overflow: "auto",
             }}
           />
+          {sendButton}
 
-          {(!isStreaming || onSteer || onFollowUp) && (
-            <button
-              type="button"
-              className="composer-send-button"
-              data-composer-send
-              onClick={() => isStreaming ? sendQueued(runningSendAction) : handleSend()}
-              disabled={isStreaming ? !canQueueStreamingMessage : !value.trim() && !attachedImages.length}
-              title={isStreaming ? runningSendAction === "steer" ? t("chat.steerHint") : `${t("chat.followUpHint")} (${isMobile ? "Ctrl/Cmd+" : ""}Alt/Option+Enter)` : t("chat.send")}
-              aria-label={isStreaming ? t(runningSendAction === "steer" ? "chat.steer" : "chat.followUp") : t("chat.send")}
-              aria-keyshortcuts={isStreaming && runningSendAction === "followup" ? isMobile ? "Control+Alt+Enter Meta+Alt+Enter" : "Alt+Enter" : undefined}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 19V5m-6 6 6-6 6 6" />
-              </svg>
-            </button>
-          )}
+
           </div>
         </div>
 
@@ -2343,8 +2348,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
         {/* Bottom bar: left | center (context) | right */}
         {!compact && <div className="chat-input-controls" style={{
           marginTop: isMobile ? 4 : 8,
-          display: isMobile ? "grid" : "flex",
-          gridTemplateColumns: isMobile ? `minmax(0, 1fr)${contextUsage ? " auto" : ""}${isStreaming ? " auto" : ""}${isCompacting && onAbortCompaction ? " auto" : ""} auto` : undefined,
+          display: "flex",
           alignItems: "center",
           gap: 6,
         }}>
@@ -2354,6 +2358,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
             <button
               onClick={() => fileInputRef.current?.click()}
              title={t("chat.attachFiles")}
+             aria-label={t("chat.attachFiles")}
               style={{
                 flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
                 width: 32, height: 32, padding: 0,
@@ -2374,11 +2379,15 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
               }}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                <path d="M14 2v6h6M12 17v-6m-3 3 3-3 3 3" />
               </svg>
             </button>
+
+          </div>
+
+          {/* spacer */}
+          <div style={{ flex: 1 }} />
             {/* Model selector - visible always, disabled while the session or switch is busy */}
             {(modelOptions.length > 0 || model || modelError) && onModelChange && (
               <ModelSelector
@@ -2392,12 +2401,8 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                 onSetDefault={onSetDefaultModel}
               />
             )}
-          </div>
 
-          {/* spacer */}
-          {!isMobile && <div style={{ flex: 1 }} />}
-
-          {contextUsage && contextUsage.contextWindow > 0 && <ContextUsageRing usage={contextUsage} onOpen={onContextUsageClick} />}
+          {contextUsage && contextUsage.contextWindow > 0 && <ContextUsageRing usage={contextUsage} />}
           {/* Active cancellation is never hidden among secondary settings. */}
           {isStreaming && <button type="button" className="composer-stop" onClick={onAbort} title={t("chat.stopAgent")} aria-label={t("chat.stopAgent")}><svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true"><rect x="1.5" y="1.5" width="7" height="7" rx="1.5" /></svg></button>}
           {isCompacting && onAbortCompaction && <button type="button" className="composer-stop" onClick={onAbortCompaction} title={t("chat.stopCompaction")} aria-label={t("chat.stopCompaction")}><svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true"><rect x="1.5" y="1.5" width="7" height="7" rx="1.5" /></svg></button>}
@@ -2709,7 +2714,9 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
 
             {onSoundToggle !== undefined && (
               <button
+                className="composer-sound-toggle"
                 onClick={onSoundToggle}
+                aria-pressed={soundEnabled}
                  title={soundEnabled ? t("chat.disableSound") : t("chat.enableSound")}
                  aria-label={soundEnabled ? t("chat.disableSound") : t("chat.enableSound")}
                 style={{
@@ -2736,6 +2743,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                   e.currentTarget.style.opacity = soundEnabled ? "1" : "0.55";
                 }}
               >
+                <span className="composer-sound-label">{soundEnabled ? t("chat.disableSound") : t("chat.enableSound")}</span>
                 {soundEnabled ? (
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
@@ -2753,6 +2761,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
             )}
             {controlsMenuOpen && (
               <button
+                className="composer-options-close"
                 type="button"
                  title={t("chat.collapseControls")}
                  aria-label={t("chat.collapseControls")}
@@ -2789,6 +2798,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
+                <span>{t("chat.collapseControls")}</span>
               </button>
             )}
             </div>

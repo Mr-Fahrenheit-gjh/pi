@@ -13,6 +13,8 @@ export interface SessionLivenessProvider {
 interface SessionIdentity {
   sessionId: string;
   sessionFile?: string;
+  /** Browser selection is idle keepalive, not work that blocks a manual restart. */
+  excludeBrowserLease?: boolean;
 }
 
 interface SessionLivenessRegistry {
@@ -74,6 +76,7 @@ function createRegistry(): SessionLivenessRegistry {
     hasActiveProvider(session) {
       const identities = new Set([session.sessionId, session.sessionFile].filter((value): value is string => Boolean(value)));
       for (const provider of providers.values()) {
+        if (session.excludeBrowserLease && provider.name === "pi-web-selected-session") continue;
         if (!identities.has(provider.sessionId) && (!provider.sessionFile || !identities.has(provider.sessionFile))) {
           continue;
         }
@@ -196,4 +199,8 @@ export function registerSessionLivenessProvider(provider: SessionLivenessProvide
 
 export function hasActiveSessionLivenessProvider(session: SessionIdentity): boolean {
   return registry.hasActiveProvider(session);
+}
+
+export function hasActiveSessionWorkProvider(session: SessionIdentity): boolean {
+  return registry.hasActiveProvider({ ...session, excludeBrowserLease: true });
 }

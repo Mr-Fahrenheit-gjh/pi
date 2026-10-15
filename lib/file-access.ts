@@ -1,6 +1,7 @@
 import { getAdditionalAllowedRoots, normalizeSlashes } from "./allowed-roots";
 import { isExistingPathWithinRoots, isPathWithinRoots } from "./path-security";
 import { listAllSessions } from "./session-reader";
+import { chatAttachmentRoot, existingChatAttachmentRoot } from "./chat-attachments";
 export { allowFileRoot, normalizeSlashes } from "./allowed-roots";
 export { isWindowsAbsolutePath } from "./paths";
 
@@ -14,10 +15,19 @@ declare global {
 
 const ALLOWED_ROOTS_TTL_MS = 5_000;
 
+/** Revalidate this app-managed root on every request, even on a roots-cache hit. */
+export function withSafeChatAttachmentRoot(roots: Set<string>, agentDir?: string): Set<string> {
+  const root = normalizeSlashes(chatAttachmentRoot(agentDir));
+  const safe = new Set([...roots].filter((entry) => entry !== root && !entry.startsWith(root + "/")));
+  const existing = existingChatAttachmentRoot(agentDir);
+  if (existing) safe.add(normalizeSlashes(existing));
+  return safe;
+}
+
 export async function getAllowedFileRoots(): Promise<Set<string>> {
   const now = Date.now();
   const cached = globalThis.__piAllowedRootsCache;
-  if (cached && cached.expiresAt > now) return cached.roots;
+  if (cached && cached.expiresAt > now) return withSafeChatAttachmentRoot(cached.roots);
 
   const sessions = await listAllSessions();
   const roots = new Set<string>();
@@ -31,7 +41,7 @@ export async function getAllowedFileRoots(): Promise<Set<string>> {
   for (const root of getAdditionalAllowedRoots()) roots.add(root);
 
   globalThis.__piAllowedRootsCache = { roots, expiresAt: now + ALLOWED_ROOTS_TTL_MS };
-  return roots;
+  return withSafeChatAttachmentRoot(roots);
 }
 
 /** Authorize a path lexically, without touching the filesystem. */

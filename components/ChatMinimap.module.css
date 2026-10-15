@@ -1,7 +1,23 @@
+.rail > div,
+.rail > .lock {
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+.rail:hover > div,
+.rail:focus-within > div,
+.rail:hover > .lock,
+.rail:focus-within > .lock {
+  opacity: 1;
+}
+.rail > .lock { pointer-events: none; }
+.rail:hover > .lock,
+.rail:focus-within > .lock { pointer-events: auto; }
+
 .preview {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: 12px;
+  bottom: auto;
+  max-height: min(560px, calc(100% - 24px));
   right: 100%;
   z-index: 100;
   width: 320px;
@@ -10,9 +26,12 @@
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
-  background: var(--bg);
-  border-left: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-  box-shadow: -10px 0 26px rgba(0, 0, 0, 0.07);
+  background: color-mix(in srgb, var(--bg) 96%, var(--bg-panel));
+  font-family: var(--font-ui-default);
+  font-weight: 400;
+  border: 1px solid color-mix(in srgb, var(--border) 52%, transparent);
+  border-radius: 12px;
+  box-shadow: -8px 0 28px color-mix(in srgb, var(--text) 6%, transparent);
   pointer-events: auto;
   cursor: default;
   user-select: text;
@@ -42,14 +61,14 @@
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr);
   padding: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 34%, transparent);
   background: transparent;
   transition: background 120ms ease, box-shadow 120ms ease;
 }
 
 .turn[data-located="true"] {
   background: color-mix(in srgb, var(--text) 4%, var(--bg));
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--text-muted) 70%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 65%, transparent);
 }
 
 .number {
@@ -110,10 +129,10 @@
   background: transparent;
   color: var(--text);
   font-family: inherit;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 400;
   letter-spacing: 0;
-  line-height: 18px;
+  line-height: 20px;
   text-align: left;
   cursor: pointer;
   overflow: hidden;
@@ -296,13 +315,13 @@
   background: color-mix(in srgb, var(--text) 6%, transparent);
 }
 
-/* A locked padlock is gold. */
+/* The active control follows the selected theme, never a fixed gold. */
 .lock[aria-pressed="true"] {
-  color: #d4af37;
+  color: var(--accent);
 }
 
 .lock[aria-pressed="true"]:hover {
-  color: #e6c65a;
+  color: var(--accent);
 }
 
 .lock:focus-visible {

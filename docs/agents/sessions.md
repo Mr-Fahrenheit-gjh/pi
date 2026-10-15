@@ -155,15 +155,10 @@ New sessions and the files tab ("the files tab" here is the files section below 
 
 ## Local Claude-inspired sidebar polish
 
-`app/sidebar-terminal-polish.css` is loaded after the base sidebar stylesheet.
-It uses the existing theme surfaces, quieter toolbar divisions and rounded hover/
-selection states, with 13px session titles and no accent bar on a selected row.
-It does not change virtual row heights, indentation, project grouping, pin/archive
-state, focus, menus or the files section. Running/attention indicators still have
-their existing meaning; the warm-white and pale-white themes remain separate.
+The current local composition is specified in [local-workspace.md](local-workspace.md): serif brand, regular sans-serif navigation, full search/New rows, fixed hover-preview toggles and lighter theme surfaces. `app/workspace.css` overrides the base sidebar styles without changing virtual row heights, indentation, project grouping or pin/archive state. Running/attention indicators retain their meanings; warm-white and pale-white remain distinct themes.
 
 ## Extension status bar and command buttons (`components/ExtensionStatusBar.tsx`, `ExtensionWidgets.tsx`)
-- `ctx.ui.setStatus(key, text)` lands in the wrapper's `extensionStatuses` map, reaches the page as an `extension_ui_request` (`setStatus`), and is restored from `GET /api/agent/[id]` state after a reload. The shelf under the composer shows one cell per status in key order (like Pi's footer), separated by vertical rules. The widget triggers share one `extension-status-row` with the status line so the row scrolls sideways as a whole; the expanded widget panel stays above it, outside the scroll.
+- The local ChatWindow does **not** mount this shelf; Tasks are read from their persisted snapshots in the right workspace. The reusable component and extension protocol remain intact. `ctx.ui.setStatus(key, text)` still lands in the wrapper's `extensionStatuses` map and is restored from session state; blocking extension UI and notices remain visible. The component-level behaviour below applies if another consumer explicitly mounts ExtensionStatusBar.
 - A key `command:/name args` makes its cell a button that sends that slash command through `handleSend` (disabled while the session is busy). The command lives in the key because `setStatus` has no room for it, and Pi's own footer prints only the text, so the same status is plain text there. Only `/…` commands qualify: anything else would reach the model, and `!` would run a shell command.
 - A status with nothing visible (empty after stripping ANSI) gets no cell. Touch screens get 44px cells (widget triggers included) only when the bar has a command button.
 - Statuses exist only while the session's wrapper is alive, so a fresh chat or a session nobody has prompted yet shows no cells (and no buttons) until its first message.

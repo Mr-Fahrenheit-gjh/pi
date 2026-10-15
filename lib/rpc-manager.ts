@@ -18,6 +18,7 @@ import { cacheSessionPath, catalogFirstMessage, getLatestModelChange, invalidate
 import { getProjectTrustStatus, projectTrustReloadOptions } from "./project-trust";
 import { notifySessionComplete } from "./web-push";
 import { hasActiveSessionLivenessProvider } from "./session-liveness";
+import { assertServiceNotRestarting } from "./service-restart-state";
 import { createPackageSubagentExtension } from "./package-subagent-bridge";
 import type { SlashCommandInfo } from "@earendil-works/pi-coding-agent";
 import type { AgentSessionLike, ExtensionUiContextLike, ToolInfo } from "./pi-types";
@@ -385,6 +386,11 @@ export class AgentSessionWrapper {
 
   isRunning(): boolean {
     return this._alive && (this.pendingPromptCount > 0 || this.inner.isStreaming || this.inner.isCompacting || this.inner.isBashRunning);
+  }
+
+  /** Includes admission waits and mutations not yet reflected in streaming state. */
+  isBusyForRestart(): boolean {
+    return this.isRunning() || this.activeMutatingCommands > 0 || this.closing;
   }
 
   /**
@@ -786,12 +792,15 @@ export class AgentSessionWrapper {
     }
 
     const tracksMutation = !allowedDuringReplacement;
+    const startsWork = tracksMutation && !["abort", "abort_compaction", "abort_bash", "clear_queue"].includes(type);
+    if (startsWork) assertServiceNotRestarting();
     if (tracksMutation) this.activeMutatingCommands += 1;
 
     try {
       // Status reconciliation must not postpone forced cleanup after Stop.
       if (type !== "get_state") this.resetIdleTimer();
       if (this.shouldWaitForExtensions(type)) await this.waitForExtensionsBound();
+      if (startsWork) assertServiceNotRestarting();
       if (this.sessionReplacement && !allowedDuringReplacement) {
         throw new Error("Session is being copied to a new session");
       }
@@ -815,6 +824,7 @@ export class AgentSessionWrapper {
         // this submission starts a run or joins its streaming queue.
         const releaseAdmission = await this.acquirePromptAdmission();
         try {
+          assertServiceNotRestarting();
           if (this.inner.isBashRunning) {
             throw new Error("Cannot send a prompt while a shell command is running");
           }
@@ -2360,6 +2370,10 @@ export async function destroyRpcSessionsForCwd(cwd: string): Promise<number> {
   return sessions.length;
 }
 
+export function getRestartBlockingRpcSessionIds(): string[] {
+  return [...getRegistry()].filter(([, session]) => session.isBusyForRestart()).map(([id, session]) => session.sessionId || id);
+}
+
 export function getRunningRpcSessionIds(): string[] {
   const ids = new Set<string>();
   for (const [sessionId, session] of getRegistry()) {
@@ -2404,6 +2418,7 @@ export async function startRpcSession(
   cwd: string | undefined,
   options: RpcSessionStartOptions = {},
 ): Promise<{ session: AgentSessionWrapper; realSessionId: string }> {
+  assertServiceNotRestarting();
   const { initialModel, allowInitialModelFallback, thinkingLevel } = options;
   const requestedToolNames = options.toolNames === undefined
     ? undefined

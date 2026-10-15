@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { homedir } from "os";
 import type { IPty } from "node-pty";
 import { samePath } from "./paths";
+import { assertServiceNotRestarting } from "./service-restart-state";
 
 export type TerminalEvent =
   | { type: "output"; data: string; offset: number; reset?: boolean }
@@ -72,6 +73,7 @@ function dimension(value: number, fallback: number): number {
 }
 
 export function createTerminal(cwd: string, cols: number, rows: number, id: string = randomUUID()): string {
+  assertServiceNotRestarting();
   const existing = registry().get(id);
   if (existing) {
     if (!samePath(existing.cwd, cwd)) throw new Error("Terminal belongs to a different workspace");
@@ -131,6 +133,10 @@ export function createTerminal(cwd: string, cols: number, rows: number, id: stri
     scheduleCleanup(id, record);
   });
   return id;
+}
+
+export function getActiveTerminalCount(): number {
+  return [...(globalThis.__piWebTerminals?.values() ?? [])].filter((record) => !record.exited).length;
 }
 
 export function hasTerminal(id: string): boolean {

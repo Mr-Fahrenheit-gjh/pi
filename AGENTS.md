@@ -245,6 +245,8 @@ Design decisions and traps live in `docs/agents/`, one note per area. Read every
 
 ---
 
+- [local-workspace.md](docs/agents/local-workspace.md): current local composition overrides for fixed/hover sidebars, Claude-inspired composer, right-side Tasks/Sub-agents, quiet footer, private chat attachments and guarded service restart. Read this before changing those local surfaces; it supersedes upstream toolbar/brand/footer composition descriptions.
+
 ## Old Safari (iOS 16.2)
 
 - `/` renders entirely on the client, so one script chunk the browser cannot parse is a blank page. Next 16 targets Safari 16.4+; the `browserslist` in `package.json` lowers Safari and iOS to 16.2 so SWC turns class `static {}` blocks into private static fields. That covers Next's client runtime; other node_modules keep their syntax unless listed in `transpilePackages` (mermaid and `@mermaid-js/parser` are, for their lazy diagram chunks). Keep the other browserslist entries at Next's defaults.

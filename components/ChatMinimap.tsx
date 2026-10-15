@@ -24,7 +24,7 @@ interface Props {
   turnsBefore: number;
 }
 
-const MINIMAP_WIDTH = 36;
+const MINIMAP_WIDTH = 16;
 const MAX_NODE_GAP = 50;
 const MINIMAP_PADDING = 12;
 // The lock button sits at the bottom of the rail (6px inset + 30px): nodes stop
@@ -639,6 +639,8 @@ export const ChatMinimap = memo(function ChatMinimap({
   return (
     <div
       ref={containerRef}
+      className={styles.rail}
+      data-minimap-rail
       onMouseDown={handleMouseDown}
       onMouseEnter={showPreview}
       onMouseLeave={schedulePreviewHide}
@@ -649,11 +651,15 @@ export const ChatMinimap = memo(function ChatMinimap({
       style={{
         width: MINIMAP_WIDTH,
         flexShrink: 0,
-        position: "relative",
+        position: "absolute",
+        top: 0,
+        bottom: 0,
+        right: 8,
+        zIndex: 30,
         cursor: "pointer",
         userSelect: "none",
-        borderLeft: "1px solid var(--border)",
-        background: "var(--bg-panel)",
+        borderLeft: "none",
+        background: "transparent",
         overflow: "visible",
       }}
     >
@@ -679,7 +685,7 @@ export const ChatMinimap = memo(function ChatMinimap({
           top: MINIMAP_PADDING,
           height: railHeight,
           width: 1,
-          background: "var(--border)",
+          background: "color-mix(in srgb, var(--accent) 12%, transparent)",
           transform: "translateX(-50%)",
           zIndex: 0,
         }}
@@ -710,12 +716,12 @@ export const ChatMinimap = memo(function ChatMinimap({
           >
             <div
               style={{
-                width: 8,
-                height: 8,
-                borderRadius: 2,
-                background: isActive ? "rgba(128,128,128,0.42)" : "rgba(128,128,128,0.16)",
-                border: `1.5px solid ${isActive ? "rgba(128,128,128,0.95)" : "rgba(128,128,128,0.58)"}`,
-                boxShadow: isActive ? "0 0 0 2px var(--bg-panel)" : "none",
+                width: isActive ? 7 : 5,
+                height: isActive ? 7 : 5,
+                borderRadius: "50%",
+                background: isActive ? "var(--accent)" : "color-mix(in srgb, var(--text-muted) 32%, var(--bg))",
+                border: "none",
+                boxShadow: isActive ? "0 0 0 3px color-mix(in srgb, var(--accent) 10%, var(--bg))" : "0 0 0 2px var(--bg)",
                 transition: "transform 0.1s, background 0.1s",
                 transform: isNearest ? "scale(1.25)" : "scale(1)",
               }}
