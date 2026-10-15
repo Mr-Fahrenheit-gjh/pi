@@ -61,7 +61,8 @@ try {
     await openSwitcher();
     await page.getByRole('option').filter({hasText:'测试子代理'}).click();
     await page.getByText('正在调查网页',{exact:true}).waitFor();
-    assert.equal(await page.getByRole('button',{name:'返回主代理',exact:true}).isVisible(),true);
+    assert.equal(await page.getByRole('button',{name:'返回主代理',exact:true}).count(),0);
+    assert.equal(await page.getByText(/输入仍发给主代理/).count(),0);
     await appendFile(childFile,entry('调查已完成'));
     await page.getByText('调查已完成',{exact:true}).waitFor();
     await page.screenshot({path:join(root,`child-${width}.png`)});
@@ -69,7 +70,9 @@ try {
     await page.evaluate(()=>window.__sources.forEach(source=>source.dispatchEvent(new MessageEvent('message',{data:JSON.stringify({type:'extension_ui_request',id:'child-view-confirm',method:'confirm',title:'权限确认',message:'查看子代理时权限提示仍然可见'})}))));
     await page.getByText('查看子代理时权限提示仍然可见',{exact:true}).waitFor();
     await page.keyboard.press('Escape');
-    await page.getByRole('button',{name:'返回主代理',exact:true}).click(); await page.locator('.chat-content').getByText('主代理原始对话',{exact:true}).waitFor();
+    await openSwitcher();
+    await page.getByRole('option').filter({has:page.getByText('主 Agent',{exact:true})}).click();
+    await page.locator('.chat-content').getByText('主代理原始对话',{exact:true}).waitFor();
     await openSwitcher();
     assert.equal(await page.getByRole('button',{name:'任务管理',exact:true}).count(),0);
     assert.equal(await page.getByRole('dialog').count(),0);

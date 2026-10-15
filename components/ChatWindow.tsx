@@ -49,7 +49,6 @@ import {
 interface Props {
   session: SessionInfo | null;
   packageTarget?: PackageAgentTarget | null;
-  onReturnToMain?: () => void;
   showSubagentPanel?: boolean;
   onCloseSubagentPanel?: () => void;
   searchTarget?: { sessionId: string; entryId: string; blockIndex?: number } | null;
@@ -231,7 +230,7 @@ function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = fa
   );
 }
 
-export function ChatWindow({ session, packageTarget, onReturnToMain, showSubagentPanel = false, onCloseSubagentPanel, searchTarget, onSearchTargetHandled, initialScrollPosition, onScrollPositionChange, sessionRunning, newSessionCwd, newSessionDraftKey, newSessionContextBar, initialNewSessionChoices, onNewSessionChoicesChange, onAgentEnd, onToolEnd, onAttentionNeeded, onSessionCreated, onSessionForked, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSystemToolsChange, onSystemInfoLoaderChange, onSessionStatsChange, onSessionStatsPanelOpen, onOpenSettings, onContextUsageChange, onOpenFile, onFilesUploaded, onOpenSubagent, onAskInNewChat, quoteSelectionEnabled = false, initialPrompt, onInitialPromptConsumed, soundEnabled = true, onSoundToggle, playDoneSound = () => {}, unlockAudio, holdAudio }: Props) {
+export function ChatWindow({ session, packageTarget, showSubagentPanel = false, onCloseSubagentPanel, searchTarget, onSearchTargetHandled, initialScrollPosition, onScrollPositionChange, sessionRunning, newSessionCwd, newSessionDraftKey, newSessionContextBar, initialNewSessionChoices, onNewSessionChoicesChange, onAgentEnd, onToolEnd, onAttentionNeeded, onSessionCreated, onSessionForked, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSystemToolsChange, onSystemInfoLoaderChange, onSessionStatsChange, onSessionStatsPanelOpen, onOpenSettings, onContextUsageChange, onOpenFile, onFilesUploaded, onOpenSubagent, onAskInNewChat, quoteSelectionEnabled = false, initialPrompt, onInitialPromptConsumed, soundEnabled = true, onSoundToggle, playDoneSound = () => {}, unlockAudio, holdAudio }: Props) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const completionNotificationsEnabled = session?.relation?.kind !== "subagent";
@@ -1018,7 +1017,7 @@ export function ChatWindow({ session, packageTarget, onReturnToMain, showSubagen
       {extensionDialog && <ExtensionDialog key={extensionDialog.id} request={extensionDialog} waitingCount={waitingExtensionDialogCount} onRespond={respondToExtensionUi} />}
       {extensionCustomUi && <ExtensionCustomPanel key={extensionCustomUi.id} request={extensionCustomUi} waitingCount={waitingExtensionCustomUiCount} onInput={sendExtensionCustomInput} />}
       {session && packageTarget && <PackageSubagentChat key={`${session.id}:${packageTarget.id}`} session={session} target={packageTarget}
-        onReturn={() => onReturnToMain?.()} onOpenFile={onOpenFile} />}
+        onOpenFile={onOpenFile} />}
       {showSubagentPanel && session?.id && <div className="absolute inset-0 z-50 flex justify-end bg-black/30" onClick={(event) => { if (event.target === event.currentTarget) onCloseSubagentPanel?.(); }}>
         <div ref={subagentDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="子代理任务" className="flex h-full w-full max-w-2xl min-w-0 border-l border-border shadow-xl">
           <SubagentFleetPanel sessionId={session.id} onClose={() => onCloseSubagentPanel?.()} />

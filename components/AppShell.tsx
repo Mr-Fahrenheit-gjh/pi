@@ -179,7 +179,6 @@ export function AppShell() {
   const [packageSelection, setPackageSelection] = useState<{ sessionId: string; target: PackageAgentTarget } | null>(null);
   const packageTarget = packageSelection?.sessionId === selectedSession?.id
     ? packageAgents.targets.find((target) => target.id === packageSelection?.target.id) ?? packageSelection?.target : null;
-  const returnToMain = useCallback(() => setPackageSelection(null), []);
   const agentCount = (activeSessionFamily?.subagents.length ?? 0) + packageAgents.sessions.length;
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
   const handleRunningSessionIdsChange = useCallback((ids: Set<string>) => {
@@ -2443,7 +2442,6 @@ export function AppShell() {
               key={sessionKey}
               session={selectedSession}
               packageTarget={packageTarget}
-              onReturnToMain={returnToMain}
               searchTarget={searchTarget?.sessionId === selectedSession?.id ? searchTarget : null}
               onSearchTargetHandled={handleSearchTargetHandled}
               initialScrollPosition={selectedSession ? sessionScrollPositionsRef.current.get(selectedSession.id) ?? null : null}
