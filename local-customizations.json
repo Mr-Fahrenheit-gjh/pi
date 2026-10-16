@@ -1,8 +1,15 @@
 {
   "schemaVersion": 1,
   "upstreamRef": "v0.12.1",
-  "supportedSdkVersions": ["1.2.0"],
+  "supportedSdkVersions": ["1.2.0", "1.3.0"],
   "dependencyOverrides": {
+    "@earendil-works/pi-agent-core": "1.3.0",
+    "@earendil-works/pi-ai": "1.3.0",
+    "@earendil-works/pi-codemode": "1.3.0",
+    "@earendil-works/pi-coding-agent": "1.3.0",
+    "@earendil-works/pi-mcp": "1.3.0",
+    "@earendil-works/pi-telemetry": "1.3.0",
+    "@earendil-works/pi-tui": "1.3.0",
     "ghostty-web": "0.4.0",
     "@xterm/addon-fit": null,
     "@xterm/xterm": null
@@ -28,7 +35,7 @@
     "lib/chat-attachments.ts": ["saveChatAttachments", "chat-attachments"],
     "components/TerminalPanel.tsx": ["is-toolbarless", "data-terminal-status", "terminal-ghostty"],
     "components/FileViewer.tsx": ["srcDoc=", "sandbox=\"allow-scripts\"", "effectiveDisplayMode", "RevealFileButton"],
-    "components/ChatWindow.tsx": ["data-process-details", "uploadChatAttachments", "if (!running && !reveal) return null", "new-session-context-footer"],
+    "components/ChatWindow.tsx": ["data-process-details", "uploadChatAttachments", "if (!running && !reveal) return null"],
     "hooks/useAgentSession.ts": ["bindChatScrollIntent", "userScrollingAwayRef"],
     "hooks/useResizablePanel.ts": ["data-panel-drag-shield", "event.key !== \"Escape\""],
     "components/ImagePreview.tsx": ["zoomImageAt", "image-preview-viewport"],
@@ -36,5 +43,8 @@
     "lib/image-viewport.ts": ["zoomImageAt", "clampImageTransform"],
     "lib/package-subagent-bridge.ts": ["export"],
     "app/api/agent/[id]/subagents/route.ts": ["export"]
+  },
+  "forbiddenSourceMarkers": {
+    "components/ChatWindow.tsx": ["new-session-context-footer", "<NewSessionContextBar"]
   }
 }

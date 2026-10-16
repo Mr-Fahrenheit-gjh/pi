@@ -30,6 +30,7 @@ test("automatic refresh stays read-only and selection lives in the right workspa
   assert.match(shell, /<AgentWorkspace/);
   assert.doesNotMatch(shell, /setPackageSelection|data-agent-switcher-panel/);
   const workspace = readFileSync(new URL("./AgentWorkspace.tsx", import.meta.url), "utf8");
-  assert.match(workspace, /setSelection\(event\.target\.value\)/);
+  assert.match(workspace, /const choose = \(id: string\) => \{ setSelection\(id\); setOpen\(false\); trigger\.current\?\.focus\(\); \}/);
+  assert.match(workspace, /role="option"[^\n]*onClick=\{\(\) => choose\(item\.id\)\}/);
   assert.doesNotMatch(workspace, /handleSelectSession|onSend|startRpcSession/);
 });
