@@ -39,6 +39,7 @@ export const SIDEBAR_ROW_HEIGHTS: Record<SidebarLayout, Record<SidebarRowKind, n
   desktop: { "pinned-header": 28, session: 28, "pinned-more": 26, group: 28, "group-more": 26, "group-empty": 28, spacer: 8, "footer-open": 28, "footer-archived": 28, "archive-group": 28 },
   mobile: { "pinned-header": 44, session: 44, "pinned-more": 36, group: 44, "group-more": 36, "group-empty": 44, spacer: 8, "footer-open": 44, "footer-archived": 44, "archive-group": 44 },
 };
+/** Pagination counts top-level fork trees; expanded descendants stay with their root. */
 export const GROUP_VISIBLE_LIMIT = 6;
 export const PINNED_VISIBLE_LIMIT = 8;
 /** How many more families each "show more" click reveals. */
@@ -55,7 +56,7 @@ export interface SidebarFamilyStatus { running: boolean; awaiting: boolean; unre
 
 export type SidebarRow =
   | { kind: "pinned-header"; key: "pinned-header"; count: number; collapsed: boolean; running: number; unread: number }
-  | { kind: "session"; key: string; family: SessionFamily; context: "pinned" | "group" | "archive"; project: SidebarProject; status: SidebarFamilyStatus; archivedAt: number | null }
+  | { kind: "session"; key: string; family: SessionFamily; context: "pinned" | "group" | "archive"; project: SidebarProject; status: SidebarFamilyStatus; archivedAt: number | null; depth: number; hasChildren: boolean; expanded: boolean; branchStatus?: SidebarFamilyStatus }
   | { kind: "pinned-more"; key: "pinned-more"; hidden: number; canShowLess: boolean; nextShown: number }
   | { kind: "group"; key: string; project: SidebarProject; expanded: boolean; running: number; unread: number }
   | { kind: "group-more"; key: string; projectKey: string; hidden: number; canShowLess: boolean; nextShown: number }
@@ -84,6 +85,8 @@ export interface SessionTreeInput {
   /** Families revealed beyond the base limit by "show more", per projectKey or PINNED_MORE_KEY. */
   moreShown: Readonly<Record<string, number>>;
   pinnedCollapsed: boolean;
+  /** Explicit branch choices; fork trees start expanded. */
+  branchExpansion?: Readonly<Record<string, boolean>>;
   /** Presentation only; archived sessions remain stored and excluded from the main tree. */
   showArchivedEntry?: boolean;
 }
@@ -311,7 +314,77 @@ function sessionRow(
     project,
     status: familyStatus(family, input),
     archivedAt,
+    depth: 0,
+    hasChildren: false,
+    expanded: false,
   };
+}
+
+/** Display ancestry never changes the independent pin/archive/delete family. */
+function branchSection(
+  families: readonly SessionFamily[],
+  input: FamilyFlagsInput & Pick<SessionTreeInput, "branchExpansion">,
+  makeRow: (family: SessionFamily) => SidebarRow,
+  limit = Infinity,
+  shown = 0,
+): { rows: SidebarRow[]; hidden: number; revealed: number; nextShown: number } {
+  const byId = new Map(families.map((family) => [family.root.id, family]));
+  const owner = new Map(families.flatMap((family) => familyIds(family).map((id) => [id, family.root.id] as const)));
+  const parents = new Map<string, string>();
+  const children = new Map<string, SessionFamily[]>();
+  for (const family of families) {
+    const relation = family.root.relation;
+    const origin = relation?.kind === "fork" ? relation.originSessionId : undefined;
+    const parentId = origin ? owner.get(origin) : undefined;
+    if (!parentId || parentId === family.root.id) continue;
+    let ancestor: string | undefined = parentId;
+    while (ancestor && ancestor !== family.root.id) ancestor = parents.get(ancestor);
+    if (ancestor) continue;
+    parents.set(family.root.id, parentId);
+    const siblings = children.get(parentId) ?? [];
+    siblings.push(family);
+    children.set(parentId, siblings);
+  }
+  // The first active descendant sets a tree's position, not its old root date.
+  const roots = new Map<string, SessionFamily>();
+  const required = new Set<string>();
+  const activity = new Map<string, SidebarFamilyStatus>();
+  for (const family of families) {
+    let rootId = family.root.id;
+    while (parents.has(rootId)) rootId = parents.get(rootId)!;
+    roots.set(rootId, byId.get(rootId)!);
+    const status = familyStatus(family, input);
+    if (status.running || status.unread || status.selected) required.add(rootId);
+    let ancestor: string | undefined = family.root.id;
+    while (ancestor) {
+      const previous = activity.get(ancestor);
+      activity.set(ancestor, {
+        running: status.running || !!previous?.running,
+        awaiting: status.awaiting || !!previous?.awaiting,
+        unread: status.unread || !!previous?.unread,
+        selected: status.selected || !!previous?.selected,
+        transient: false,
+      });
+      ancestor = parents.get(ancestor);
+    }
+  }
+  const ordered = [...roots.values()];
+  const { visible, revealed, nextShown } = visibleFamilies(ordered, limit, shown, input, required);
+  const rows: SidebarRow[] = [];
+  const stack = visible.toReversed().map((family) => ({ family, depth: 0 }));
+  while (stack.length > 0) {
+    const { family, depth } = stack.pop()!;
+    const descendants = children.get(family.root.id) ?? [];
+    const expanded = descendants.length > 0 && input.branchExpansion?.[family.root.id] !== false;
+    const row = makeRow(family);
+    if (row.kind === "session") rows.push({ ...row, depth, hasChildren: descendants.length > 0, expanded,
+      ...(!expanded && descendants.length > 0 ? { branchStatus: activity.get(family.root.id) } : {}),
+    });
+    if (expanded) {
+      for (const child of descendants.toReversed()) stack.push({ family: child, depth: depth + 1 });
+    }
+  }
+  return { rows, hidden: ordered.length - visible.length, revealed, nextShown };
 }
 
 /**
@@ -331,11 +404,12 @@ function visibleFamilies(
   limit: number,
   shown: number,
   input: FamilyFlagsInput,
+  required: ReadonlySet<string> = new Set(),
 ): { visible: SessionFamily[]; revealed: number; nextShown: number } {
   const flagged = families.map((family, index) => {
     if (index < limit) return false;
     const status = familyStatus(family, input);
-    return status.running || status.unread || status.selected;
+    return required.has(family.root.id) || status.running || status.unread || status.selected;
   });
   const end = limit + shown;
   let revealed = 0;
@@ -452,11 +526,12 @@ export function buildSessionTree(input: SessionTreeInput): SessionTreeModel {
     }
     rows.push({ kind: "pinned-header", key: "pinned-header", count: sorted.length, collapsed: input.pinnedCollapsed, running, unread });
     if (!input.pinnedCollapsed) {
-      const { visible, revealed, nextShown } = visibleFamilies(sorted, PINNED_VISIBLE_LIMIT, shownMoreFor(input.moreShown, PINNED_MORE_KEY), input);
-      for (const family of visible) {
-        rows.push(sessionRow(family, "pinned", resolver.get(familyProjectKey(family)), input, null));
-      }
-      const more = moreRowState(sorted.length, visible.length, revealed);
+      const section = branchSection(sorted, input,
+        (family) => sessionRow(family, "pinned", resolver.get(familyProjectKey(family)), input, null),
+        PINNED_VISIBLE_LIMIT, shownMoreFor(input.moreShown, PINNED_MORE_KEY));
+      const { revealed, nextShown } = section;
+      rows.push(...section.rows);
+      const more = moreRowState(section.hidden, 0, revealed);
       if (more) rows.push({ kind: "pinned-more", key: "pinned-more", ...more, nextShown });
     }
     rows.push({ kind: "spacer", key: "pinned-spacer" });
@@ -526,9 +601,12 @@ export function buildSessionTree(input: SessionTreeInput): SessionTreeModel {
       if (groupFamilies.length === 0) {
         rows.push({ kind: "group-empty", key: `empty:${project.key}`, project });
       } else {
-        const { visible, revealed, nextShown } = visibleFamilies(groupFamilies, GROUP_VISIBLE_LIMIT, shownMoreFor(input.moreShown, project.key), input);
-        for (const family of visible) rows.push(sessionRow(family, "group", project, input, null));
-        const more = moreRowState(groupFamilies.length, visible.length, revealed);
+        const section = branchSection(groupFamilies, input,
+          (family) => sessionRow(family, "group", project, input, null),
+          GROUP_VISIBLE_LIMIT, shownMoreFor(input.moreShown, project.key));
+        const { revealed, nextShown } = section;
+        rows.push(...section.rows);
+        const more = moreRowState(section.hidden, 0, revealed);
         if (more) rows.push({ kind: "group-more", key: `more:${project.key}`, projectKey: project.key, ...more, nextShown });
       }
     }
@@ -563,7 +641,7 @@ export function nextProjectKeysToRecord(toRecord: readonly string[], sent: Reado
  * Groups by their newest archivedAt (desc), families by archivedAt (desc).
  */
 export function buildArchiveRows(
-  input: Pick<SessionTreeInput, "sessions" | "uiState" | "runningIds" | "awaitingIds" | "unreadIds" | "selectedSessionId" | "currentProject">,
+  input: Pick<SessionTreeInput, "sessions" | "uiState" | "runningIds" | "awaitingIds" | "unreadIds" | "selectedSessionId" | "currentProject" | "branchExpansion">,
 ): SidebarRow[] {
   const { uiState, runningIds } = input;
   const flags: FamilyFlagsInput = input;
@@ -594,9 +672,8 @@ export function buildArchiveRows(
     const families = group.families
       .map((entry, index) => ({ ...entry, index }))
       .sort((a, b) => compareDesc(a.archivedAt, b.archivedAt) || a.index - b.index);
-    for (const { family, archivedAt } of families) {
-      rows.push(sessionRow(family, "archive", project, flags, archivedAt));
-    }
+    rows.push(...branchSection(families.map(({ family }) => family), input,
+      (family) => sessionRow(family, "archive", project, flags, finiteNumber(familyEntry(uiState, family.root.id)?.archivedAt) ?? 0)).rows);
   }
   return rows;
 }

@@ -366,8 +366,8 @@ export interface SessionInfo {
   /** True while the sidebar has only header/stat metadata for this session. */
   detailsPending?: boolean;
   parentSessionId?: string; // source session for a fork, or parent session for a subagent
-  /** How this session relates to another session. Forks remain top-level in the
-   *  UI; only subagent relations form a visible parent/child tree. */
+  /** Fork ancestry drives sidebar indentation; subagents remain members of
+   *  their owning session family. Forks keep independent pin/archive state. */
   relation?:
     | { kind: "fork"; originSessionId?: string }
     | {

@@ -1396,6 +1396,27 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     () => effectiveGroupExpansion(groupExpansion, keptOpenGroups),
     [groupExpansion, keptOpenGroups],
   );
+  const [branchExpansion, setBranchExpansion] = useState<Record<string, boolean>>({});
+  const selectedBranchPath = useMemo(() => {
+    const byId = new Map(allSessions.map((session) => [session.id, session]));
+    const ancestors = new Set<string>();
+    let current = selectedSessionId ? byId.get(selectedSessionId) : undefined;
+    while (current && !ancestors.has(current.id)) {
+      ancestors.add(current.id);
+      const relation = current.relation;
+      const parentId = relation?.kind === "fork" ? relation.originSessionId
+        : relation?.kind === "subagent" ? relation.parentSessionId : undefined;
+      current = parentId ? byId.get(parentId) : undefined;
+    }
+    return JSON.stringify([...ancestors]);
+  }, [selectedSessionId, allSessions]);
+  useEffect(() => {
+    const ancestors = new Set<string>(JSON.parse(selectedBranchPath));
+    setBranchExpansion((choices) => {
+      if (![...ancestors].some((id) => choices[id] === false)) return choices;
+      return Object.fromEntries(Object.entries(choices).filter(([id]) => !ancestors.has(id)));
+    });
+  }, [selectedBranchPath]);
   const model = useMemo(() => buildSessionTree({
     sessions: allSessions,
     uiState,
@@ -1408,7 +1429,8 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     moreShown,
     pinnedCollapsed,
     showArchivedEntry,
-  }), [allSessions, uiState, runningSessionIds, awaitingInputSessionIds, unreadSessionIds, selectedSessionId, currentProject, shownGroupExpansion, moreShown, pinnedCollapsed, showArchivedEntry]);
+    branchExpansion,
+  }), [allSessions, uiState, runningSessionIds, awaitingInputSessionIds, unreadSessionIds, selectedSessionId, currentProject, shownGroupExpansion, moreShown, pinnedCollapsed, showArchivedEntry, branchExpansion]);
   // Built while the archive view is rendered, its way out included: it
   // leaves as it was, not empty.
   const archiveMounted = archiveMotion.archiveMounted;
@@ -1420,7 +1442,8 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     unreadIds: unreadSessionIds,
     selectedSessionId,
     currentProject,
-  }) : []), [archiveMounted, allSessions, uiState, runningSessionIds, awaitingInputSessionIds, unreadSessionIds, selectedSessionId, currentProject]);
+    branchExpansion,
+  }) : []), [archiveMounted, allSessions, uiState, runningSessionIds, awaitingInputSessionIds, unreadSessionIds, selectedSessionId, currentProject, branchExpansion]);
   const projectByKey = useMemo(
     () => new Map(model.projects.map((project) => [project.key, project])),
     [model.projects],
@@ -2369,6 +2392,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     activeMenuRowKey,
     onSelectFamily: handleSelectFamily,
     onToggleGroup: handleToggleGroup,
+    onToggleBranch: (id: string, expanded: boolean) => setBranchExpansion((choices) => ({ ...choices, [id]: !expanded })),
     onShowMore: handleShowMore,
     onShowLess: handleShowLess,
     onTogglePinned: handleTogglePinned,

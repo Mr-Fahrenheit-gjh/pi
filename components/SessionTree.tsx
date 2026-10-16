@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
@@ -107,6 +108,7 @@ export interface SessionTreeProps {
   onSelectFamily(family: SessionFamily): void;
   /** `all` (Alt+click): every group follows this one. */
   onToggleGroup(projectKey: string, all: boolean): void;
+  onToggleBranch?(id: string, expanded: boolean): void;
   /** Reveal SHOW_MORE_STEP more families; key is a projectKey or PINNED_MORE_KEY. */
   onShowMore(key: string): void;
   /** Back to the base limit; key is a projectKey or PINNED_MORE_KEY. */
@@ -378,6 +380,7 @@ export function SessionTree(props: SessionTreeProps): ReactNode {
     const row = rowElement(target.rowKey);
     // A saved session row's first control is its link, the others' a button.
     const button = row?.querySelector<HTMLElement>("[data-more-action=\"more\"]")
+      ?? row?.querySelector<HTMLElement>(".session-tree-main")
       ?? row?.querySelector<HTMLElement>("a[href], button")
       ?? rowElement(target.fallbackKey)?.querySelector<HTMLElement>("a[href], button");
     if (button) {
@@ -511,6 +514,7 @@ const SessionRowView = memo(function SessionRowView({
   const root = family.root;
   const title = sessionRowTitle(root);
   const nowDate = new Date(now);
+  const style = { ...rowStyle(top, height), "--session-branch-depth": row.depth ?? 0 } as CSSProperties;
   const className = [
     "session-tree-row session-tree-session",
     status.selected ? "is-selected" : "",
@@ -526,7 +530,7 @@ const SessionRowView = memo(function SessionRowView({
     return (
       <div
         className={className}
-        style={rowStyle(top, height)}
+        style={style}
         data-row-key={row.key}
         onKeyDown={(event) => {
           if (event.key !== "Escape" || isImeKey(event)) return;
@@ -554,7 +558,7 @@ const SessionRowView = memo(function SessionRowView({
 
   if (renaming) {
     return (
-      <div className={className} style={rowStyle(top, height)} data-row-key={row.key}>
+      <div className={className} style={style} data-row-key={row.key}>
         <RenameInput
           initialValue={title}
           label={t("sidebar.rename")}
@@ -579,18 +583,19 @@ const SessionRowView = memo(function SessionRowView({
   let meta: ReactNode;
   let metaState = "";
   let metaTitle: string | undefined;
-  if (status.awaiting) {
+  const activity = row.branchStatus ?? status;
+  if (activity.awaiting) {
     // The run is parked on a dialog only the user can answer: the same slot as
     // the spinner, in the unread dot's shape, in warning amber. The tooltip says
     // which of the two it is, since the row keeps its running actions.
     meta = <span className="session-tree-awaiting" role="img" aria-label={t("sidebar.agentAwaitingInput")} />;
     metaState = " is-awaiting";
     metaTitle = t("sidebar.agentAwaitingInput");
-  } else if (status.running) {
+  } else if (activity.running) {
     meta = <SpinnerIcon size={12} label={t("sidebar.agentRunning")} />;
     metaState = " is-running";
     metaTitle = t("sidebar.agentRunning");
-  } else if (status.unread) {
+  } else if (activity.unread) {
     meta = <span className="session-tree-unread" role="img" aria-label={t("sidebar.newSessionActivity")} />;
     metaState = " is-unread";
     metaTitle = t("sidebar.newActivity");
@@ -629,11 +634,26 @@ const SessionRowView = memo(function SessionRowView({
   return (
     <div
       className={className}
-      style={rowStyle(top, height)}
+      style={style}
       data-row-key={row.key}
+      data-branch-depth={row.depth ?? 0}
       onClick={() => handlers.current.onSelectFamily(family)}
       onContextMenu={(event) => handlers.current.onRowContextMenu(row, event)}
     >
+      {row.hasChildren ? (
+        <button
+          type="button"
+          className="session-tree-branch-toggle"
+          aria-label={`${t(row.expanded ? "i18n.collapse" : "i18n.expand")} ${title}`}
+          aria-expanded={row.expanded}
+          onClick={(event) => {
+            event.stopPropagation();
+            handlers.current.onToggleBranch?.(root.id, row.expanded);
+          }}
+        >
+          <ChevronIcon size={12} className={`session-tree-chevron${row.expanded ? " is-open" : ""}`} />
+        </button>
+      ) : row.depth > 0 ? <span className="session-tree-branch-connector" aria-hidden="true" /> : null}
       {status.transient ? (
         // No file yet: a link would open a session no other tab can load.
         <button type="button" className="session-tree-main" title={tooltip} aria-current={status.selected ? "true" : undefined}>

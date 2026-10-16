@@ -171,7 +171,7 @@ test("a group's ⋯ shows its open menu; its + starts a session at once", () => 
 test("an idle session row shows its short time, branch and both actions", () => {
   const root = session("idle", { isWorktree: true, branch: "feat/rows" });
   const html = rowMarkup(render({ rows: [sessionRow(root)] }), "session:group:idle");
-  assert.match(html, /^<div class="session-tree-row session-tree-session" style="top:0;height:28px" data-row-key="session:group:idle">/);
+  assert.match(html, /^<div class="session-tree-row session-tree-session" style="top:0;height:28px;--session-branch-depth:0" data-row-key="session:group:idle" data-branch-depth="0">/);
   // Nothing before the title: it gets the room; the time sits at the right.
   // A saved session's title is a real link to it (middle-click, Ctrl/Cmd-click).
   // The branch keeps the upstream icon and type; the tooltip keeps the ⑂ glyph.
@@ -180,6 +180,29 @@ test("an idle session row shows its short time, branch and both actions", () => 
   assert.match(html, /class="session-tree-action session-tree-quick-action" aria-label="Archive" title="Archive"/);
   assert.match(html, /class="session-tree-action session-tree-more-action" aria-label="More actions" title="More actions" aria-haspopup="menu" aria-expanded="false"/);
   assert.doesNotMatch(html, /aria-current/);
+});
+
+test("fork parents expose an independent expand button, and descendants show depth", () => {
+  const parent = { ...sessionRow(session("parent")), depth: 0, hasChildren: true, expanded: true };
+  const child = { ...sessionRow(session("fork")), depth: 1, hasChildren: false, expanded: false };
+  const html = render({ rows: [parent, child] });
+  const parentHtml = rowMarkup(html, parent.key);
+  assert.match(parentHtml, /<button type="button" class="session-tree-branch-toggle" aria-label="Collapse first parent" aria-expanded="true">/);
+  assert.match(parentHtml, /<\/button><a class="session-tree-main"/);
+  const childHtml = rowMarkup(html, child.key);
+  assert.match(childHtml, /--session-branch-depth:1/);
+  assert.match(childHtml, /data-branch-depth="1"/);
+  assert.match(childHtml, /session-tree-branch-connector/);
+  assert.doesNotMatch(childHtml, /session-tree-branch-toggle/);
+  assert.match(rowMarkup(render({ rows: [{ ...parent, expanded: false }] }), parent.key), /aria-label="Expand first parent" aria-expanded="false"/);
+});
+
+test("a collapsed tree shows descendant activity but keeps its own archive action", () => {
+  const row = { ...sessionRow(session("root")), depth: 0, hasChildren: true, expanded: false,
+    branchStatus: { running: true, awaiting: false, unread: true, selected: false, transient: false } };
+  const html = rowMarkup(render({ rows: [row] }), row.key);
+  assert.match(html, /session-tree-meta is-running/);
+  assert.match(html, /class="session-tree-action session-tree-quick-action" aria-label="Archive"/);
 });
 
 test("a branch chip needs a linked worktree", () => {
@@ -305,7 +328,7 @@ test("the phone layout uses tall rows, keeps ⋯ and drops the archive quick but
   assert.match(html, /^<div class="session-tree is-mobile">/);
   assert.match(rowMarkup(html, "group:/work/app"), /style="top:0;height:44px"/);
   const row = rowMarkup(html, "session:group:m");
-  assert.match(row, /style="top:44px;height:44px"/);
+  assert.match(row, /style="top:44px;height:44px;--session-branch-depth:0"/);
   assert.match(row, /aria-label="More actions"/);
   assert.doesNotMatch(row, /aria-label="Archive"/);
 });
@@ -416,7 +439,7 @@ test("only rows near the viewport are mounted, plus the ones that must stay", ()
     confirmDeleteRootId: "s180",
   }));
   assert.deepEqual(kept.slice(-3), ["session:group:s120", "session:group:s150", "session:group:s180"]);
-  assert.match(render({ rows, renamingRootId: "s120" }), /style="top:3360px;height:28px" data-row-key="session:group:s120"/);
+  assert.match(render({ rows, renamingRootId: "s120" }), /style="top:3360px;height:28px;--session-branch-depth:0" data-row-key="session:group:s120"/);
 });
 
 test("a reveal request keeps its row mounted", () => {
@@ -499,7 +522,7 @@ test("a row's controls fit its height with room to spare: 28px rows on a desktop
   }
 });
 
-test("headers lead with their chevron, and every row's text starts in one column", () => {
+test("headers and root rows share a text column, with fork indentation added per depth", () => {
   // The left inset is 6px in every browser, the grid the brand, the files'
   // header, the picker and the file tree keep; a classic scrollbar takes its
   // room from the right only.
@@ -516,7 +539,7 @@ test("headers lead with their chevron, and every row's text starts in one column
   };
   const textStart = lastPx(".session-tree-group-toggle", "padding") + 12 + lastPx(".session-tree-group-toggle", "gap");
   assert.equal(textStart, 20);
-  assert.equal(lastPx(".session-tree-session", "padding"), textStart);
+  assert.match(cssRule(".session-tree-session"), /padding: 0 4px 0 calc\(20px \+ min\(var\(--session-branch-depth, 0\), 8\) \* 16px\);/);
   // A group header's toggle starts at the row's own left edge.
   assert.match(cssRule(".session-tree-group"), /padding: 0 4px 0 0;/);
   assert.equal(lastPx(".session-tree-footer-button", "padding") + 12 + lastPx(".session-tree-footer-button", "gap"), textStart);

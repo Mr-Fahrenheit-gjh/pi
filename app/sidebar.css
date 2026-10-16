@@ -183,10 +183,40 @@
 .session-tree-session {
   right: var(--session-tree-inset-right);
   left: var(--session-tree-inset-left);
-  padding: 0 4px 0 20px;
+  padding: 0 4px 0 calc(20px + min(var(--session-branch-depth, 0), 8) * 16px);
   border-radius: 7px;
   cursor: pointer;
   overflow: hidden;
+}
+
+.session-tree-branch-toggle,
+.session-tree-branch-connector {
+  position: absolute;
+  left: calc(3px + min(var(--session-branch-depth, 0), 8) * 16px);
+  width: 16px;
+}
+
+.session-tree-branch-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  border-radius: 4px;
+}
+
+.session-tree-branch-toggle:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+.session-tree-branch-connector {
+  top: 0;
+  height: 50%;
+  width: 9px;
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  pointer-events: none;
 }
 
 .session-tree-session:hover {
