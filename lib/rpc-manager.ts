@@ -1,5 +1,5 @@
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import { createAgentSessionFromServices, createAgentSessionServices, getAgentDir, initTheme, SessionManager, SettingsManager, Theme, type ModelRuntime } from "@earendil-works/pi-coding-agent";
+import { AgentSession, createAgentSessionFromServices, createAgentSessionServices, getAgentDir, initTheme, SessionManager, SettingsManager, Theme, type ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { KeybindingsManager as TuiKeybindingsManager, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import { randomUUID } from "crypto";
 import { existsSync, realpathSync, writeFileSync } from "fs";
@@ -62,6 +62,11 @@ import {
   readSessionToolSelection,
   validateSessionToolSelection,
 } from "./session-tool-selection";
+
+import { getInterruptSteerState, installInterruptSteer, isInterruptSteerBusy } from "./interrupt-steer.mjs";
+
+// One SDK policy for parent sessions, built-in children and extension user messages.
+installInterruptSteer(AgentSession);
 
 // ============================================================================
 // Types
@@ -152,6 +157,7 @@ export const MCP_WAIT_STOPPED_MESSAGE = "Stopped while MCP servers were connecti
 const IDLE_RESET_EVENT_TYPES = new Set([
   "agent_end",
   "agent_settled",
+  "interrupt_steer_end",
   "auto_compaction_end",
   "compaction_end",
 ]);
@@ -313,6 +319,7 @@ export class AgentSessionWrapper {
   private extensionWidgetGenerations = new Map<string, number>();
   private extensionWidgetsResetting = false;
   private pendingPromptCount = 0;
+  private interruptAdmissionEpoch = 0;
   private activeMutatingCommands = 0;
   private sessionReplacement: "fork" | "clone" | null = null;
   private agentRunNeedsCompletion = false;
@@ -388,7 +395,7 @@ export class AgentSessionWrapper {
   }
 
   isRunning(): boolean {
-    return this._alive && (this.pendingPromptCount > 0 || this.inner.isStreaming || this.inner.isCompacting || this.inner.isBashRunning);
+    return this._alive && (this.pendingPromptCount > 0 || isInterruptSteerBusy(this.inner) || this.inner.isStreaming || this.inner.isCompacting || this.inner.isBashRunning);
   }
 
   /** Includes admission waits and mutations not yet reflected in streaming state. */
@@ -440,7 +447,7 @@ export class AgentSessionWrapper {
         this.agentRunNeedsCompletion = true;
         this.lastRunAborted = false;
       }
-      if (event.type === "agent_settled") this.lastRunAborted = event.aborted === true;
+      if (event.type === "agent_settled" || event.type === "interrupt_steer_end") this.lastRunAborted = event.aborted === true;
       if (event.type === "agent_end") {
         invalidateSessionListCache();
         // Every tool call of the run has finished; nothing is left to replay.
@@ -453,7 +460,7 @@ export class AgentSessionWrapper {
       this.trackActiveToolEvent(event);
       if (IDLE_RESET_EVENT_TYPES.has(event.type)) this.resetIdleTimer();
       this.emit(event);
-      if (event.type === "agent_settled") this.notifyAgentRunCompleteIfIdle();
+      if (event.type === "agent_settled" || event.type === "interrupt_steer_end") this.notifyAgentRunCompleteIfIdle();
     });
     this.resetIdleTimer();
   }
@@ -790,6 +797,7 @@ export class AgentSessionWrapper {
 
   async send(command: Record<string, unknown>): Promise<unknown> {
     const type = command.type as string;
+    const admissionEpoch = this.interruptAdmissionEpoch;
     const allowedDuringReplacement = COMMANDS_ALLOWED_DURING_SESSION_REPLACEMENT.has(type);
     if (this.sessionReplacement && !allowedDuringReplacement) {
       throw new Error("Session is being copied to a new session");
@@ -820,17 +828,36 @@ export class AgentSessionWrapper {
       // run there would reach the model only for its tools to fail (and `write`
       // to recreate the folder). The pi CLI does not resume such a session
       // either; refuse as /api/agent/new does. (A `!` command already refuses.)
-      if (type === "prompt" && !existsSync(this.cwd)) {
+      if ((type === "prompt" || type === "steer") && !existsSync(this.cwd)) {
         throw new Error(`Directory does not exist: ${this.cwd}`);
       }
 
+      // The SDK cannot cancel a Web-only MCP/UI preflight that has not reached
+      // AgentSession yet. Withdraw it before waiting for prompt admission.
+      if (type === "steer" || (type === "prompt" && command.streamingBehavior === "steer")) {
+        this.extensionUiAbortController.abort(new DOMException("Extension UI cancelled by steer", "AbortError"));
+        if (this.mcpPromptWait) {
+          const wait = this.mcpPromptWait;
+          wait.controller.abort();
+          await wait.done;
+        }
+      }
+
+      if ((type === "prompt" || type === "steer") && admissionEpoch !== this.interruptAdmissionEpoch) {
+        throw new Error("Prompt admission cancelled by Stop");
+      }
+
       switch (type) {
-      case "prompt": {
+      case "prompt":
+      case "steer": {
         // Serialize only admission. Once the preceding prompt has either
         // passed or failed preflight, the SDK can atomically decide whether
         // this submission starts a run or joins its streaming queue.
         const releaseAdmission = await this.acquirePromptAdmission();
         try {
+          if (admissionEpoch !== this.interruptAdmissionEpoch || !this.isAlive()) {
+            throw new Error("Prompt admission cancelled by Stop or session disposal");
+          }
           assertServiceNotRestarting();
           if (this.inner.isBashRunning) {
             throw new Error("Cannot send a prompt while a shell command is running");
@@ -843,7 +870,7 @@ export class AgentSessionWrapper {
             this.extensionUiAbortController = new AbortController();
           }
           const promptImages = command.images as Array<{ type: "image"; data: string; mimeType: string }> | undefined;
-          const streamingBehavior = command.streamingBehavior as "steer" | "followUp" | undefined;
+          const streamingBehavior = type === "steer" ? "steer" : command.streamingBehavior as "steer" | "followUp" | undefined;
           let preflightAccepted = false;
           let preflightSettled = false;
           let promptSettled = false;
@@ -905,16 +932,16 @@ export class AgentSessionWrapper {
           }
           let prompt: Promise<void>;
           try {
-            prompt = this.inner.prompt(command.message as string, {
-              ...(promptImages?.length ? { images: promptImages } : {}),
-              ...(streamingBehavior ? { streamingBehavior } : {}),
-              source: "rpc",
-              // Match pi's RPC contract: acknowledge only after synchronous prompt
-              // validation and extension preflight have accepted the submission.
-              // Every disposition (handled, queued, started) is an acceptance; a
-              // rejected prompt never calls this and rejects `prompt` instead.
-              preflightResult: () => acceptPreflight(),
-            });
+            prompt = type === "steer"
+              ? this.inner.steer(command.message as string, promptImages?.length ? promptImages : undefined)
+                .then(() => { acceptPreflight(); })
+              : this.inner.prompt(command.message as string, {
+                ...(promptImages?.length ? { images: promptImages } : {}),
+                ...(streamingBehavior ? { streamingBehavior } : {}),
+                source: "rpc",
+                // Acknowledge only after SDK validation and input preflight.
+                preflightResult: () => acceptPreflight(),
+              });
           } catch (error) {
             finishPrompt();
             throw error;
@@ -954,6 +981,7 @@ export class AgentSessionWrapper {
       }
 
       case "abort":
+        this.interruptAdmissionEpoch += 1;
         this.forceShutdownOnIdle = true;
         // Arm the forced cleanup now: the reset above ran before this flag,
         // and the final reset only runs once the SDK run has unwound.
@@ -981,6 +1009,7 @@ export class AgentSessionWrapper {
           sessionFile: this.inner.sessionFile ?? "",
           isStreaming: this.inner.isStreaming,
           isPromptRunning: this.pendingPromptCount > 0,
+          interruptSteer: getInterruptSteerState(this.inner),
           isBashRunning: this.inner.isBashRunning,
           isCompacting: this.inner.isCompacting,
           autoCompactionEnabled: this.inner.autoCompactionEnabled,
@@ -1193,11 +1222,6 @@ export class AgentSessionWrapper {
         return this.inner.clearQueue();
       }
 
-      case "steer": {
-        const steerImages = command.images as Array<{ type: "image"; data: string; mimeType: string }> | undefined;
-        await this.inner.steer(command.message as string, steerImages?.length ? steerImages : undefined);
-        return null;
-      }
 
       case "follow_up": {
         const followImages = command.images as Array<{ type: "image"; data: string; mimeType: string }> | undefined;

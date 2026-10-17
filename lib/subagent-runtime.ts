@@ -1,5 +1,6 @@
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import {
+  AgentSession,
   createAgentSessionFromServices,
   createAgentSessionServices,
   getAgentDir,
@@ -44,6 +45,11 @@ import { isBuiltInSubagentsEnabled, readSubagentSettings } from "./subagent-sett
 import { SubagentQueue } from "./subagent-queue";
 import { addWorktree, removeWorktree } from "./worktree";
 import { randomUUID } from "node:crypto";
+import { installInterruptSteer, hasQueuedInterruptSteer, queueInternalSteer, setInterruptSteerGuard } from "./interrupt-steer.mjs";
+
+// Also bind here: embedded/test loaders can hold a different SDK module instance
+// from rpc-manager. All built-in children must use the same user-steer contract.
+installInterruptSteer(AgentSession);
 
 interface HostSession {
   readonly inner: AgentSessionLike;
@@ -487,10 +493,26 @@ export function createSubagentController(
         let turnCount = 0;
         let maxTurnsReached = false;
         let undelivered: string[] = [];
+        let lastPartialText: string | undefined;
         const previousFinishTurn = inner.agent.finishTurn;
         const previousSteeringMode = inner.agent.steeringMode;
         let unsubscribeTools: (() => void) | undefined;
         if (turnLimit) {
+          // Resubmission keeps the task's cumulative turn budget. A public steer
+          // must not bypass the final wrap-up by starting another physical run.
+          setInterruptSteerGuard(inner, (inputs) => {
+            if (turnCount >= turnLimit + 1) {
+              maxTurnsReached = true;
+              stored.turnLimitReached = true;
+              const { steering, followUp } = inner.clearQueue();
+              undelivered = [...undelivered, ...steering, ...followUp, ...inputs.map((input) => input.prompt)];
+              throw new Error(turnLimitError(turnLimit, undelivered));
+            }
+            if (turnCount >= turnLimit) {
+              inner.agent.steeringMode = "all";
+              queueInternalSteer(inner, TURN_LIMIT_INSTRUCTION);
+            }
+          });
           // Finalized events retain the SDK's terminate hint; tool-result messages do not.
           const terminatingTools = new Set<string>();
           unsubscribeTools = inner.subscribe((event) => {
@@ -499,10 +521,16 @@ export function createSubagentController(
             }
           });
           inner.agent.finishTurn = async (turn, signal) => {
+            const partial = turn.message.content.flatMap((part) => part.type === "text" ? [part.text] : []).join("\n").trim();
+            if (partial) lastPartialText = partial;
             const decision = (await previousFinishTurn?.(turn, signal)) ?? undefined;
             const toolsContinue = turn.toolResults.some((message) => !terminatingTools.has(message.toolCallId));
             terminatingTools.clear();
             turnCount += 1;
+            if (turnCount >= turnLimit + 1 && hasQueuedInterruptSteer(inner)) {
+              maxTurnsReached = true;
+              stored.turnLimitReached = true;
+            }
             if (signal?.aborted || decision?.action === "end" ||
               turn.message.stopReason === "error" || turn.message.stopReason === "aborted") return decision;
             const needsAnotherTurn = toolsContinue || decision?.action === "continue" || inner.agent.hasQueuedMessages();
@@ -520,7 +548,7 @@ export function createSubagentController(
             // In one-at-a-time mode a steer queued earlier would take the wrap-up turn and
             // leave the instruction for later, so that turn takes everything queued.
             inner.agent.steeringMode = "all";
-            await inner.steer(TURN_LIMIT_INSTRUCTION);
+            queueInternalSteer(inner, TURN_LIMIT_INSTRUCTION);
             return decision;
           };
         }
@@ -528,7 +556,7 @@ export function createSubagentController(
         try {
           await prepareChildMcp(childSession, stored);
           await inner.prompt(delegatedTask, { source: "rpc" });
-          const text = inner.getLastAssistantText()?.trim();
+          const text = inner.getLastAssistantText()?.trim() || lastPartialText;
           const stop = stored.abortRequested ? undefined : lastAssistantStop(sessionManager);
           const aborted = stored.abortRequested || stop?.aborted === true;
           const errorMessage = aborted ? undefined : stop?.error ??
@@ -541,7 +569,7 @@ export function createSubagentController(
             ...(errorMessage ? { error: errorMessage } : {}),
           };
         } catch (error) {
-          const text = inner.getLastAssistantText()?.trim();
+          const text = inner.getLastAssistantText()?.trim() || lastPartialText;
           const aborted = stored.abortRequested || request.signal?.aborted;
           result = {
             ...initialRun,
@@ -556,6 +584,7 @@ export function createSubagentController(
           if (turnLimit) {
             inner.agent.finishTurn = previousFinishTurn;
             inner.agent.steeringMode = previousSteeringMode;
+            setInterruptSteerGuard(inner, undefined);
           }
           unsubscribeTools?.();
           request.signal?.removeEventListener("abort", handleParentAbort);
