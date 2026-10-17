@@ -1,3 +1,4 @@
+import { runtimeFetch as fetch } from "./runtime-client.mjs";
 import type { Ghostty } from "ghostty-web";
 import { DEFAULT_GHOSTTY_FONT, type GhosttyFontPreferences } from "./ghostty-font-config";
 

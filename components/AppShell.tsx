@@ -1,4 +1,5 @@
 "use client";
+import { pageRuntime, runtimeFetch as fetch, runtimeStorageKey } from "@/lib/runtime-client.mjs";
 
 import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -12,6 +13,8 @@ import { FileViewer } from "./FileViewer";
 import { TabBar, type Tab } from "./TabBar";
 import { openFileTab, saveFileViewerState, saveParkedFileViewerState, switchFileWorkspace, type ParkedFileWorkspace } from "./file-tab-state";
 import { SettingsPanel, SettingsSectionIcon } from "./SettingsPanel";
+import { PendingReleasePanel } from "./PendingReleasePanel";
+import { usePendingReleases } from "@/hooks/usePendingReleases";
 import { ProjectTrustDialog, type ProjectTrustFailure } from "./ProjectTrustDialog";
 import { BranchNavigator, hasSessionBranches } from "./BranchNavigator";
 import { SystemPromptPanel } from "./SystemPromptPanel";
@@ -217,6 +220,8 @@ export function AppShell() {
   }, []);
   const [explorerRefreshKey, setExplorerRefreshKey] = useState(0);
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null);
+  const [pendingReleaseOpen, setPendingReleaseOpen] = useState(false);
+  const pendingReleases = usePendingReleases(pendingReleaseOpen);
   const [modelsRefreshKey, setModelsRefreshKey] = useState(0);
   const [projectTrust, setProjectTrust] = useState<ProjectTrustStatus | null>(null);
   const [projectTrustDialogOpen, setProjectTrustDialogOpen] = useState(false);
@@ -655,7 +660,7 @@ export function AppShell() {
 
   useEffect(() => {
     try {
-      const saved = restoreTerminalTabs(window.sessionStorage.getItem(TERMINAL_TABS_KEY));
+      const saved = restoreTerminalTabs(window.sessionStorage.getItem(runtimeStorageKey(TERMINAL_TABS_KEY)));
       setTerminalTabs(saved.tabs);
       if (saved.activeId) {
         setActiveFileTabId(saved.activeId);
@@ -668,7 +673,7 @@ export function AppShell() {
   useEffect(() => {
     if (!terminalsRestored) return;
     try {
-      window.sessionStorage.setItem(TERMINAL_TABS_KEY, JSON.stringify({
+      window.sessionStorage.setItem(runtimeStorageKey(TERMINAL_TABS_KEY), JSON.stringify({
         tabs: terminalTabs.map(({ id, cwd }) => ({ id, cwd })),
         activeId: activeFileTabId,
         open: rightPanelOpen,
@@ -1443,7 +1448,8 @@ export function AppShell() {
   // Subagent work tabs: like files, only the active one is mounted.
   const activeAgentTab = agentTabs.find((tab) => `agent:${tab.sessionId}` === activeFileTabId) ?? null;
   const activeCwdName = activeCwd ? getFileName(activeCwd) || activeCwd : null;
-  const windowTitle = activeCwdName ? `${activeCwdName} - Pi Web` : "Pi Web";
+  const runtimeBrand = pageRuntime() === "feynman" ? "Feynman" : "Pi Web";
+  const windowTitle = activeCwdName ? `${activeCwdName} - ${runtimeBrand}` : runtimeBrand;
 
   useEffect(() => {
     const syncWindowTitle = () => {
@@ -1499,6 +1505,15 @@ export function AppShell() {
         >
           <SettingsSectionIcon section="general" size={14} strokeWidth={2} />
           <span>{translate("common.settings")}</span>
+        </button>
+        <button
+          type="button"
+          className="pending-release-entry-button"
+          title={pendingReleases.error ?? (pendingReleases.snapshot?.warnings.length ? "部分记录不可用，数量不完整" : undefined)}
+          onClick={() => setPendingReleaseOpen(true)}
+        >
+          待上线 <span>{pendingReleases.snapshot && !pendingReleases.snapshot.warnings.length
+            ? pendingReleases.snapshot.pendingCount : pendingReleases.loading ? "…" : "—"}</span>
         </button>
         <ServiceRestartButton />
       </div>
@@ -2366,6 +2381,15 @@ export function AppShell() {
         projectTrust={projectTrust}
         onOpenTrustDialog={openProjectTrustDialog}
         onProjectTrustChanged={handleProjectTrustChanged}
+      />
+    )}
+    {pendingReleaseOpen && (
+      <PendingReleasePanel
+        snapshot={pendingReleases.snapshot}
+        loading={pendingReleases.loading}
+        error={pendingReleases.error}
+        onRefresh={pendingReleases.refresh}
+        onClose={() => setPendingReleaseOpen(false)}
       />
     )}
     {/* After Settings, so it opens above it (z-index 1100 over 1000) when Settings › MCP asks for it. */}

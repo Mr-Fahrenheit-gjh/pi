@@ -1,4 +1,5 @@
 "use client";
+import { runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
 import { registerAbortHandler } from "@/hooks/useKeyboardShortcuts";
 import Image from "next/image";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";

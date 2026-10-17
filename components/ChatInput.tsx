@@ -1,4 +1,5 @@
 "use client";
+import { runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
 
 import React, { memo, useRef, useState, useCallback, useEffect, useLayoutEffect, useImperativeHandle, forwardRef, KeyboardEvent } from "react";
 import type { BuiltinSlashCommandResult, CompactResultInfo, QueuedMessages, SlashCommandInfo } from "@/hooks/useAgentSession";

@@ -2,13 +2,14 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useI18n } from "@/hooks/useI18n";
+import { pageRuntime, runtimePage, type AgentRuntime } from "@/lib/runtime-client.mjs";
+import { SidebarMenu, type SidebarMenuAnchor } from "./SidebarMenu";
 
 /**
  * The sidebar's brand with the files below the sessions (its toolbar row,
  * components/SessionSidebar.tsx; the tabs layout has its tabs there), with
- * the old sidebar's easter egg: a click scrambles "Pi Web" into the versions
- * (pi-web's, a "p", pi's) in the accent; they scramble back after
- * VERSION_SHOWN_MS, or at once on a second click.
+ * Click opens the runtime switcher. The versions remain an explicit menu
+ * action, using the original temporary scramble animation.
  */
 
 export const BRAND_TEXT = "Pi Web";
@@ -86,10 +87,14 @@ export function PiWebTitle({ onWidthChange }: {
 }) {
   const { t } = useI18n();
   const [versionShown, setVersionShown] = useState(false);
+  const [runtime, setRuntime] = useState<AgentRuntime>("pi");
+  const [anchor, setAnchor] = useState<SidebarMenuAnchor | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => { setRuntime(pageRuntime()); }, []);
   const revertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appVersion = process.env.NEXT_PUBLIC_APP_VERSION;
   const piVersion = process.env.NEXT_PUBLIC_PI_VERSION;
-  const text = useScramble(versionShown ? brandVersionText(appVersion, piVersion) : BRAND_TEXT);
+  const text = useScramble(versionShown ? brandVersionText(appVersion, piVersion) : runtime === "feynman" ? "Feynman" : BRAND_TEXT);
 
   useLayoutEffect(() => {
     onWidthChange?.();
@@ -113,16 +118,36 @@ export function PiWebTitle({ onWidthChange }: {
     }, VERSION_SHOWN_MS);
   };
 
-  // The name says what the click shows, so the versions need no click (and
-  // no scrambled text is ever read out: the name stays the same).
   return (
-    <button
-      type="button"
-      className={`sidebar-brand${versionShown ? " is-version" : ""}`}
-      aria-label={t("sidebar.brandLabel", { app: appVersion ?? "0.0.0", pi: piVersion ?? "0.0.0" })}
-      onClick={handleClick}
-    >
-      {text}
-    </button>
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        className={`sidebar-brand${versionShown ? " is-version" : ""}`}
+        aria-label={t("sidebar.runtimeSwitch")}
+        aria-haspopup="menu"
+        aria-expanded={anchor !== null}
+        onClick={() => {
+          const rect = buttonRef.current?.getBoundingClientRect();
+          if (rect) setAnchor(anchor ? null : { kind: "rect", rect, align: "start" });
+        }}
+      >
+        {text}
+      </button>
+      <SidebarMenu
+        open={anchor !== null} anchor={anchor} sheet={false}
+        ariaLabel={t("sidebar.runtimeSwitch")} cancelLabel={t("sidebar.runtimeCancel")}
+        onClose={() => setAnchor(null)} returnFocusTo={buttonRef.current} width={180}
+        items={[
+          ...(["pi", "feynman"] as const).map((target) => ({
+            type: "item" as const, id: target, label: target === "pi" ? "Pi Web" : "Feynman",
+            checked: runtime === target,
+            onSelect: () => { if (target !== runtime) window.location.assign(runtimePage(target)); },
+          })),
+          { type: "separator", id: "versions-separator" },
+          { type: "item", id: "versions", label: t("sidebar.runtimeVersions"), onSelect: handleClick, disabled: runtime !== "pi" },
+        ]}
+      />
+    </>
   );
 }

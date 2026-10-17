@@ -21,6 +21,7 @@ import { notifySessionComplete } from "./web-push";
 import { hasActiveSessionLivenessProvider } from "./session-liveness";
 import { assertServiceNotRestarting } from "./service-restart-state";
 import { createPackageSubagentExtension } from "./package-subagent-bridge";
+import { createRuntimePeerExtension } from "./runtime-peer-extension";
 import type { SlashCommandInfo } from "@earendil-works/pi-coding-agent";
 import type { AgentSessionLike, ExtensionUiContextLike, ToolInfo } from "./pi-types";
 import type {
@@ -2604,6 +2605,7 @@ export async function startRpcSession(
               ...(builtins?.extensions ?? []),
               createReadOnlyMcpPolicyExtension(),
               createPackageSubagentExtension(),
+              createRuntimePeerExtension(),
               createProjectCommandBashExtension({
                 cwd: sessionCwd,
                 settings: settingsManager,

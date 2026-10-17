@@ -1,3 +1,4 @@
+import { runtimeFetch as fetch } from "./runtime-client.mjs";
 // Client-safe projections. Fleet keys and workflow child ids are never control targets.
 export interface FleetRow {
   key: string;

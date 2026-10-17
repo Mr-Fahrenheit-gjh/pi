@@ -1,3 +1,4 @@
+import { runtimeFetch as fetch } from "./runtime-client.mjs";
 // Client-side helper for POST /api/agent/[id].
 //
 // Every /api/agent/[id] route returns one of:

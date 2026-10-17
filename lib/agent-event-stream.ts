@@ -122,6 +122,7 @@ export function createAgentEventStream(
   req: Request,
   sessionId: string,
   sessionPromise: Promise<AgentEventStreamSession>,
+  livenessKey = sessionId,
 ): ReadableStream<Uint8Array> {
   let cancelStream: (closeController: boolean | "error") => void = () => {};
   let releaseLease: () => void = () => {};
@@ -164,7 +165,7 @@ export function createAgentEventStream(
         }
       };
       cancelStream = cleanup;
-      releaseLease = acquireSessionLivenessLease(sessionId).release;
+      releaseLease = acquireSessionLivenessLease(livenessKey).release;
       activeStreamClosers.add(cleanup);
 
       const backlogLimitBytes = resolveBacklogLimitBytes();

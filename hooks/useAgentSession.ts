@@ -1,4 +1,5 @@
 "use client";
+import { runtimeApi, runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
 
 import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo, useReducer } from "react";
 import type {
@@ -479,7 +480,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
 
   if (!eventConnectionRef.current) {
     eventConnectionRef.current = new AgentEventConnection({
-      createSource: (sid) => new EventSource(`/api/agent/${encodeURIComponent(sid)}/events`),
+      createSource: (sid) => new EventSource(runtimeApi(`/api/agent/${encodeURIComponent(sid)}/events`)),
       onEvent: (event) => handleAgentEventRef.current?.(event as AgentEvent),
       shouldMaintain: (sid) => (
         sessionHookMountedRef.current

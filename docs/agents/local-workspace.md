@@ -27,6 +27,12 @@ This is the local composition contract layered over the upstream sidebar/session
 - Browser file upload cannot recover an original absolute local path; it must save a server-side attachment. Never claim this is an original-file link. The attachment store is not the session cwd, and composer uploads must not refresh/write the project explorer.
 - Enforce bounded multipart input, 25MB/file and 100MB/selection, safe names, private file permissions and symlink refusal; clean only files/directories created by a failed call. The file explorer's explicit Upload action keeps its existing project-upload semantics.
 
+## Pending release handoff
+- The footer adds only `待上线` and its count beside the unchanged Settings/Restart actions. An independent desktop dialog shares Settings' shell, theme/font, focus and Escape tools, with pending/history views, evidence disclosures and copy-only handoff. Never fold it into Settings or Plugins.
+- The shared registry covers completed, verified Pi Web/extension/memory/config work only. The default directory and CLI protocol live in [pending-releases.md](../pending-releases.md); `PI_PENDING_RELEASE_DIR` is a server/CLI environment override, never a request parameter.
+- One UUID JSON per item; strict shared schema, no symlinks, per-ID cross-process lock, expected revision, exclusive create and atomic update. GET `/api/pending-releases` is read-only and no-store. Invalid items warn, directory failures are unavailable, and history does not count as pending. References are text only, never read from their target files.
+- No automatic messages, main-Agent calls, release commands or service restart. Writers register only after completion/verification, then stop. Real registration and deployment require the operator's scoped authority. Never store credentials or real memory contents.
+
 ## Service restart
 - ServiceRestartButton requires a confirmation dialog, waits for a changed server epoch and never resends an ambiguous POST. Manual AbortController/timeouts support Safari 16.2.
 - POST `/api/service/restart` is only for same-origin loopback requests on 30141, the installed package cwd and the matching `cn.pi.web` launchd PID. Candidate/development instances reject it. No remote targets, arbitrary commands or force-busy overrides.

@@ -1,4 +1,5 @@
 "use client";
+import { runtimeFetch as fetch, runtimeStorageKey } from "@/lib/runtime-client.mjs";
 
 import { useEffect, useImperativeHandle, useLayoutEffect, useState, useCallback, useMemo, useRef, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type Ref, type RefObject, type UIEvent as ReactUIEvent } from "react";
 import type { SessionInfo } from "@/lib/types";
@@ -339,7 +340,7 @@ function sessionActionIcon(id: SessionMenuActionId): ReactNode {
 function loadLastCustomCwd(): string {
   if (typeof window === "undefined") return "";
   try {
-    return window.localStorage.getItem(LAST_CUSTOM_CWD_STORAGE_KEY) ?? "";
+    return window.localStorage.getItem(runtimeStorageKey(LAST_CUSTOM_CWD_STORAGE_KEY)) ?? "";
   } catch {
     return "";
   }
@@ -348,7 +349,7 @@ function loadLastCustomCwd(): string {
 function saveLastCustomCwd(cwd: string): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(LAST_CUSTOM_CWD_STORAGE_KEY, cwd);
+    window.localStorage.setItem(runtimeStorageKey(LAST_CUSTOM_CWD_STORAGE_KEY), cwd);
   } catch {
     // Persistence is best-effort.
   }
@@ -357,7 +358,7 @@ function saveLastCustomCwd(cwd: string): void {
 function loadUnreadSessionIds(): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {
-    const raw = window.localStorage.getItem(UNREAD_SESSIONS_STORAGE_KEY);
+    const raw = window.localStorage.getItem(runtimeStorageKey(UNREAD_SESSIONS_STORAGE_KEY));
     if (!raw) return new Set();
     const parsed = JSON.parse(raw) as unknown;
     if (Array.isArray(parsed)) return new Set(parsed.filter((id): id is string => typeof id === "string"));
@@ -370,8 +371,8 @@ function loadUnreadSessionIds(): Set<string> {
 function saveUnreadSessionIds(ids: Set<string>): void {
   if (typeof window === "undefined") return;
   try {
-    if (ids.size === 0) window.localStorage.removeItem(UNREAD_SESSIONS_STORAGE_KEY);
-    else window.localStorage.setItem(UNREAD_SESSIONS_STORAGE_KEY, JSON.stringify([...ids]));
+    if (ids.size === 0) window.localStorage.removeItem(runtimeStorageKey(UNREAD_SESSIONS_STORAGE_KEY));
+    else window.localStorage.setItem(runtimeStorageKey(UNREAD_SESSIONS_STORAGE_KEY), JSON.stringify([...ids]));
   } catch {
     // ignore storage quota / privacy-mode errors
   }

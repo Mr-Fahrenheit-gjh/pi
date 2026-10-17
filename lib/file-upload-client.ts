@@ -1,3 +1,4 @@
+import { runtimeFetch as fetch } from "./runtime-client.mjs";
 import { buildAtMentionText } from "./file-fuzzy";
 import { encodeFilePathForApi } from "./file-paths";
 

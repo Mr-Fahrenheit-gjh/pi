@@ -2501,6 +2501,99 @@ select.mcp-add-input {
   overflow-wrap: anywhere;
 }
 
+/* Read-only release handoff uses the same desktop shell as Settings. */
+.pending-release-dialog {
+  font-family: var(--font-ui);
+}
+.pending-release-entry-button {
+  height: 32px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pending-release-entry-button:hover,
+.pending-release-entry-button:focus-visible {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.pending-release-content {
+  height: 100%;
+  padding: 26px 40px 40px;
+  overflow-y: auto;
+  font-size: 12px;
+  color: var(--text);
+}
+.pending-release-toolbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+.pending-release-entry {
+  padding: 18px 0;
+  border-top: 1px solid var(--border);
+}
+.pending-release-entry-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.pending-release-entry-heading h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+}
+.pending-release-entry-heading span,
+.pending-release-meta,
+.pending-release-empty {
+  color: var(--text-muted);
+}
+.pending-release-summary {
+  margin: 8px 0 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.pending-release-entry summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.pending-release-evidence h4 {
+  margin: 16px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.pending-release-evidence ul,
+.pending-release-warning ul {
+  margin: 0;
+  padding-left: 20px;
+}
+.pending-release-evidence li {
+  margin: 4px 0;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+.pending-release-entry,
+.pending-release-warning {
+  overflow-wrap: anywhere;
+}
+.pending-release-copy {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+.pending-release-warning {
+  margin-bottom: 16px;
+  color: var(--text-muted);
+}
+
 /* iOS standalone: env() can report 0, so keep a device-sized fallback on the
    status-bar edge and cap dialog surfaces to the resulting safe box. */
 @supports (-webkit-touch-callout: none) {

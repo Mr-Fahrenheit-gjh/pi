@@ -1,3 +1,4 @@
+import { runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
 import type {
   CodemodeInlineBudgetSetting,
   CodemodeMode,

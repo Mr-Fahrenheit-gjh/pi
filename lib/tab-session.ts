@@ -1,3 +1,4 @@
+import { runtimeStorageKey } from "./runtime-client.mjs";
 /**
  * Per-tab "open session" memory.
  *
@@ -62,7 +63,7 @@ function parseTabOpen(raw: string | null): TabOpen | null {
 }
 
 function writeTabOpen(value: TabOpen, storage: StorageLike): void {
-  storage.setItem(STORAGE_KEY, JSON.stringify(value));
+  storage.setItem(runtimeStorageKey(STORAGE_KEY), JSON.stringify(value));
 }
 
 /** What this tab showed last, or null when none is remembered. */
@@ -71,7 +72,7 @@ export function getTabOpen(
 ): TabOpen | null {
   if (!storage) return null;
   try {
-    return parseTabOpen(storage.getItem(STORAGE_KEY));
+    return parseTabOpen(storage.getItem(runtimeStorageKey(STORAGE_KEY)));
   } catch {
     return null;
   }
@@ -109,9 +110,9 @@ export function clearTabOpenSession(
 ): void {
   if (!storage || !sessionId) return;
   try {
-    const current = parseTabOpen(storage.getItem(STORAGE_KEY));
+    const current = parseTabOpen(storage.getItem(runtimeStorageKey(STORAGE_KEY)));
     if (current?.kind !== "session" || current.sessionId !== sessionId) return;
-    storage.removeItem(STORAGE_KEY);
+    storage.removeItem(runtimeStorageKey(STORAGE_KEY));
   } catch {
     // storage unavailable — memory is best-effort
   }

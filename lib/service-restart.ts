@@ -5,6 +5,7 @@ import { getRpcSessionInfos, getRestartBlockingRpcSessionIds } from "./rpc-manag
 import { hasActiveSessionWorkProvider } from "./session-liveness";
 import { getActiveTerminalCount } from "./terminal-manager";
 import { serviceRestartState } from "./service-restart-state";
+import { feynmanRestartBlockingIds } from "./feynman-rpc";
 
 const exec = promisify(execFile);
 const INSTALLED_PACKAGE = "/opt/homebrew/lib/node_modules/@agegr/pi-web";
@@ -33,7 +34,7 @@ async function supported(): Promise<boolean> {
 }
 
 export function restartBlockers(): { sessions: number; terminals: number } {
-  const sessions = new Set(getRestartBlockingRpcSessionIds());
+  const sessions = new Set([...getRestartBlockingRpcSessionIds(), ...feynmanRestartBlockingIds()]);
   for (const session of getRpcSessionInfos({ includeTransient: true })) {
     if (hasActiveSessionWorkProvider({ sessionId: session.id, sessionFile: session.path })) sessions.add(session.id);
   }
