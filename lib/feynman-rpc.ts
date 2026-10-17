@@ -115,6 +115,9 @@ export class FeynmanRpcSession {
       if (event.type === "agent_settled" && this.interruptActive) continue;
       if (event.type === "interrupt_steer_end") this.interruptActive = false;
       if (event.type === "agent_settled" || event.type === "interrupt_steer_end") { this.promptActive = false; this.streaming = false; this.closePendingUi(); }
+      // The shared Web consumer clears its SDK-running flag on settled, not
+      // prompt_done. Project one logical terminal event after releasing busy.
+      if (event.type === "interrupt_steer_end") this.emit({ type: "agent_settled", aborted: event.aborted === true });
       if (event.type === "agent_end") { this.streaming = false; this.message = null; }
       if (event.type === "auto_compaction_start") this.compacting = true;
       if (event.type === "auto_compaction_end") this.compacting = false;
