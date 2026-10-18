@@ -24,6 +24,7 @@ import {
   type AtQueryMatch, type FileIndexEntry,
 } from "@/lib/file-fuzzy";
 import { getMarkdownListContinuation } from "@/lib/markdown-list-continuation";
+import { shouldShowPromptSuggestion, type PromptSuggestion } from "@/lib/prompt-suggestions";
 import { isBareMcpCommand, isBuiltinMcpCommand } from "@/lib/mcp-command";
 import { FolderIcon, getFileIcon } from "./FileIcons";
 import { ImagePreview } from "./ImagePreview";
@@ -101,6 +102,7 @@ interface Props {
   welcome?: boolean;
   onAudioUnlock?: () => void;
   draftKey?: string;
+  promptSuggestion?: PromptSuggestion;
   /** Session working directory — enables the @ file autocomplete menu */
   cwd?: string | null;
   /** Files picked with the attach button, handled like files dropped onto the chat. Without it the button takes images only. */
@@ -667,6 +669,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
   welcome = false,
   onPromptWithStreamingBehavior,
   draftKey,
+  promptSuggestion,
   cwd,
   onAttachFiles,
   compact = false,
@@ -699,6 +702,21 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
   const [historyActiveIndex, setHistoryActiveIndex] = useState(0);
   const [builtinCommandPending, setBuiltinCommandPending] = useState(false);
   const builtinCommandPendingRef = useRef(false);
+  const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<string[]>([]);
+  const dismissPromptSuggestion = useCallback(() => {
+    if (!promptSuggestion) return;
+    setDismissedSuggestionIds((ids) => ids.includes(promptSuggestion.id) ? ids : [...ids.slice(-63), promptSuggestion.id]);
+  }, [promptSuggestion]);
+  const visiblePromptSuggestion = !compact && shouldShowPromptSuggestion({
+    suggestion: promptSuggestion, draftKey, value,
+    busy: isStreaming || Boolean(isCompacting) || Boolean(modelSwitching),
+    attachments: attachedImages.length,
+    menuOpen: slashMenuOpen || atMenuOpen || historyMenuOpen,
+    dismissedId: promptSuggestion && dismissedSuggestionIds.includes(promptSuggestion.id) ? promptSuggestion.id : undefined,
+  }) ? promptSuggestion : undefined;
+  useEffect(() => {
+    if (value.length > 0 || attachedImages.length > 0) dismissPromptSuggestion();
+  }, [value, attachedImages.length, dismissPromptSuggestion]);
   const [fileIndex, setFileIndex] = useState<{ cwd: string; entries: FileIndexEntry[]; truncated: boolean } | null>(null);
   const [fileIndexLoading, setFileIndexLoading] = useState(false);
   const [atServerResult, setAtServerResult] = useState<{ cwd: string; query: string; matches: FileIndexEntry[] } | null>(null);
@@ -1486,6 +1504,21 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
         }
       }
 
+      if (!isComposing && visiblePromptSuggestion && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        if ((e.key === "Tab" && visiblePromptSuggestion.acceptTab) || e.key === "ArrowRight") {
+          e.preventDefault();
+          valueRef.current = visiblePromptSuggestion.text;
+          setValue(visiblePromptSuggestion.text);
+          dismissPromptSuggestion();
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          dismissPromptSuggestion();
+          return;
+        }
+      }
+
       if (e.key === "ArrowUp" && !isComposing && !isStreaming && inputHistory.length > 0 && value.trim().length === 0) {
         e.preventDefault();
         setSlashMenuOpen(false);
@@ -1511,7 +1544,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
         }
       }
     },
-    [isMobile, enterSendMode, runningSendMode, isStreaming, onSteer, onFollowUp, onAbort, slashMenuOpen, slashQuery, displayedSlashCommands, slashActiveIndex, applySlashCommand, sendQueued, handleSend, getNextSlashIndex, atMenuOpen, atQuery, atMatches, atActiveIndex, applyAtCompletion, historyMenuOpen, inputHistory, historyActiveIndex, applyHistoryInput, value]
+    [isMobile, enterSendMode, runningSendMode, isStreaming, onSteer, onFollowUp, onAbort, slashMenuOpen, slashQuery, displayedSlashCommands, slashActiveIndex, applySlashCommand, sendQueued, handleSend, getNextSlashIndex, atMenuOpen, atQuery, atMatches, atActiveIndex, applyAtCompletion, historyMenuOpen, inputHistory, historyActiveIndex, applyHistoryInput, value, visiblePromptSuggestion, dismissPromptSuggestion]
   );
 
   const handleInput = useCallback(() => {
@@ -2285,9 +2318,12 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
           <textarea
             ref={textareaRef}
             className="chat-input-textarea"
+            data-prompt-suggestion={visiblePromptSuggestion?.id}
+            title={visiblePromptSuggestion ? `${visiblePromptSuggestion.text} · ${visiblePromptSuggestion.acceptTab ? "Tab" : "→"}` : undefined}
             aria-label={compact ? t("chat.quoteQuestion") : undefined}
             value={value}
             onChange={(e) => {
+              dismissPromptSuggestion();
               valueRef.current = e.target.value;
               setValue(e.target.value);
               setHistoryMenuOpen(false);
@@ -2299,6 +2335,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
             }}
             onKeyDown={handleKeyDown}
             onCompositionStart={() => {
+              dismissPromptSuggestion();
               isComposingRef.current = true;
             }}
             onCompositionEnd={(e) => {
@@ -2310,7 +2347,8 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
             onInput={handleInput}
             onPaste={handlePaste}
             placeholder={
-              isStreaming && (onSteer || onFollowUp)
+              visiblePromptSuggestion ? `${visiblePromptSuggestion.text}  ${visiblePromptSuggestion.acceptTab ? "⇥ Tab" : "→"}`
+              : isStreaming && (onSteer || onFollowUp)
                 ? t(runningSendAction === "steer" ? "chat.steerOnlyPlaceholder" : "chat.followUpOnlyPlaceholder")
                 : isStreaming ? t("chat.agentPlaceholder")
                 : t(welcome ? "chat.welcomePlaceholder" : "chat.replyPlaceholder")

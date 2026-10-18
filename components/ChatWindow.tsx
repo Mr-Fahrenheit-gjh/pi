@@ -17,6 +17,7 @@ import { chatAttachmentMentionText, splitDroppedItems, uploadChatAttachments, ty
 import { MessageView } from "./MessageView";
 import { MarkdownBody } from "./MarkdownBody";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
+import { getPromptSuggestion } from "@/lib/prompt-suggestions";
 import { SubagentFleetPanel } from "./SubagentFleetPanel";
 import { PackageSubagentChat } from "./PackageSubagentChat";
 import type { PackageAgentTarget } from "@/hooks/usePackageSubagents";
@@ -274,7 +275,7 @@ export function ChatWindow({ session, packageTarget, showSubagentPanel = false, 
     retryInfo, contextUsage, forkingEntryId,
     isCompacting, compactError, compactResult, displayModel: displayModelValue, modelSwitching, sessionStats,
     slashCommands, slashCommandsLoading, queuedMessages,
-    notices, extensionDialog, waitingExtensionDialogCount, extensionCustomUi, waitingExtensionCustomUiCount, respondToExtensionUi, sendExtensionCustomInput, setNoticePaused, addNotice,
+    notices, extensionDialog, waitingExtensionDialogCount, extensionCustomUi, waitingExtensionCustomUiCount, extensionWidgets, respondToExtensionUi, sendExtensionCustomInput, setNoticePaused, addNotice,
     isAutoModelSelection,
     isAutoThinkingSelection,
     defaultModel,
@@ -970,6 +971,7 @@ export function ChatWindow({ session, packageTarget, showSubagentPanel = false, 
       contextUsage={contextUsage}
       onAudioUnlock={unlockAudio}
       draftKey={session?.id ?? newSessionDraftKey ?? undefined}
+      promptSuggestion={getPromptSuggestion(extensionWidgets, session?.id)}
       cwd={session?.cwd ?? newSessionCwd}
       onAttachFiles={onAttachFiles}
     />

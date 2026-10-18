@@ -95,6 +95,7 @@ test("follow-up shortcuts preserve newline, IME, mobile and completion behavior"
       historyMenuOpen: false, inputHistory: ["previous"], historyActiveIndex: 0,
       slashMenuOpen: false, slashQuery: null, displayedSlashCommands: [{}], slashActiveIndex: 0,
       atMenuOpen: false, atQuery: null, atMatches: [{}], atActiveIndex: 0,
+      visiblePromptSuggestion: undefined,
       onSteer() {}, onFollowUp() {},
       sendQueued(mode) { action = mode; }, handleSend() { action = "send"; },
       applySlashCommand() { action = "slash"; },
