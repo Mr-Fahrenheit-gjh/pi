@@ -1,5 +1,5 @@
 "use client";
-import { runtimeApi, runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
+import { pageRuntime, runtimeApi, runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
 
 import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo, useReducer } from "react";
 import type {
@@ -34,6 +34,7 @@ import { isNestedToolExecutionEvent, isSystemMessageEvent } from "@/lib/agent-ev
 import { getToolExecutionProgress } from "@/lib/tool-execution-progress";
 import { CODEMODE_TOOL_NAME, getCodemodeProgress } from "@/lib/codemode-view";
 import { updateExtensionWidgets } from "@/lib/extension-widgets";
+import { requestOpenedPromptSuggestion } from "@/lib/prompt-suggestion-request";
 import { bareMcpOpensSettings } from "@/lib/mcp-command";
 import { bindChatScrollIntent } from "@/lib/chat-scroll-intent";
 import type { SettingsSection } from "@/lib/settings-navigation";
@@ -697,6 +698,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
             },
           }
         : d);
+      activeLeafIdRef.current = d.leafId;
       setActiveLeafId(d.leafId);
       if (revisionUnchanged) {
         // Refresh the cached snapshot with the newest leaf/tree/stats while
@@ -784,7 +786,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         } else if (!agentState.running) {
           setQueuedMessages({ steering: [], followUp: [] });
         }
-        return agentState;
+        return { ...agentState, loadedLeafId: d.leafId };
       } catch (e) {
         console.error("Failed to load agent state:", e);
         return null;
@@ -1951,6 +1953,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     // appends to. Switching only the view would render the live run under
     // another branch, so the switch waits for the run like the server does.
     if (bashRunningRef.current || agentRunningRef.current || isCompacting) return;
+    activeLeafIdRef.current = leafId;
     setActiveLeafId(leafId);
     const sid = sessionIdRef.current;
     if (!sid) return;
@@ -2521,6 +2524,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
 
   // Load session on mount
   useEffect(() => {
+    let disposed = false;
     sessionHookMountedRef.current = true;
     // Usage reads started before a remount are stale.
     contextUsageAppliedIdRef.current = contextUsageRequestIdRef.current;
@@ -2559,7 +2563,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         setLoading(false);
       }
       loadSession(session.id, !cached, true, { force: true }).then((loadedAgentState) => {
-        const agentState = loadedAgentState as { running: boolean; state?: AgentStateResponse } | null;
+        if (disposed || sessionPropIdRef.current !== session.id || sessionIdRef.current !== session.id) return;
+        const agentState = loadedAgentState as { running: boolean; state?: AgentStateResponse; loadedLeafId?: string | null } | null;
         if (agentState?.running) {
           loadTools(session.id);
           if (agentState.state?.isStreaming || agentState.state?.isPromptRunning) {
@@ -2586,9 +2591,28 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           if (agentState.state.extensionWidgets !== undefined) setExtensionWidgets(agentState.state.extensionWidgets ?? []);
           if (agentState.state.queuedMessages !== undefined) setQueuedMessages(normalizeQueuedMessages(agentState.state.queuedMessages));
         }
+        if (pageRuntime() === "pi" && agentState?.loadedLeafId
+          && !agentState.state?.isStreaming && !agentState.state?.isPromptRunning
+          && !agentState.state?.isBashRunning && !agentState.state?.isCompacting) {
+          void requestOpenedPromptSuggestion({
+            sessionId: session.id,
+            leafId: agentState.loadedLeafId,
+            isCurrent: () => !disposed && sessionHookMountedRef.current
+              && sessionPropIdRef.current === session.id && sessionIdRef.current === session.id
+              && activeLeafIdRef.current === agentState.loadedLeafId
+              && !agentRunningRef.current && !bashRunningRef.current && !rpcPromptPendingRef.current,
+            hasDraft: () => {
+              const draft = getDraft(session.id);
+              return Boolean(draft?.value.length || draft?.images?.length || pendingHistoryEdits.has(session.id));
+            },
+            ensureConnected: ensureEventsConnected,
+            send: sendAgentCommand,
+          });
+        }
       });
     }
     return () => {
+      disposed = true;
       sessionHookMountedRef.current = false;
       const abandonedDraftKey = isNew ? newSessionDraftKey : null;
       if (abandonedDraftKey) {

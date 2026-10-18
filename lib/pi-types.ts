@@ -1,5 +1,7 @@
 import type {
   AgentSessionEvent,
+  ExtensionCommandContext,
+  ResolvedCommand,
   BashOperations,
   SessionManager,
   SettingsManager,
@@ -76,6 +78,8 @@ interface ResourceLoaderLike {
 }
 
 interface ExtensionRunnerLike {
+  getCommand?(name: string): Pick<ResolvedCommand, "handler" | "sourceInfo"> | undefined;
+  createCommandContext?(): ExtensionCommandContext;
   getRegisteredCommands(): Array<{
     invocationName: string;
     description?: string;

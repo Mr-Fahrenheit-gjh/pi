@@ -6,6 +6,7 @@ import { existsSync, realpathSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { validateAgentImages } from "./image-attachments";
 import { invalidateModelsCache } from "./models-cache";
+import { dispatchHistoryPromptSuggestion } from "./prompt-suggestion-request";
 import { invalidateModelRuntimeWithExtensions } from "./model-runtime";
 import { resolveVisibleModels, selectInitialModelScope } from "./model-scope";
 import { findDeferredModel, findDeferredStartupModel, rememberProviderModels } from "./deferred-provider-models";
@@ -623,6 +624,7 @@ export class AgentSessionWrapper {
       || type === "steer"
       || type === "follow_up"
       || type === "get_commands"
+      || type === "request_prompt_suggestion"
       || type === "get_state";
   }
 
@@ -1248,6 +1250,9 @@ export class AgentSessionWrapper {
           declarationHidden: hidden.has(t.name),
         }));
       }
+
+      case "request_prompt_suggestion":
+        return dispatchHistoryPromptSuggestion(this.inner.extensionRunner, this.isSessionRunningForReplacement(), command.leafId);
 
       case "get_commands": {
         const commands: SlashCommandInfo[] = [];

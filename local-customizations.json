@@ -38,7 +38,8 @@
     "components/TerminalPanel.tsx": ["is-toolbarless", "data-terminal-status", "terminal-ghostty"],
     "components/FileViewer.tsx": ["srcDoc=", "sandbox=\"allow-scripts\"", "effectiveDisplayMode", "RevealFileButton"],
     "components/ChatWindow.tsx": ["data-process-details", "uploadChatAttachments", "if (!running && !reveal) return null", "getPromptSuggestion(extensionWidgets, session?.id)"],
-    "hooks/useAgentSession.ts": ["bindChatScrollIntent", "userScrollingAwayRef"],
+    "hooks/useAgentSession.ts": ["bindChatScrollIntent", "userScrollingAwayRef", "requestOpenedPromptSuggestion"],
+    "lib/prompt-suggestion-request.ts": ["dispatchHistoryPromptSuggestion", "prompt-suggestions-history"],
     "hooks/useResizablePanel.ts": ["data-panel-drag-shield", "event.key !== \"Escape\""],
     "components/ImagePreview.tsx": ["zoomImageAt", "image-preview-viewport"],
     "lib/chat-scroll-intent.ts": ["bindChatScrollIntent"],
@@ -52,7 +53,7 @@
     "lib/runtime-peer.ts": ["preparePeerSend", "consumePeerSend", "approvePeerRpcDialog"],
     "lib/runtime-peer-extension.ts": ["peer_agent"],
     "public/runtime-peer-extension.mjs": ["peer_agent"],
-    "lib/rpc-manager.ts": ["createRuntimePeerExtension"],
+    "lib/rpc-manager.ts": ["createRuntimePeerExtension", "case \"request_prompt_suggestion\":", "dispatchHistoryPromptSuggestion"],
     "lib/package-subagent-bridge.ts": ["export"],
     "app/api/agent/[id]/subagents/route.ts": ["export"]
   },
