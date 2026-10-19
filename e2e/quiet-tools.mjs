@@ -102,7 +102,8 @@ try {
   await active.locator('.pi-working-mark').waitFor();
   assert.equal(await active.locator('.pi-working-mark').getAttribute('src'), '/icons/pi-mark.svg');
   assert.equal(await active.locator('.pi-working-mark').getAttribute('width'), '26');
-  assert.equal(await active.locator('.pi-working-mark').evaluate(el => getComputedStyle(el).animationDuration), '2.1s');
+  assert.equal(await active.locator('.pi-working-mark').evaluate(el => getComputedStyle(el).animationDuration), '0s');
+  assert.equal(await active.locator('.process-toggle-label').evaluate(el => getComputedStyle(el).animationDuration), '2s');
   assert.equal(await activeToggle.evaluate(el => getComputedStyle(el).fontSize), '14px');
   const answerFont = await page.locator('.markdown-assistant-message').first().evaluate(el => getComputedStyle(el).fontFamily);
   assert.ok(answerFont.includes('Georgia'));
