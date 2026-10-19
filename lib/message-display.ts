@@ -67,16 +67,6 @@ export function isAbortErrorMessage(error: string | null | undefined): boolean {
   return ABORT_ERROR_MESSAGES.has(text);
 }
 
-/** Stop/Esc or an aborted model call: acknowledge it instead of reporting an error. */
-export function isAssistantInterrupted(
-  message: AssistantMessage,
-  options: DisplayOptions = {},
-): boolean {
-  if (options.isStreaming) return false;
-  return message.stopReason === "aborted"
-    || (message.stopReason === "error" && isAbortErrorMessage(message.errorMessage));
-}
-
 /**
  * A turn that ended on `stopReason: "length"` spent its whole output budget
  * (often on reasoning alone) and produced no final answer; without a notice it

@@ -126,17 +126,15 @@ test("shows fetch failures only in the process while keeping partial answers and
   }
 });
 
-test("acknowledges a user stop instead of rendering an abort error", () => {
+test("keeps a user stop silent, without an error box or placeholder", () => {
   const abortedError = { role: "assistant", content: [], stopReason: "error", errorMessage: "This operation was aborted" };
-  const html = renderMessage(abortedError);
-  assert.doesNotMatch(html, /This operation was aborted/);
-  assert.doesNotMatch(html, /Error:/);
-  assert.match(html, /Stopped\. Tell me what you/);
+  assert.equal(renderMessage(abortedError), "");
+  assert.equal(renderMessage({ ...abortedError, stopReason: "aborted", errorMessage: undefined }), "");
   assert.doesNotMatch(renderMessage(abortedError, { assistantContent: "process" }), /This operation was aborted/);
-  const abortedStop = { ...abortedError, stopReason: "aborted", errorMessage: undefined };
-  assert.match(renderMessage(abortedStop), /Stopped\./);
-  // Other provider failures still render their error.
   assert.match(renderMessage({ ...abortedError, errorMessage: "rate limit" }), /Error: rate limit/);
+  const partial = { ...abortedError, content: [{ type: "text", text: "Partial answer" }] };
+  assert.match(renderMessage(partial), /Partial answer/);
+  assert.doesNotMatch(renderMessage(partial), /This operation was aborted/);
 });
 
 test("matches response model aliases and otherwise includes the provider", () => {

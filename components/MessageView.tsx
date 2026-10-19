@@ -11,7 +11,7 @@ import { ThinkingIcon } from "./ThinkingIcon";
 import { copyText } from "@/lib/clipboard";
 import { useI18n } from "@/hooks/useI18n";
 import { parseCompactionSummary } from "@/lib/compaction-summary";
-import { getAssistantErrorMessage, getThinkingPreview, hasAssistantAnswer, isAssistantInterrupted, isAssistantTruncated, isEmptyThinkingBlock } from "@/lib/message-display";
+import { getAssistantErrorMessage, getThinkingPreview, hasAssistantAnswer, isAssistantTruncated, isEmptyThinkingBlock } from "@/lib/message-display";
 import { parseUnifiedPatch, type SplitDiffCell, type SplitDiffFile } from "@/lib/patch";
 import { applyPatchPreviewToFiles, applyPatchResultHasFailures, extractApplyPatchPaths, getApplyPatchInputText, parseApplyPatchInput } from "@/lib/apply-patch";
 import { isApplyPatchToolName, isEditToolName, isWriteToolName } from "@/lib/tool-names";
@@ -688,7 +688,6 @@ function AssistantMessageView({
     }), [message.content, isStreaming, assistantContent]);
   const blocks = useMemo(() => blockItems.map(({ block }) => block), [blockItems]);
   const providerError = getAssistantErrorMessage(message, { isStreaming, assistantContent });
-  const interrupted = assistantContent !== "process" && isAssistantInterrupted(message, { isStreaming });
   const truncated = assistantContent !== "process" && isAssistantTruncated(message, { isStreaming });
   const unansweredTruncation = truncated && !hasAssistantAnswer(message);
   const [copied, setCopied] = useState(false);
@@ -814,7 +813,7 @@ function AssistantMessageView({
     return () => clearInterval(id);
   }, [isStreaming, rateKey]);
 
-  if (blocks.length === 0 && !isStreaming && !providerError && !truncated && !interrupted) return null;
+  if (blocks.length === 0 && !isStreaming && !providerError && !truncated) return null;
 
   return (
     <div
@@ -868,19 +867,6 @@ function AssistantMessageView({
           }}
         >
           Error: {providerError}
-        </div>
-      )}
-
-      {interrupted && (
-        <div
-          style={{
-            marginTop: blocks.length > 0 || providerError ? 8 : 0,
-            color: "var(--text-muted)",
-            fontSize: 12,
-            lineHeight: 1.5,
-          }}
-        >
-          {t("chat.interrupted")}
         </div>
       )}
 
