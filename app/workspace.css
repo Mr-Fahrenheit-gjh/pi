@@ -544,8 +544,16 @@
   .composer-entry { padding: 10px 50px 10px 14px !important; min-height: 48px; }
   .composer-card .composer-send-button { right: 8px; bottom: 8px; }
   .new-session-greeting { letter-spacing: -.7px; }
-  [data-composer-layout="welcome"] .chat-input-controls { flex-wrap: wrap; }
-  [data-composer-layout="welcome"] .chat-input-controls > div:first-child { max-width: 50%; }
+  [data-composer-layout="welcome"] .chat-input-controls { flex-wrap: nowrap; }
+  [data-composer-layout="welcome"] .chat-input-controls > div:first-child {
+    flex: 0 1 auto !important;
+    max-width: 45%;
+  }
+  [data-composer-layout="welcome"] .composer-controls-spacer { display: none; }
+  [data-composer-layout="welcome"] .chat-input-controls > .model-selector {
+    width: auto !important;
+    flex: 1 1 0 !important;
+  }
   .composer-attachments { padding: 14px 16px 0; gap: 10px; }
   .composer-attachment-image { width: 104px; height: 104px; }
   .attachment-dialog { width: calc(100vw - 24px); border-radius: 22px; }

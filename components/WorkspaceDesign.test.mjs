@@ -85,6 +85,8 @@ test("reference upload copy stays English and normal-weight independently of UI 
   assert.match(css, /\.attachment-dialog-header h2 \{[^}]*font-weight: 400/);
   assert.match(css, /\.attachment-dialog \{[^}]*font-family: var\(--font-ui\)/);
   assert.match(css, /padding: 12px 54px 12px 16px !important;\s*min-height: 52px/);
+  assert.match(css, /\.chat-input-controls > \.model-selector \{\s*width: auto !important;\s*flex: 1 1 0 !important;/);
+  assert.match(css, /\.composer-controls-spacer \{ display: none; \}/);
 });
 
 test("run cancellation is outside the hidden options group", () => {

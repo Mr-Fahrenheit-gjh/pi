@@ -2449,7 +2449,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
           </div>
 
           {/* spacer */}
-          <div style={{ flex: 1 }} />
+          <div className="composer-controls-spacer" style={{ flex: 1 }} />
             {/* Model selector - visible always, disabled while the session or switch is busy */}
             {(modelOptions.length > 0 || model || modelError) && onModelChange && (
               <ModelSelector
