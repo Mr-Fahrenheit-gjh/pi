@@ -337,6 +337,7 @@ export function TreeNode({
   return (
     <div>
       <div
+        className="file-explorer-row"
         onClick={handleClick}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
@@ -344,21 +345,19 @@ export function TreeNode({
           position: "relative",
           display: "flex",
           alignItems: "center",
-          gap: 4,
           paddingLeft: 8 + depth * 14,
           paddingRight: 8,
-          height: 24,
           cursor: "pointer",
           background: hovered ? "var(--bg-hover)" : "transparent",
-          borderRadius: 4,
           userSelect: "none",
         }}
       >
         {node.isDir && (
           <svg
+            className="file-explorer-chevron"
             width="10" height="10" viewBox="0 0 10 10" fill="none"
             stroke="var(--text-dim)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
-            style={{ flexShrink: 0, transform: open ? "rotate(90deg)" : "none", transition: "transform 0.1s" }}
+            style={{ flexShrink: 0, transform: open ? "rotate(90deg)" : "none" }}
           >
             <polyline points="3 2 7 5 3 8" />
           </svg>
@@ -600,6 +599,7 @@ function ChangeRow({
   const baseName = lastSlash >= 0 ? rel.slice(lastSlash + 1) : rel;
   return (
     <div
+      className="file-explorer-row"
       onClick={() => onOpenFile(status.filePath, name, { modeHint: "diff" })}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -607,13 +607,10 @@ function ChangeRow({
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 6,
         paddingLeft: 10,
         paddingRight: 8,
-        height: 24,
         cursor: "pointer",
         background: hovered ? "var(--bg-hover)" : "transparent",
-        borderRadius: 4,
         userSelect: "none",
         position: "relative",
       }}

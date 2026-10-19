@@ -13,6 +13,7 @@ This is the local composition contract layered over the upstream sidebar/session
 - ChatWindow does not mount the bottom extension status/widget shelf. This is a presentation decision only: keep extension state/protocol and blocking permission/input/custom UI functional.
 
 ## Answer surfaces
+- Assistant heading sizes and paragraph spacing scale with the user's body size. Keep the existing emphasis weight and code font. User bubbles, file previews and tool output retain their own spacing.
 - Assistant answers are unframed: no reply bubble, border, background or added padding. Preserve the existing user-message bubble, model icon/name, original block indices, streaming, answer/code fonts, alerts and written files. Long code/tables scroll inside their existing wrappers; compact screens must not overflow.
 - Footer stays quiet until hover/keyboard focus (always usable on touch). Show copy plus a positive t/s value only when supported: live estimates use observed token growth; completed averages use output tokens divided by SDK-recorded request duration, including waiting. No timestamp-difference speed guesses, empty zero badges or added cost panels.
 
@@ -39,5 +40,9 @@ This is the local composition contract layered over the upstream sidebar/session
 - Block running sessions, command admission/mutation waits, compaction, session creation, real extension work and live PTYs. Idle selected-browser leases are not work. Draining rejects new work and rechecks after asynchronous admission waits; Stop/control responses remain available.
 - Implementation/testing does not authorize actually restarting the formal service. Unit/VM tests never run launchctl; candidate tests reject restart. A real restart still requires explicit operator confirmation and separate live verification.
 
+## Motion and file rows
+- Panel transitions share the workspace easing curve without extending the desktop's 200ms exit contract. Reduced motion disables panel, backdrop, composer and file-chevron transitions, including preview and inline-style overrides.
+- File rows share 28px height and 6px corners. Preserve indentation, path tooltips, Git status, hover actions and folder expansion. Stacked file-header spacing does not change the files-tab layout or session navigation.
+
 ## Verification
-Use related component/restart/attachment/todo tests, typecheck/lint, then isolated headless checks: `e2e/workspace-design.mjs`, `e2e/ui-polish.mjs`, `e2e/chat-attachments.mjs`. Synthetic fixtures and candidate success are not production deployment evidence. Keep `local-customizations.json` markers aligned with this contract rather than restoring removed UI during migration.
+Use related component/restart/attachment/todo tests, typecheck/lint, then isolated headless checks: `e2e/workspace-design.mjs`, `e2e/ui-polish.mjs`, `e2e/chat-attachments.mjs`. `e2e/reading-polish.mjs` adds heading, file-row, pin, keyboard and reduced-motion checks after the workspace suite on the same isolated page. Synthetic fixtures and candidate success are not production deployment evidence. Keep `local-customizations.json` markers aligned with this contract rather than restoring removed UI during migration.

@@ -1,6 +1,8 @@
 /* Content first: preserve user typography and theme, with the official Pi mark. */
 :root {
   --workspace-divider: color-mix(in srgb, var(--border) 66%, transparent);
+  --workspace-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --workspace-feedback-duration: 140ms;
 }
 
 .quiet-action-button {
@@ -18,7 +20,7 @@
   color: var(--text-muted);
   cursor: pointer;
   font: inherit;
-  transition: background 120ms, color 120ms;
+  transition: background var(--workspace-feedback-duration) ease, color var(--workspace-feedback-duration) ease;
 }
 .quiet-action-button:hover,
 .quiet-action-button[aria-expanded="true"],
@@ -114,6 +116,19 @@
 .file-explorer, .project-picker, .todo-workspace, .agent-workspace, .settings-panel { font-family: var(--font-ui); }
 .project-picker .project-picker-path, .project-picker .project-picker-name { font-family: var(--font-ui); font-size: 12px; }
 .file-explorer [role="treeitem"] { font-family: var(--font-ui); }
+.file-explorer-row {
+  gap: 6px;
+  height: 28px;
+  border-radius: 6px;
+  transition: background-color var(--workspace-feedback-duration) ease;
+}
+.file-explorer-chevron {
+  transition: transform 180ms var(--workspace-ease);
+}
+.session-sidebar.is-files-below .sidebar-files-head {
+  padding-top: 5px;
+  padding-bottom: 7px;
+}
 .chat-input-textarea::placeholder { font-family: var(--font-ui); font-weight: 400; }
 .process-toggle { font-family: var(--font-ui); font-weight: 400; letter-spacing: 0; }
 /* Assistant answers remain unframed; keep the quiet copy/rate footer. */
@@ -304,6 +319,7 @@
   padding: 12px 54px 12px 16px !important;
   min-height: 54px;
   align-items: flex-start !important;
+  transition: border-color var(--workspace-feedback-duration) ease, box-shadow var(--workspace-feedback-duration) ease !important;
 }
 .composer-entry:focus-within {
   border-color: color-mix(in srgb, var(--text-muted) 45%, var(--border)) !important;
@@ -374,6 +390,7 @@
   background: var(--bg-panel);
   color: var(--text);
   cursor: pointer;
+  transition: background-color var(--workspace-feedback-duration) ease, opacity var(--workspace-feedback-duration) ease;
 }
 .composer-card .composer-send-button {
   position: absolute;
@@ -494,7 +511,7 @@
     left: env(safe-area-inset-left, 0px);
     --sidebar-preview-surface: color-mix(in srgb, var(--bg-panel) 42%, var(--bg));
     background: var(--sidebar-preview-surface) !important;
-    transition: width 0.2s ease, min-width 0.2s ease;
+    transition: width 0.2s var(--workspace-ease), min-width 0.2s var(--workspace-ease);
   }
   .sidebar-container.sidebar-preview {
     width: var(--sidebar-width, 260px);
@@ -513,7 +530,7 @@
     z-index: 250;
     transform: translateX(0);
     background: var(--bg) !important;
-    transition: width 0.2s ease, min-width 0.2s ease, transform 0.2s ease;
+    transition: width 0.2s var(--workspace-ease), min-width 0.2s var(--workspace-ease), transform 0.2s var(--workspace-ease);
   }
   .right-panel-container.right-panel-preview {
     width: min(var(--right-panel-width, 640px), calc(100vw - 64px));
@@ -639,7 +656,20 @@
 
 @media (prefers-reduced-motion: reduce) {
   .quiet-action-button,
-  .composer-card {
+  .composer-stop,
+  .composer-send-button,
+  .assistant-message-footer,
+  .file-explorer-row,
+  .file-explorer-chevron {
     transition: none;
+  }
+  /* Override preview selectors and the composer's inline transition. */
+  .composer-entry,
+  .sidebar-container,
+  .sidebar-overlay-backdrop,
+  .right-panel-container,
+  .right-panel-overlay-backdrop,
+  .panel-resize-handle::after {
+    transition: none !important;
   }
 }

@@ -101,7 +101,11 @@ export async function runWorkspaceDesignChecks(page, { baseURL, outputDir, proje
   try {
     await page.goto(`${baseURL}/?cwd=${encodeURIComponent(project)}`, { waitUntil: "networkidle" });
     await page.locator(".composer-card").waitFor();
-    check(await page.locator(".workspace-settings-entry button").count() === 2, "Settings and restart share the footer");
+    const footer = page.locator(".workspace-settings-entry");
+    for (const name of ["设置", "重启 Pi Web？"]) {
+      check(await footer.getByRole("button", { name, exact: true }).isVisible(), `${name} remains in the footer`);
+    }
+    check(await footer.getByRole("button", { name: /^待上线/ }).isVisible(), "Pending releases remain in the footer");
     check(!(await page.locator(".composer-options").isVisible()), "Options start collapsed");
     check(await page.locator(".sidebar-files-keys button").count() === 4, "Four direct file keys replace seven");
     await assertNoOverflow();

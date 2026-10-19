@@ -79,7 +79,7 @@ for (const [state, setter, prefix, container] of [
     assert.equal(exiting.width, "0");
     assert.equal(exiting["min-width"], "0");
     assert.equal(exiting["pointer-events"], "none");
-    assert.match(exiting.transition, /width 0\.2s ease, min-width 0\.2s ease/);
+    assert.match(exiting.transition, /width 0\.2s var\(--workspace-ease\), min-width 0\.2s var\(--workspace-ease\)/);
   });
 
   test(`${prefix} previews use solid theme surfaces without fading content`, () => {
@@ -156,5 +156,21 @@ test("solid previews do not erase inner theme surfaces", () => {
 test("right preview finishes offscreen before compact desktop's closed style takes over", () => {
   const exiting = declarationsFor(".right-panel-container.right-panel-preview-exiting");
   assert.equal(exiting.transform, "translateX(100%)");
-  assert.match(exiting.transition, /transform 0\.2s ease/);
+  assert.match(exiting.transition, /transform 0\.2s var\(--workspace-ease\)/);
+});
+
+test("reduced motion overrides pinned, preview and compact panel transitions", () => {
+  for (const selector of [".sidebar-container", ".sidebar-overlay-backdrop", ".right-panel-container", ".right-panel-overlay-backdrop", ".composer-entry"]) {
+    let override = false;
+    css.walkAtRules("media", media => {
+      if (media.params !== "(prefers-reduced-motion: reduce)") return;
+      media.walkRules(rule => {
+        if (!rule.selectors.includes(selector)) return;
+        rule.walkDecls("transition", declaration => {
+          if (declaration.value === "none" && declaration.important) override = true;
+        });
+      });
+    });
+    assert.ok(override, `${selector} needs to override the more specific preview selectors`);
+  }
 });

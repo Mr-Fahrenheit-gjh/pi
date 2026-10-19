@@ -1038,6 +1038,28 @@ pre, code {
 [data-theme="claude-white"] {
   --text-strong: #151513;
 }
+.markdown-body.markdown-assistant-message {
+  line-height: 1.75;
+}
+.markdown-assistant-message p { margin-bottom: .85em; }
+.markdown-assistant-message :is(h1, h2, h3, h4, h5, h6) {
+  margin: 1.6em 0 .6em;
+  line-height: 1.4;
+}
+.markdown-assistant-message h1 { font-size: 1.5em; }
+.markdown-assistant-message h2 { font-size: 1.25em; }
+.markdown-assistant-message h3 { font-size: 1.1em; }
+.markdown-assistant-message :is(h4, h5, h6) { font-size: 1em; }
+.markdown-assistant-message > :first-child { margin-top: 0; }
+.markdown-assistant-message :is(h1, h2, h3, h4, h5) + :is(h2, h3, h4, h5, h6) {
+  margin-top: .8em;
+}
+.markdown-assistant-message :is(ul, ol) { margin-top: .6em; margin-bottom: .9em; }
+.markdown-assistant-message li :is(ul, ol) { margin-top: .3em; margin-bottom: .3em; }
+.markdown-assistant-message li > p { margin-bottom: 0; }
+.markdown-assistant-message li > p:not(:last-child) { margin-bottom: .5em; }
+.markdown-assistant-message > :last-child { margin-bottom: 0; }
+
 .markdown-body em { color: var(--text-muted); }
 .markdown-body a {
   color: var(--accent);
@@ -2441,7 +2463,7 @@ span.token.table {
   .sidebar-container {
     position: relative;
     overflow: hidden;
-    transition: width 0.2s ease, min-width 0.2s ease;
+    transition: width 0.2s var(--workspace-ease), min-width 0.2s var(--workspace-ease);
   }
   .sidebar-container.sidebar-open {
     width: var(--sidebar-width, 260px);
@@ -2467,7 +2489,7 @@ span.token.table {
 @media (min-width: 960px) {
   .right-panel-container {
     overflow: hidden;
-    transition: width 0.2s ease, min-width 0.2s ease;
+    transition: width 0.2s var(--workspace-ease), min-width 0.2s var(--workspace-ease);
     flex-shrink: 0;
   }
   .right-panel-container.right-panel-open {
@@ -2503,7 +2525,7 @@ span.token.table {
     background: rgba(0, 0, 0, 0.24);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.2s ease;
+    transition: opacity 0.2s var(--workspace-ease);
   }
   .right-panel-overlay-backdrop.is-open {
     opacity: 1;
@@ -2519,7 +2541,7 @@ span.token.table {
     min-width: 300px;
     overflow: hidden;
     box-shadow: -12px 0 32px rgba(0, 0, 0, 0.18);
-    transition: transform 0.2s ease;
+    transition: transform 0.2s var(--workspace-ease);
   }
   .right-panel-container.right-panel-open {
     transform: translateX(0);
@@ -2589,7 +2611,7 @@ span.token.table {
     width: 280px;
     max-width: 85vw;
     height: var(--app-viewport-height, 100dvh);
-    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    transition: transform 0.25s var(--workspace-ease), box-shadow 0.25s var(--workspace-ease);
   }
   .sidebar-container.sidebar-open {
     transform: translateX(0);
@@ -2606,7 +2628,7 @@ span.token.table {
     height: var(--app-viewport-height, 100dvh);
     z-index: 250;
     overflow: hidden;
-    transition: transform 0.2s ease;
+    transition: transform 0.2s var(--workspace-ease);
   }
   .right-panel-container.right-panel-open {
     width: auto;
