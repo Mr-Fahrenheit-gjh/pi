@@ -718,6 +718,10 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
     menuOpen: slashMenuOpen || atMenuOpen || historyMenuOpen,
     dismissedId: promptSuggestion && dismissedSuggestionIds.includes(promptSuggestion.id) ? promptSuggestion.id : undefined,
   }) ? promptSuggestion : undefined;
+  const promptSuggestionPlaceholder = visiblePromptSuggestion
+    ? `${visiblePromptSuggestion.text}  ${visiblePromptSuggestion.acceptTab ? "⇥ Tab" : "→"}`
+    : "";
+  const suggestionMeasureRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (value.length > 0 || attachedImages.length > 0) dismissPromptSuggestion();
   }, [value, attachedImages.length, dismissPromptSuggestion]);
@@ -1040,10 +1044,19 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
     const ta = textareaRef.current;
     if (!ta) return;
     ta.style.height = "auto";
-    if (ta.value) ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
-  }, []);
+    if (ta.value) {
+      ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
+      return;
+    }
+    // A placeholder is not part of scrollHeight; measure the wrapped ghost
+    // suggestion and let the composer grow so its second line is not clipped.
+    const mirror = suggestionMeasureRef.current;
+    if (!mirror || !ta.clientWidth) return;
+    mirror.style.width = `${ta.clientWidth}px`;
+    ta.style.height = `${Math.min(Math.max(Math.ceil(mirror.scrollHeight), 24), 200)}px`;
+  }, [promptSuggestionPlaceholder]);
 
-  useLayoutEffect(resizeTextarea, [value, fontSize, uiFontFamily, uiWeight, resizeTextarea]);
+  useLayoutEffect(resizeTextarea, [value, fontSize, uiFontFamily, uiWeight, promptSuggestionPlaceholder, resizeTextarea]);
 
   useEffect(() => {
     const ta = textareaRef.current;
@@ -2395,7 +2408,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
             onInput={handleInput}
             onPaste={handlePaste}
             placeholder={
-              visiblePromptSuggestion ? `${visiblePromptSuggestion.text}  ${visiblePromptSuggestion.acceptTab ? "⇥ Tab" : "→"}`
+              visiblePromptSuggestion ? promptSuggestionPlaceholder
               : isStreaming && (onSteer || onFollowUp)
                 ? t(runningSendAction === "steer" ? "chat.steerOnlyPlaceholder" : "chat.followUpOnlyPlaceholder")
                 : isStreaming ? t("chat.agentPlaceholder")
@@ -2419,6 +2432,26 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
               overflow: "auto",
             }}
           />
+          {visiblePromptSuggestion && (
+            <div
+              ref={suggestionMeasureRef}
+              aria-hidden="true"
+              style={{
+                position: "fixed",
+                left: -10000,
+                top: 0,
+                visibility: "hidden",
+                pointerEvents: "none",
+                whiteSpace: "pre-wrap",
+                overflowWrap: "break-word",
+                fontFamily: "inherit",
+                fontSize: "var(--chat-content-font-size, 14px)",
+                lineHeight: 1.6,
+              }}
+            >
+              {promptSuggestionPlaceholder}
+            </div>
+          )}
           {(!welcome || compact) && sendButton}
 
 
