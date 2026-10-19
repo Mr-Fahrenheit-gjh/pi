@@ -11,10 +11,12 @@ const mcpSignInSource = await readFile(new URL("./McpSignIn.tsx", import.meta.ur
 const mcpAddSource = await readFile(new URL("./McpAddServer.tsx", import.meta.url), "utf8");
 const newSessionBarSource = await readFile(new URL("./NewSessionContextBar.tsx", import.meta.url), "utf8");
 
-test("the fresh composer keeps its brand and input without project/worktree footer controls", () => {
+test("the fresh composer keeps its greeting and puts the project picker in its own bottom toolbar", () => {
   assert.match(chatWindowSource, /className="new-session-brand"/);
   assert.match(chatWindowSource, /\{chatInputElement\}/);
-  assert.doesNotMatch(chatWindowSource, /className="new-session-context-footer"|\{newSessionContextBar\}/);
+  assert.doesNotMatch(chatWindowSource, /className="new-session-context-footer"/);
+  assert.match(chatWindowSource, /welcomeToolbar=\{newSessionContextBar\}/);
+  assert.match(chatWindowSource, /className="new-session-greeting">Evening thoughts<\/h1>/);
 });
 
 test("every class the keyboard-open rules target exists on its component", () => {

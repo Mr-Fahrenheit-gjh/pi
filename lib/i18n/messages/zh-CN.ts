@@ -670,7 +670,7 @@ export const zhCNLocale: LocalePlugin = {
     "chat.imageNotSupportedTitle": "图片可能无法发送",
     "chat.imageNotSupportedBody": "当前选择的模型（{model}）不支持图片输入，附加的图片可能会被忽略。",
     "chat.dropNeedsCwd": "请先选择工作目录，再添加文件。",
-    "chat.welcomePlaceholder": "Reply",
+    "chat.welcomePlaceholder": "How can I help you today?",
     "chat.replyPlaceholder": "Reply",
     "chat.dropUploaded": "已添加 {count} 个聊天附件，未复制到工作目录",
     "chat.dropAlreadyExists": "工作目录中已有同名文件，未覆盖，引用的是已有文件：{names}",

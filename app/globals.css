@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./conversation-transition.css";
+@import "./interface-fonts.css";
 /* demo/ is a separate project; keep its sources out of this app's class scan. */
 @source not "../demo";
 /* Agent worktrees: scanning them makes webpack snapshot their symlinked
@@ -900,7 +901,7 @@ button.extension-widget-trigger:focus-visible {
 }
 
 :root {
-  --font-ui-default: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-ui-default: 'Claude Interface Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-answer-default: 'Anthropic Serif', Georgia, 'Songti SC', 'STSong', 'Noto Serif CJK SC', serif;
   --font-answer: var(--font-answer-default);
   --font-mono-default: var(--font-noto-mono), 'JetBrains Mono', 'Fira Code', 'Consolas', ui-monospace, 'PingFang SC', 'Microsoft YaHei', monospace;

@@ -101,6 +101,7 @@ export function NewSessionContextBar({
       <ProjectWorktreePicker
         handleRef={pickerRef}
         layout="inline"
+        placeholder="Project"
         context={context}
         mobile={mobile}
         label={t("workspace.newSessionContext")}

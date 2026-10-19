@@ -101,6 +101,8 @@ interface Props {
   onSoundToggle?: () => void;
   contextUsage?: ContextUsage | null;
   welcome?: boolean;
+  /** Existing project picker, placed beside the model below the welcome card. */
+  welcomeToolbar?: React.ReactNode;
   onAudioUnlock?: () => void;
   draftKey?: string;
   promptSuggestion?: PromptSuggestion;
@@ -668,6 +670,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
   soundEnabled, onSoundToggle, onAudioUnlock,
   contextUsage,
   welcome = false,
+  welcomeToolbar,
   onPromptWithStreamingBehavior,
   draftKey,
   promptSuggestion,
@@ -1754,6 +1757,39 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
 
 
 
+  const attachButton = (
+            <button
+              type="button"
+              onClick={() => setAttachmentDialogOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={attachmentDialogOpen}
+             title={t("chat.attachFiles")}
+             aria-label={t("chat.attachFiles")}
+              style={{
+                flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                width: 32, height: 32, padding: 0,
+                background: "none", border: "none",
+                borderRadius: 9,
+                color: attachedImages.length ? "var(--accent)" : "var(--text-muted)",
+                cursor: "default",
+                opacity: 1,
+                transition: "background 0.12s, color 0.12s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--bg-hover)";
+                e.currentTarget.style.color = attachedImages.length ? "var(--accent)" : "var(--text)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "none";
+                e.currentTarget.style.color = attachedImages.length ? "var(--accent)" : "var(--text-muted)";
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+  );
+
   const sendButton = (!isStreaming || onSteer || onFollowUp) && (
             <button
               type="button"
@@ -1765,8 +1801,8 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
               aria-label={isStreaming ? t(runningSendAction === "steer" ? "chat.steer" : "chat.followUp") : t("chat.send")}
               aria-keyshortcuts={isStreaming && runningSendAction === "followup" ? isMobile ? "Control+Alt+Enter Meta+Alt+Enter" : "Alt+Enter" : undefined}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 19V5m-6 6 6-6 6 6" />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="m9 10-5 5 5 5M4 15h13a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3h-4" />
               </svg>
             </button>
           );
@@ -2383,12 +2419,13 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
               overflow: "auto",
             }}
           />
-          {sendButton}
+          {(!welcome || compact) && sendButton}
 
 
           </div>
         </div>
 
+        {!compact && welcome && <div className="composer-welcome-actions">{attachButton}{sendButton}</div>}
         </div>
         {/* Bash mode status label */}
         {bashMode && (
@@ -2407,36 +2444,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
 
           {/* LEFT: attach + model selector (idle) or steer/followup toggle (streaming) */}
           <div style={{ flex: isMobile ? "1 1 auto" : "0 0 auto", minWidth: 0, display: "flex", alignItems: "center", gap: 2 }}>
-            <button
-              type="button"
-              onClick={() => setAttachmentDialogOpen(true)}
-              aria-haspopup="dialog"
-              aria-expanded={attachmentDialogOpen}
-             title={t("chat.attachFiles")}
-             aria-label={t("chat.attachFiles")}
-              style={{
-                flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                width: 32, height: 32, padding: 0,
-                background: "none", border: "none",
-                borderRadius: 9,
-                color: attachedImages.length ? "var(--accent)" : "var(--text-muted)",
-                cursor: "default",
-                opacity: 1,
-                transition: "background 0.12s, color 0.12s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "var(--bg-hover)";
-                e.currentTarget.style.color = attachedImages.length ? "var(--accent)" : "var(--text)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "none";
-                e.currentTarget.style.color = attachedImages.length ? "var(--accent)" : "var(--text-muted)";
-              }}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-            </button>
+            {welcome ? welcomeToolbar : attachButton}
 
           </div>
 
@@ -2522,7 +2530,9 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                   e.currentTarget.style.color = "var(--text-muted)";
                 }}
               >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><path d="M4 7h9m4 0h3M4 17h3m4 0h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></svg>
+                {welcome && onThinkingLevelChange
+                  ? <span style={{ textTransform: "capitalize", fontWeight: 400 }}>{isAutoThinkingSelection || !resolvedThinkingLevel ? "Auto" : thinkingDisplayLabel}</span>
+                  : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><path d="M4 7h9m4 0h3M4 17h3m4 0h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></svg>}
               </button>
             )}
             <div className="composer-options" role="group" aria-label={t("chat.moreControls")} style={{

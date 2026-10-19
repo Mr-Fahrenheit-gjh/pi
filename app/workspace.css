@@ -45,7 +45,7 @@
   font-weight: 400;
 }
 .sidebar-container .sidebar-brand {
-  font-family: var(--font-answer-default);
+  font-family: 'Claude Interface Serif', var(--font-answer-default);
   font-size: 22px;
   font-weight: 500;
   letter-spacing: -.025em;
@@ -311,27 +311,52 @@
   box-shadow: none;
 }
 .composer-surface {
-  border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
-  border-radius: 24px;
-  box-shadow: 0 8px 28px -12px color-mix(in srgb, var(--text) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 16px;
+  box-shadow: 0 3px 14px color-mix(in srgb, var(--text) 3%, transparent);
   background: var(--bg);
   transition: border-color var(--workspace-feedback-duration) ease, box-shadow var(--workspace-feedback-duration) ease;
 }
 .composer-surface:focus-within {
-  border-color: color-mix(in srgb, var(--text-muted) 55%, var(--border));
+  border-color: color-mix(in srgb, var(--text-muted) 30%, var(--border));
 }
 .composer-entry {
   position: relative;
   border: 0 !important;
-  border-radius: 24px !important;
+  border-radius: 16px !important;
   box-shadow: none !important;
   background: transparent !important;
-  padding: 20px 62px 20px 20px !important;
-  min-height: 76px;
+  padding: 12px 54px 12px 16px !important;
+  min-height: 52px;
   align-items: flex-end !important;
 }
-[data-composer-layout="welcome"] .composer-entry { min-height: 132px; }
-[data-composer-layout="welcome"] .composer-card .chat-input-textarea { min-height: 92px !important; }
+[data-composer-layout="welcome"] .composer-entry {
+  min-height: 64px;
+  padding: 16px 20px 8px !important;
+}
+[data-composer-layout="welcome"] .composer-card .chat-input-textarea { min-height: 36px !important; }
+.composer-welcome-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 12px 12px;
+}
+.new-session-brand { justify-content: center; margin-bottom: 26px; }
+.new-session-brand-text { align-items: center; }
+/* Version details remain in About, not under the reference-style greeting. */
+.new-session-brand .new-session-brand-text .new-session-meta { display: none; }
+.new-session-greeting {
+  margin: 0;
+  font-family: 'Claude Interface Serif', Georgia, serif;
+  font-size: clamp(28px, 3.5vw, 44px);
+  font-weight: 400;
+  letter-spacing: -1.2px;
+  line-height: 1.2;
+  color: var(--text);
+}
+[data-composer-layout="welcome"] .new-session-context { margin: 0; }
+[data-composer-layout="welcome"] .chat-input-controls > div:first-child { max-width: 45%; }
 .composer-attachments {
   display: flex;
   gap: 12px;
@@ -417,11 +442,13 @@
 }
 .composer-card .composer-send-button {
   position: absolute;
-  right: 16px;
-  bottom: 18px;
+  right: 10px;
+  bottom: 10px;
   width: 32px;
   height: 32px;
+  background: transparent;
 }
+.composer-card .composer-welcome-actions .composer-send-button { position: static; }
 .composer-send-button:not(:disabled) {
   background: transparent;
   color: var(--text);
@@ -459,6 +486,7 @@
   border-radius: 28px;
   box-shadow: 0 24px 80px #0003;
   font-family: var(--font-ui);
+  font-weight: 400;
   outline: none;
 }
 .attachment-dialog::backdrop { background: #0006; }
@@ -471,7 +499,7 @@
   padding: 24px 28px;
   border-bottom: 1px solid var(--border);
 }
-.attachment-dialog-header h2 { margin: 0; font-size: 18px; font-weight: 500; }
+.attachment-dialog-header h2 { margin: 0; font-size: 18px; font-weight: 400; }
 .attachment-dialog-close {
   display: grid;
   place-items: center;
@@ -498,9 +526,8 @@
   text-align: center;
 }
 .attachment-dropzone[data-dragging] { border-color: var(--accent); background: var(--bg-hover); }
-.attachment-dropzone strong { font-size: 18px; font-weight: 500; }
+.attachment-dropzone strong { font-size: 18px; font-weight: 400; }
 .attachment-dropzone p { margin: 0; color: var(--text-muted); font-size: 15px; }
-.attachment-dropzone small { color: var(--text-dim); font-size: 12px; }
 .attachment-choose {
   padding: 9px 18px;
   border: 1px solid var(--border);
@@ -513,9 +540,12 @@
 .attachment-choose:hover { background: var(--bg-hover); }
 .attachment-dialog button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 @media (max-width: 640px) {
-  .composer-surface { border-radius: 20px; }
-  .composer-entry { padding: 14px 54px 14px 16px !important; min-height: 64px; }
-  .composer-card .composer-send-button { right: 12px; bottom: 12px; }
+  .composer-surface { border-radius: 16px; }
+  .composer-entry { padding: 10px 50px 10px 14px !important; min-height: 48px; }
+  .composer-card .composer-send-button { right: 8px; bottom: 8px; }
+  .new-session-greeting { letter-spacing: -.7px; }
+  [data-composer-layout="welcome"] .chat-input-controls { flex-wrap: wrap; }
+  [data-composer-layout="welcome"] .chat-input-controls > div:first-child { max-width: 50%; }
   .composer-attachments { padding: 14px 16px 0; gap: 10px; }
   .composer-attachment-image { width: 104px; height: 104px; }
   .attachment-dialog { width: calc(100vw - 24px); border-radius: 22px; }

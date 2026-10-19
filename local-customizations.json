@@ -15,7 +15,8 @@
     "@xterm/xterm": null
   },
   "requiredSourceMarkers": {
-    "app/globals.css": ["claude-white", "font-weight: 800"],
+    "app/globals.css": ["claude-white", "font-weight: 800", "Claude Interface Sans", "interface-fonts.css"],
+    "app/interface-fonts.css": ["Claude Interface Sans", "Claude Interface Serif", "font-weight: 300 800"],
     "app/workspace.css": [".composer-card", ".sidebar-quick-actions", ".workspace-sidebar-toggle", ".workspace-right-panel-toggle"],
     "components/AppShell.tsx": ["AgentWorkspace", "workspace-settings-entry", "ServiceRestartButton", "data-sidebar-toggle", "data-right-panel-toggle"],
     "components/AttachmentDialog.tsx": ["showModal", "listenForStackedDialogEscape", "attachment-dropzone"],

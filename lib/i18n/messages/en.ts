@@ -670,7 +670,7 @@ export const enLocale: LocalePlugin = {
     "chat.imageNotSupportedTitle": "Images may not be sent",
     "chat.imageNotSupportedBody": "The selected model ({model}) does not support image input. The attached images will likely be ignored.",
     "chat.dropNeedsCwd": "Choose a working directory before adding files.",
-    "chat.welcomePlaceholder": "Reply",
+    "chat.welcomePlaceholder": "How can I help you today?",
     "chat.replyPlaceholder": "Reply",
     "chat.dropUploaded": "Added {count} chat attachment(s); no files copied into the project",
     "chat.dropAlreadyExists": "Already in the working directory and not replaced; the mention points to the existing file: {names}",

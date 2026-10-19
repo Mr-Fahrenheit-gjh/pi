@@ -670,7 +670,7 @@ export const zhTWLocale: LocalePlugin = {
     "chat.imageNotSupportedTitle": "圖片可能無法傳送",
     "chat.imageNotSupportedBody": "目前選擇的模型（{model}）不支援圖片輸入，附加的圖片可能會被忽略。",
     "chat.dropNeedsCwd": "請先選擇工作目錄，再加入檔案。",
-    "chat.welcomePlaceholder": "Reply",
+    "chat.welcomePlaceholder": "How can I help you today?",
     "chat.replyPlaceholder": "Reply",
     "chat.dropUploaded": "已新增 {count} 個聊天附件，未複製到工作目錄",
     "chat.dropAlreadyExists": "工作目錄中已有同名檔案，未覆寫，引用的是既有檔案：{names}",

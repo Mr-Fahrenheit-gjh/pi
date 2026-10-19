@@ -53,6 +53,40 @@ test("upload dialog uses a native modal, private upload callbacks and isolated f
   assert.doesNotMatch(source, /fetch\(|api\/files|Beta/);
 });
 
+test("welcome composer has one upload action inside the card and project/model controls below", () => {
+  const html = composer({ welcome: true, welcomeToolbar: h("button", null, "Project") });
+  const actions = html.indexOf('class="composer-welcome-actions"');
+  const toolbar = html.indexOf('class="chat-input-controls"');
+  assert.ok(actions > html.indexOf("<textarea") && toolbar > actions);
+  assert.match(html, /placeholder="How can I help you today\?"/);
+  assert.equal((html.match(/aria-label="Attach files"/g) ?? []).length, 1);
+  assert.equal((html.match(/data-composer-send=/g) ?? []).length, 1);
+  assert.ok(html.indexOf('aria-label="Attach files"') < toolbar);
+  assert.ok(html.indexOf(">Project</button>") > toolbar);
+  assert.match(html, /d="m9 10-5 5 5 5M4 15h13a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3h-4"/);
+});
+
+test("the welcome settings label reflects actual reasoning selection without changing the reply trigger", () => {
+  const auto = composer({ welcome: true, isAutoThinkingSelection: true, thinkingLevel: "medium" });
+  const manual = composer({ welcome: true, isAutoThinkingSelection: false, thinkingLevel: "high" });
+  const trigger = (html) => html.match(/<button[^>]*data-composer-options-trigger="true"[\s\S]*?<\/button>/)?.[0] ?? "";
+  assert.match(trigger(auto), />Auto<\/span>/);
+  assert.match(trigger(manual), />high<\/span>/);
+  assert.match(trigger(composer()), /<svg/);
+});
+
+test("reference upload copy stays English and normal-weight independently of UI locale", async () => {
+  const source = await readFile(new URL("./AttachmentDialog.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/workspace.css", import.meta.url), "utf8");
+  for (const text of ["Upload or add files", "Drag files or photos here", "Documents, images, spreadsheets, and code files", "Choose files"]) assert.ok(source.includes(text));
+  assert.match(source, /lang="en"/);
+  assert.doesNotMatch(source, /useI18n/);
+  assert.match(source, /id="attachment-upload-limits" className="sr-only"/);
+  assert.match(css, /\.attachment-dialog-header h2 \{[^}]*font-weight: 400/);
+  assert.match(css, /\.attachment-dialog \{[^}]*font-family: var\(--font-ui\)/);
+  assert.match(css, /padding: 12px 54px 12px 16px !important;\s*min-height: 52px/);
+});
+
 test("run cancellation is outside the hidden options group", () => {
   const html = composer({ isStreaming: true });
   const stop = html.indexOf('class="composer-stop"');
