@@ -23,6 +23,36 @@ test("the desktop composer is one surface, with secondary settings closed by def
   assert.doesNotMatch(html, /class="composer-stop"/);
 });
 
+test("attachment cards sit above the draft inside one surface and the toolbar is outside", async () => {
+  const { setDraft, clearDraft } = await jiti.import("@/lib/draft-store");
+  const key = "workspace-composer-attachment-test";
+  setDraft(key, { value: "Review this", images: [{ data: "aGVsbG8=", mimeType: "image/png" }] });
+  try {
+    const html = composer({ draftKey: key });
+    const surface = html.indexOf('class="composer-surface"');
+    const attachments = html.indexOf('class="composer-attachments"');
+    const textarea = html.indexOf("<textarea");
+    const controls = html.indexOf('class="chat-input-controls"');
+    assert.ok(surface > 0 && attachments > surface && textarea > attachments && controls > textarea);
+    assert.match(html, /aria-label="Remove attachment 1"/);
+    assert.match(html, /aria-haspopup="dialog" aria-expanded="false"/);
+    // Both input wrappers and the surface close before the toolbar.
+    assert.match(html.slice(textarea, controls), /<\/div><\/div><\/div><div $/);
+  } finally { clearDraft(key); }
+});
+
+test("upload dialog uses a native modal, private upload callbacks and isolated file drops", async () => {
+  const source = await readFile(new URL("./AttachmentDialog.tsx", import.meta.url), "utf8");
+  assert.match(source, /dialog\?\.showModal\(\)/);
+  assert.match(source, /listenForStackedDialogEscape\(document, onClose\)/);
+  assert.match(source, /if \(opener\?\.isConnected\) opener.focus/);
+  assert.match(source, /onCancel=\{\(event\) => \{ event.preventDefault\(\); onClose\(\); \}\}/);
+  assert.match(source, /event.preventDefault\(\); event.stopPropagation\(\);[\s\S]*Array.from\(event.dataTransfer.files\)/);
+  assert.match(source, /onFiles\(files\); onClose\(\)/);
+  assert.match(source, /onClick=\{onChoose\}/);
+  assert.doesNotMatch(source, /fetch\(|api\/files|Beta/);
+});
+
 test("run cancellation is outside the hidden options group", () => {
   const html = composer({ isStreaming: true });
   const stop = html.indexOf('class="composer-stop"');

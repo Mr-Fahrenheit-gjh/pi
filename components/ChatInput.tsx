@@ -28,6 +28,7 @@ import { shouldShowPromptSuggestion, type PromptSuggestion } from "@/lib/prompt-
 import { isBareMcpCommand, isBuiltinMcpCommand } from "@/lib/mcp-command";
 import { FolderIcon, getFileIcon } from "./FileIcons";
 import { ImagePreview } from "./ImagePreview";
+import { AttachmentDialog } from "./AttachmentDialog";
 import { DismissButton } from "./DismissButton";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useEnterSendMode } from "@/hooks/useEnterSendMode";
@@ -951,13 +952,21 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
     }
   }, [compact]);
 
+  const [attachmentDialogOpen, setAttachmentDialogOpen] = useState(false);
+  const closeAttachmentDialog = useCallback(() => setAttachmentDialogOpen(false), []);
+  const attachFiles = useCallback((files: File[]) => {
+    if (onAttachFiles) onAttachFiles(files);
+    else void processImageFiles(files);
+  }, [onAttachFiles, processImageFiles]);
+
   const handleFilePick = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     // Clearing the value lets the same file be picked again.
     e.target.value = "";
-    if (onAttachFiles) onAttachFiles(files);
-    else processImageFiles(files);
-  }, [onAttachFiles, processImageFiles]);
+    if (!files.length) return;
+    attachFiles(files);
+    setAttachmentDialogOpen(false);
+  }, [attachFiles]);
 
   const removeImage = useCallback((index: number) => {
     setAttachedImages((prev) => {
@@ -1780,6 +1789,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
         transition: "opacity 0.15s",
       }}
     >
+      {!compact && attachmentDialogOpen && <AttachmentDialog onClose={closeAttachmentDialog} onChoose={() => fileInputRef.current?.click()} onFiles={attachFiles} />}
       {/* Hidden file input. No `capture`: phones still offer the photo library and camera. */}
       {!compact && <input
         ref={fileInputRef}
@@ -1921,9 +1931,11 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
             {onDismissCompactError && <DismissButton onClick={onDismissCompactError} title={t("chat.dismissCompactError")} />}
           </div>
         )}
-        {/* Image previews */}
+        <div className={compact ? undefined : "composer-card"}>
+        <div className={compact ? undefined : "composer-surface"}>
+        {/* Attachment previews share the text-entry surface, above the draft. */}
         {attachedImages.length > 0 && (
-          <div style={{ display: "flex", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+          <div className="composer-attachments">
             {attachedImages.map((img, i) => (
               <div key={i} style={{ position: "relative", flexShrink: 0 }}>
                 <ImagePreview key={img.previewUrl} src={img.previewUrl}>
@@ -1931,12 +1943,13 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                   <img
                     src={img.previewUrl}
                     alt=""
-                    style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)", display: "block" }}
+                    className="composer-attachment-image"
                   />
                 </ImagePreview>
                 <button
                   type="button"
                   onClick={() => removeImage(i)}
+                  aria-label={t("chat.removeAttachment", { number: i + 1 })}
                   style={{
                     position: "absolute", top: -4, right: -4,
                     width: 16, height: 16, borderRadius: "50%",
@@ -1954,7 +1967,6 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
           </div>
         )}
 
-        <div className={compact ? undefined : "composer-card"}>
         {/* Main input */}
         <div style={{ position: "relative", minWidth: 0 }}>
           {historyMenuOpen && inputHistory.length > 0 && (
@@ -2377,6 +2389,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
           </div>
         </div>
 
+        </div>
         {/* Bash mode status label */}
         {bashMode && (
           <div className="text-xs px-2 py-1" style={{ color: bashExcluded ? "var(--text-muted)" : "var(--accent)", marginTop: 4 }}>
@@ -2395,7 +2408,10 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
           {/* LEFT: attach + model selector (idle) or steer/followup toggle (streaming) */}
           <div style={{ flex: isMobile ? "1 1 auto" : "0 0 auto", minWidth: 0, display: "flex", alignItems: "center", gap: 2 }}>
             <button
-              onClick={() => fileInputRef.current?.click()}
+              type="button"
+              onClick={() => setAttachmentDialogOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={attachmentDialogOpen}
              title={t("chat.attachFiles")}
              aria-label={t("chat.attachFiles")}
               style={{
@@ -2418,8 +2434,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
               }}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
-                <path d="M14 2v6h6M12 17v-6m-3 3 3-3 3 3" />
+                <path d="M12 5v14M5 12h14" />
               </svg>
             </button>
 

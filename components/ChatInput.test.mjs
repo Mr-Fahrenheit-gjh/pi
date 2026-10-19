@@ -435,9 +435,13 @@ test("picked files go to the chat's attach handler, or attach as images without 
   const pick = (context) => {
     const calls = { attached: [], images: [] };
     const target = { files: [photo, report], value: "C:\\fakepath\\photo.png" };
-    chatInputCallback("handleFilePick", {
+    const attachFiles = chatInputCallback("attachFiles", {
       processImageFiles: (files) => calls.images.push([...files]),
       ...context(calls),
+    });
+    chatInputCallback("handleFilePick", {
+      attachFiles,
+      setAttachmentDialogOpen: () => {},
     })({ target });
     return { ...calls, value: target.value };
   };

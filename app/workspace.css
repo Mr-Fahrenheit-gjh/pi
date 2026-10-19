@@ -310,25 +310,48 @@
   background: transparent;
   box-shadow: none;
 }
+.composer-surface {
+  border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+  border-radius: 24px;
+  box-shadow: 0 8px 28px -12px color-mix(in srgb, var(--text) 12%, transparent);
+  background: var(--bg);
+  transition: border-color var(--workspace-feedback-duration) ease, box-shadow var(--workspace-feedback-duration) ease;
+}
+.composer-surface:focus-within {
+  border-color: color-mix(in srgb, var(--text-muted) 55%, var(--border));
+}
 .composer-entry {
   position: relative;
-  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent) !important;
-  border-radius: 16px !important;
-  box-shadow: 0 3px 14px color-mix(in srgb, var(--text) 3%, transparent) !important;
-  background: var(--bg) !important;
-  padding: 12px 54px 12px 16px !important;
-  min-height: 54px;
-  align-items: flex-start !important;
-  transition: border-color var(--workspace-feedback-duration) ease, box-shadow var(--workspace-feedback-duration) ease !important;
+  border: 0 !important;
+  border-radius: 24px !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 20px 62px 20px 20px !important;
+  min-height: 76px;
+  align-items: flex-end !important;
 }
-.composer-entry:focus-within {
-  border-color: color-mix(in srgb, var(--text-muted) 45%, var(--border)) !important;
+[data-composer-layout="welcome"] .composer-entry { min-height: 132px; }
+[data-composer-layout="welcome"] .composer-card .chat-input-textarea { min-height: 92px !important; }
+.composer-attachments {
+  display: flex;
+  gap: 12px;
+  padding: 18px 20px 0;
+  max-height: 240px;
+  overflow: auto;
 }
-[data-composer-layout="welcome"] .composer-entry { min-height: 124px; }
-[data-composer-layout="welcome"] .composer-card .chat-input-textarea { min-height: 94px !important; }
+.composer-attachment-image {
+  width: 144px;
+  height: 144px;
+  object-fit: contain;
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 8%, transparent);
+}
 .composer-card .chat-input-controls {
   margin-top: 0 !important;
-  padding: 8px 2px 0;
+  padding: 10px 4px 0;
   gap: 6px;
 }
 .composer-options {
@@ -394,14 +417,14 @@
 }
 .composer-card .composer-send-button {
   position: absolute;
-  right: 10px;
-  bottom: 10px;
+  right: 16px;
+  bottom: 18px;
   width: 32px;
   height: 32px;
 }
 .composer-send-button:not(:disabled) {
-  background: var(--accent);
-  color: var(--bg);
+  background: transparent;
+  color: var(--text);
 }
 .composer-send-button:disabled {
   color: var(--text-dim);
@@ -421,6 +444,83 @@
   width: 28px;
   height: 28px;
   color: var(--text-muted);
+}
+
+/* Native modal supplies inert background, focus containment and restoration. */
+.attachment-dialog {
+  width: min(880px, calc(100vw - 40px));
+  max-width: none;
+  max-height: calc(100dvh - 48px);
+  padding: 0;
+  margin: auto;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  box-shadow: 0 24px 80px #0003;
+  font-family: var(--font-ui);
+  outline: none;
+}
+.attachment-dialog::backdrop { background: #0006; }
+.attachment-dialog-content { display: flex; flex-direction: column; }
+.attachment-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 28px;
+  border-bottom: 1px solid var(--border);
+}
+.attachment-dialog-header h2 { margin: 0; font-size: 18px; font-weight: 500; }
+.attachment-dialog-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text);
+  background: transparent;
+}
+.attachment-dialog-close:hover { background: var(--bg-hover); }
+.attachment-dropzone {
+  min-height: min(480px, calc(100dvh - 220px));
+  margin: 26px;
+  padding: 28px 16px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+}
+.attachment-dropzone[data-dragging] { border-color: var(--accent); background: var(--bg-hover); }
+.attachment-dropzone strong { font-size: 18px; font-weight: 500; }
+.attachment-dropzone p { margin: 0; color: var(--text-muted); font-size: 15px; }
+.attachment-dropzone small { color: var(--text-dim); font-size: 12px; }
+.attachment-choose {
+  padding: 9px 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  background: var(--bg);
+  font-size: 15px;
+  box-shadow: 0 1px 3px #0000000a;
+}
+.attachment-choose:hover { background: var(--bg-hover); }
+.attachment-dialog button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 640px) {
+  .composer-surface { border-radius: 20px; }
+  .composer-entry { padding: 14px 54px 14px 16px !important; min-height: 64px; }
+  .composer-card .composer-send-button { right: 12px; bottom: 12px; }
+  .composer-attachments { padding: 14px 16px 0; gap: 10px; }
+  .composer-attachment-image { width: 104px; height: 104px; }
+  .attachment-dialog { width: calc(100vw - 24px); border-radius: 22px; }
+  .attachment-dialog-header { padding: 18px 20px; }
+  .attachment-dropzone { margin: 16px; gap: 14px; }
 }
 
 /* File actions are unboxed until hovered; mode selection is a single group. */
@@ -665,6 +765,7 @@
   }
   /* Override preview selectors and the composer's inline transition. */
   .composer-entry,
+  .composer-surface,
   .sidebar-container,
   .sidebar-overlay-backdrop,
   .right-panel-container,
