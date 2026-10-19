@@ -4,6 +4,8 @@ export type Locale = "en" | "zh-CN" | "zh-TW";
 /** 翻译字符串使用的简单插值参数。 */
 export type TranslationParams = Record<string, string | number>;
 
+export type UiTranslate = (key: string, params?: TranslationParams) => string;
+
 /** 可注册的语言包定义。 */
 export interface LocalePlugin {
   /** 语言包唯一标识。 */

@@ -47,6 +47,7 @@ try {
     await writeFile(childFile,entry('正在调查网页'));
     const context=await browser.newContext({viewport:{width,height:900},locale:'zh-CN'}); await context.addInitScript(()=>{
       localStorage.setItem('pi-locale','zh-CN');
+      localStorage.setItem("pi-ui-language-version", "english-interface-v1"); // Explicit test locale after migration.
       window.__sources=[]; const Original=window.EventSource;
       window.EventSource=class extends Original { constructor(...args) { super(...args); window.__sources.push(this); } };
     });

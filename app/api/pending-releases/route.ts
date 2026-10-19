@@ -11,7 +11,7 @@ export async function GET() {
     return NextResponse.json(await readReleaseSnapshot(), { headers });
   } catch {
     return NextResponse.json(
-      { error: "待上线清单暂不可用，请检查共享目录、权限或容量。" },
+      { error: "The pending release list is unavailable. Check the shared directory, permissions, or capacity." },
       { status: 503, headers },
     );
   }

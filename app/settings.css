@@ -2513,8 +2513,13 @@ select.mcp-add-input {
   color: var(--text-muted);
   font-family: var(--font-ui);
   font-size: 12px;
-  white-space: nowrap;
+  line-height: 14px;
+  white-space: normal;
   cursor: default;
+}
+.workspace-settings-entry > .pending-release-entry-button {
+  flex: 1.4;
+  padding: 0 4px !important;
 }
 .pending-release-entry-button:hover,
 .pending-release-entry-button:focus-visible {

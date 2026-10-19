@@ -50,6 +50,7 @@ try {
   const context = await browser.newContext({ locale: 'zh-CN', viewport: { width: 1280, height: 900 }, reducedMotion: 'no-preference' });
   await context.addInitScript(() => {
     localStorage.setItem('pi-locale', 'zh-CN');
+    localStorage.setItem("pi-ui-language-version", "english-interface-v1"); // Explicit test locale after migration.
     window.__motion = [];
     document.addEventListener('animationstart', e => {
       if (e.animationName === 'conversation-enter') window.__motion.push({ type: 'enter', at: performance.now() });

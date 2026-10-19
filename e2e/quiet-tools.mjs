@@ -64,6 +64,7 @@ try {
   // Inject controllable SSE events; no model API or live user's session is used.
   await context.addInitScript(() => {
     localStorage.setItem('pi-locale', 'zh-CN');
+    localStorage.setItem("pi-ui-language-version", "english-interface-v1"); // Explicit test locale after migration.
     window.__sources = [];
     window.EventSource = class {
       static CONNECTING = 0; static OPEN = 1; static CLOSED = 2;

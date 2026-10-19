@@ -47,6 +47,7 @@ export async function runSidebarForkChecks(page, { baseURL, project, outputDir }
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.addInitScript(() => {
     localStorage.setItem("pi-locale", "zh-CN");
+    localStorage.setItem("pi-ui-language-version", "english-interface-v1"); // Explicit test locale after migration.
     localStorage.setItem("pi-theme", "claude-white");
     localStorage.setItem("pi-sidebar-open", "true");
     window.EventSource = class extends EventTarget {

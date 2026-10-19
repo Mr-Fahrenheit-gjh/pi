@@ -7,16 +7,17 @@ const jiti = createJiti(import.meta.url, { jsx: { runtime: "automatic" }, tsconf
 const React = await jiti.import("react");
 const { renderToStaticMarkup } = await jiti.import("react-dom/server");
 const { PackageSubagentChat } = await jiti.import("./PackageSubagentChat.tsx");
+const { I18nProvider } = await jiti.import("../hooks/useI18n.tsx");
 
 test("child transcript has no redundant toolbar in running or completed state", () => {
   for (const state of ["running", "complete"]) {
-    const html = renderToStaticMarkup(React.createElement(PackageSubagentChat, {
+    const html = renderToStaticMarkup(React.createElement(I18nProvider, null, React.createElement(PackageSubagentChat, {
       session: { id: "parent", cwd: "/fixture" },
       target: { id: "child", runId: "run", index: 0, label: "final-review", state },
-    }));
-    assert.match(html, /aria-label="子代理记录"/);
-    assert.match(html, /正在读取子代理记录/);
-    assert.doesNotMatch(html, /返回主代理|输入仍发给主代理|刷新|final-review|<button/);
+    })));
+    assert.match(html, /aria-label="Sub-agent transcript"/);
+    assert.match(html, /Loading sub-agent transcript/);
+    assert.doesNotMatch(html, /Return to main|Input goes to main|Refresh|final-review|<button/);
   }
 });
 

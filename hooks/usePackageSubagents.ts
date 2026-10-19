@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/hooks/useI18n";
 import { fleetIsActive, fleetRequest, fleetUrl, normalizeFleetView, type FleetView } from "@/lib/subagent-fleet-view";
 import type { SessionInfo, SubagentSessionStatus } from "@/lib/types";
 
@@ -8,6 +9,7 @@ export type PackageAgentTarget = { id: string; runId?: string; index?: number; l
 
 /** One list owner, shared by the native toolbar and read-only child view. */
 export function usePackageSubagents(session: SessionInfo | null) {
+  const { t } = useI18n();
   const sessionId = session?.id;
   const [snapshot, setSnapshot] = useState<{ sessionId: string; view: FleetView } | null>(null);
   useEffect(() => {
@@ -42,8 +44,8 @@ export function usePackageSubagents(session: SessionInfo | null) {
     });
     // Opaque foreground keys are never sent as control IDs.
     return view?.fleet.length && runs.length === 0
-      ? [{ id: "package:foreground", label: "前台子代理", state: "running", role: "子代理" }, ...runs] : runs;
-  }, [view]);
+      ? [{ id: "package:foreground", label: t("agentPicker.foreground"), state: "running", role: t("agentSwitcher.subagent") }, ...runs] : runs;
+  }, [view, t]);
   const sessions = useMemo(() => session ? targets.map((target): SessionInfo => ({ ...session, id: target.id, path: "", name: target.label, firstMessage: target.label,
     relation: { kind: "subagent", parentSessionId: session.id, profile: target.role, description: target.label,
       status: (target.state === "complete" ? "completed" : ["paused", "stopped", "partial"].includes(target.state) ? "interrupted" : target.state) as SubagentSessionStatus } })) : [], [session, targets]);

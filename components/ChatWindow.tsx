@@ -1008,7 +1008,7 @@ export function ChatWindow({ session, packageTarget, showSubagentPanel = false, 
       {session && packageTarget && <PackageSubagentChat key={`${session.id}:${packageTarget.id}`} session={session} target={packageTarget}
         onOpenFile={onOpenFile} />}
       {showSubagentPanel && session?.id && <div className="absolute inset-0 z-50 flex justify-end bg-black/30" onClick={(event) => { if (event.target === event.currentTarget) onCloseSubagentPanel?.(); }}>
-        <div ref={subagentDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="子代理任务" className="flex h-full w-full max-w-2xl min-w-0 border-l border-border shadow-xl">
+        <div ref={subagentDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={t("fleet.title")} className="flex h-full w-full max-w-2xl min-w-0 border-l border-border shadow-xl">
           <SubagentFleetPanel sessionId={session.id} onClose={() => onCloseSubagentPanel?.()} />
         </div>
       </div>}

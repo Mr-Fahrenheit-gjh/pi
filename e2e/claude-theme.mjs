@@ -144,7 +144,7 @@ try {
   assert.equal(await page.locator('html').evaluate(root => getComputedStyle(root).getPropertyValue('--bg').trim()), '#faf9f5');
   // Both Chinese localizations use the same registered theme and saved preference.
   for (const locale of ['zh-CN', 'zh-TW']) {
-    await page.evaluate(locale => localStorage.setItem('pi-locale', locale), locale);
+    await page.evaluate(locale => { localStorage.setItem('pi-locale', locale); localStorage.setItem('pi-ui-language-version', 'english-interface-v1'); }, locale);
     await page.reload({ waitUntil: 'networkidle' }); await expectTheme('claude');
     await page.getByRole('button', { name: locale === 'zh-CN' ? '设置' : '設定', exact: true }).click();
     assert.equal(await page.getByRole('radio', { name: 'Claude 暖白', exact: true }).isChecked(), true);

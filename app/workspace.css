@@ -168,7 +168,7 @@
 }
 .workspace-settings-entry > button {
   justify-content: center !important;
-  padding: 0 10px !important;
+  padding: 0 4px !important;
 }
 .sidebar-quick-actions {
   font-family: var(--font-ui-default);

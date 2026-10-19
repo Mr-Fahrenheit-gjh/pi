@@ -28,7 +28,7 @@ export function AgentWorkspace({ session, rootSession, subagents, targets, runni
   const native = [rootSession, ...subagents].find((item) => item.id === selection);
   const selectedId = target?.id ?? native?.id ?? rootSession.id;
   const selectedName = native?.name || native?.firstMessage || t("agentSwitcher.main");
-  const groups = useMemo(() => agentPickerGroups(subagents, targets, runningSessionIds), [subagents, targets, runningSessionIds]);
+  const groups = useMemo(() => agentPickerGroups(subagents, targets, runningSessionIds, t), [subagents, targets, runningSessionIds, t]);
   const selected = groups.flatMap(group => group.items).find(item => item.id === selectedId);
   const choose = (id: string) => { setSelection(id); setOpen(false); trigger.current?.focus(); };
   useEffect(() => {
@@ -66,11 +66,11 @@ export function AgentWorkspace({ session, rootSession, subagents, targets, runni
           {groups.map(group => {
             const rows = group.items.map((item, index) => <button type="button" role="option" aria-selected={item.id === selectedId} key={item.id} data-agent-id={item.id} onClick={() => choose(item.id)} className="agent-picker-option" title={item.detail}>
               <span className="agent-picker-summary">{item.summary}</span>
-              <span className="agent-picker-meta"><span>{item.role} · {item.id.replace(/^package:/, "").slice(0, 8)}{group.items.length > 1 ? ` · ${index + 1}` : ""}</span><span data-agent-state={item.state}>{fleetStateLabel(item.state === "completed" ? "complete" : item.state)}</span></span>
+              <span className="agent-picker-meta"><span>{item.role} · {item.id.replace(/^package:/, "").slice(0, 8)}{group.items.length > 1 ? ` · ${index + 1}` : ""}</span><span data-agent-state={item.state}>{fleetStateLabel(item.state === "completed" ? "complete" : item.state, t)}</span></span>
             </button>);
             return group.items.length > 1 ? <div role="group" aria-label={group.items[0].summary} key={group.key} className="agent-picker-group">
               {rows[0]}
-              <details open={group.items.slice(1).some(item => item.id === selectedId) || undefined}><summary>其他记录 · {group.items.length - 1}</summary>{rows.slice(1)}</details>
+              <details open={group.items.slice(1).some(item => item.id === selectedId) || undefined}><summary>{t("agentPicker.otherRecords", { count: group.items.length - 1 })}</summary>{rows.slice(1)}</details>
             </div> : rows[0];
           })}
         </div>}

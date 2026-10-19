@@ -134,7 +134,7 @@ test("on a desktop the files sit below the sessions by default, both in view", (
   const sessions = openingTag(html, "session-sidebar-panel-sessions");
   const files = openingTag(html, "session-sidebar-panel-files");
   assert.equal(sessions, '<div id="session-sidebar-panel-sessions" role="region" aria-label="Sessions" class="sidebar-panel sidebar-sessions-panel">');
-  assert.equal(files, '<div id="session-sidebar-panel-files" role="region" aria-label="Files" class="sidebar-panel sidebar-files-panel">');
+  assert.equal(files, '<div id="session-sidebar-panel-files" role="region" aria-label="Document" class="sidebar-panel sidebar-files-panel">');
   const separator = html.slice(html.indexOf('role="separator"') - 200, html.indexOf(files));
   assert.ok(html.indexOf(sessions) < html.indexOf('role="separator"') && html.indexOf('role="separator"') < html.indexOf(files), "sessions, separator, files");
   assert.match(separator, /<div aria-label="Resize file browser" aria-orientation="horizontal" aria-valuemax="2000" aria-valuemin="220" aria-valuenow="320" aria-valuetext="320 px" role="separator" tabindex="0" aria-controls="session-sidebar-panel-files" class="panel-resize-handle sidebar-files-resize-handle" data-resize-handle="sidebar-files" title="Resize file browser: Drag to resize\. Double-click or press Enter to reset\. Esc cancels a drag\."><\/div>$/);
@@ -143,7 +143,7 @@ test("on a desktop the files sit below the sessions by default, both in view", (
   // picker's one row and the tree. No row of keys under the picker; nothing
   // changed, so no count after the label.
   const filesPanel = html.slice(html.indexOf(files) + files.length);
-  assert.match(filesPanel, /^<div class="sidebar-files-section"><button type="button" class="sidebar-files-section-toggle" aria-expanded="true" aria-controls="session-sidebar-files-body"><svg width="12" height="12"[^>]*stroke-width="3"[^>]*class="session-tree-chevron is-open"[^>]*>[\s\S]*?<\/svg><span class="sidebar-files-section-label">Files<\/span><\/button><div class="sidebar-files-keys" role="group" aria-label="File actions"><button type="button" title="Open workspace terminal" aria-label="Open workspace terminal" class="sidebar-tool-button">/);
+  assert.match(filesPanel, /^<div class="sidebar-files-section"><button type="button" class="sidebar-files-section-toggle" aria-expanded="true" aria-controls="session-sidebar-files-body"><svg width="12" height="12"[^>]*stroke-width="3"[^>]*class="session-tree-chevron is-open"[^>]*>[\s\S]*?<\/svg><span class="sidebar-files-section-label">Document<\/span><\/button><div class="sidebar-files-keys" role="group" aria-label="File actions"><button type="button" title="Open workspace terminal" aria-label="Open workspace terminal" class="sidebar-tool-button">/);
   assert.match(filesPanel, /<div id="session-sidebar-files-body" class="sidebar-files-body"><div class="sidebar-files-head"><div class="project-picker is-row" role="group"/);
   assert.match(filesPanel, /<div class="sidebar-files-scroll scrollbar-subtle">/);
   assert.doesNotMatch(filesPanel, /sidebar-files-toolbar|sidebar-files-title|sidebar-files-actions|sidebar-files-section-search|sidebar-files-changes/);

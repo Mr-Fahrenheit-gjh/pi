@@ -1509,10 +1509,10 @@ export function AppShell() {
         <button
           type="button"
           className="pending-release-entry-button"
-          title={pendingReleases.error ?? (pendingReleases.snapshot?.warnings.length ? "部分记录不可用，数量不完整" : undefined)}
+          title={pendingReleases.error ?? (pendingReleases.snapshot?.warnings.length ? translate("pendingRelease.countWarning") : undefined)}
           onClick={() => setPendingReleaseOpen(true)}
         >
-          待上线 <span>{pendingReleases.snapshot && !pendingReleases.snapshot.warnings.length
+          {translate("pendingRelease.title")} <span>{pendingReleases.snapshot && !pendingReleases.snapshot.warnings.length
             ? pendingReleases.snapshot.pendingCount : pendingReleases.loading ? "…" : "—"}</span>
         </button>
         <ServiceRestartButton />

@@ -1,4 +1,6 @@
 import { runtimeFetch as fetch } from "./runtime-client.mjs";
+import { englishText } from "./i18n/english.mjs";
+import type { UiTranslate } from "./i18n/types";
 // Client-safe projections. Fleet keys and workflow child ids are never control targets.
 export interface FleetRow {
   key: string;
@@ -50,30 +52,29 @@ export function fleetState(value: unknown): string {
   const state = text(value) ?? "unknown";
   return state === "completed" ? "complete" : state === "pending" ? "queued" : state;
 }
-export function fleetStateLabel(state: string): string {
-  const labels: Record<string, string> = { queued: "排队中", running: "运行中", complete: "已完成", failed: "失败", partial: "部分完成",
-    paused: "已暂停", stopped: "已停止", rejected: "已拒绝", interrupted: "已中断", unknown: "状态未知" };
-  return Object.prototype.hasOwnProperty.call(labels, state) ? labels[state] : state;
+export function fleetStateLabel(state: string, t: UiTranslate = englishText): string {
+  const known = ["queued", "running", "complete", "failed", "partial", "paused", "stopped", "rejected", "interrupted", "unknown"];
+  return known.includes(state) ? t(`fleet.state.${state}`) : state;
 }
 export function fleetIsActive(state: string): boolean { return state === "running" || state === "queued"; }
 export function fleetCanResume(state: string): boolean {
   return ["complete", "failed", "partial", "paused"].includes(state);
 }
-function metrics(source: Record<string, unknown>): FleetRow["metrics"] {
+function metrics(source: Record<string, unknown>, t: UiTranslate): FleetRow["metrics"] {
   const tokens = record(source.tokens);
   const usage = record(source.usage);
   const cost = record(source.cost ?? usage.cost);
   const candidates: [string, unknown][] = [
     ["Tokens", typeof source.tokens === "number" ? source.tokens : tokens.total ?? usage.totalTokens ?? source.totalTokens],
-    ["输入", tokens.input ?? usage.input], ["输出", tokens.output ?? usage.output],
-    ["上下文", tokens.window], ["费用（USD）", typeof source.cost === "number" ? source.cost : cost.total],
+    [t("fleet.metric.input"), tokens.input ?? usage.input], [t("fleet.metric.output"), tokens.output ?? usage.output],
+    [t("fleet.metric.context"), tokens.window], [t("fleet.metric.cost"), typeof source.cost === "number" ? source.cost : cost.total],
   ];
   return candidates.flatMap(([label, value]) => {
     const valid = number(value);
     return valid === undefined ? [] : [{ label, value: valid }];
   });
 }
-function row(value: unknown, key: string, control: boolean, depth = 0): FleetRow | undefined {
+function row(value: unknown, key: string, control: boolean, depth = 0, t: UiTranslate = englishText): FleetRow | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const source = record(value);
   const activity = record(source.activity);
@@ -83,15 +84,15 @@ function row(value: unknown, key: string, control: boolean, depth = 0): FleetRow
     key,
     // Only root snapshot nodes may identify runs. Steps/host steps use other namespaces.
     id: control && kind !== "step" && kind !== "host-step" ? fleetRunId(source.id) : undefined,
-    label: text(source.label) ?? text(source.agent) ?? text(source.name) ?? "子任务",
+    label: text(source.label) ?? text(source.agent) ?? text(source.name) ?? t("fleet.task"),
     state,
     ...(kind ? { kind } : {}),
     role: text(source.role) ?? text(source.agent),
     model: text(source.model) ?? text(source.modelId),
     activity: text(activity.currentTool) ?? text(activity.state) ?? text(source.goal),
-    metrics: metrics(source),
+    metrics: metrics(source, t),
     children: depth < 3 ? array(source.children).flatMap((child, index) => {
-      const projected = row(child, `${key}/${index}`, false, depth + 1);
+      const projected = row(child, `${key}/${index}`, false, depth + 1, t);
       return projected ? [projected] : [];
     }) : [],
   };
@@ -99,20 +100,20 @@ function row(value: unknown, key: string, control: boolean, depth = 0): FleetRow
 function rowIsActive(row: FleetRow): boolean {
   return fleetIsActive(row.state) || row.children.some(rowIsActive);
 }
-export function normalizeFleetView(value: unknown): FleetView {
+export function normalizeFleetView(value: unknown, t: UiTranslate = englishText): FleetView {
   const source = record(value);
   const snapshot = record(source.asyncSnapshot);
   const fleet = record(source.fleet);
   const seen = new Set<string>();
   const runs = array(snapshot.runs).flatMap((value, index) => {
-    const projected = row(value, `run/${index}`, true);
+    const projected = row(value, `run/${index}`, true, 0, t);
     if (!projected) return [];
     if (projected.id && seen.has(projected.id)) return [];
     if (projected.id) { seen.add(projected.id); projected.key = `run/${projected.id}`; }
     return [projected];
   });
   const entries = array(fleet.entries).flatMap((value, index) => {
-    const projected = row(value, `fleet/${index}`, false);
+    const projected = row(value, `fleet/${index}`, false, 0, t);
     if (!projected) return [];
     projected.state = "running"; // Public fleet contains active children only.
     return [projected];
@@ -126,34 +127,34 @@ export function normalizeFleetView(value: unknown): FleetView {
     active: runs.some(rowIsActive) || entries.length > 0 || (totalActive ?? 0) > 0,
   };
 }
-export function fleetCostText(value: unknown): string {
+export function fleetCostText(value: unknown, t: UiTranslate = englishText, locale = "en"): string {
   const report = record(value);
   const usageLine = (label: string, value: unknown) => {
     const usage = record(value);
     const tokens = ["input", "output", "cacheRead", "cacheWrite"].reduce((sum, key) => sum + (number(usage[key]) ?? 0), 0);
     const cost = number(usage.cost);
-    return `${label}：${tokens.toLocaleString("zh-CN")} tokens${cost === undefined ? "" : ` · $${cost.toFixed(6)}`}`;
+    return `${label}: ${tokens.toLocaleString(locale)} tokens${cost === undefined ? "" : ` · $${cost.toFixed(6)}`}`;
   };
-  const lines = [usageLine("主会话", report.parent), usageLine("子代理", report.childTotal), usageLine("合计", report.total)];
-  for (const child of array(report.children)) { const entry = record(child); lines.push(usageLine(text(entry.label) ?? text(entry.agent) ?? "子代理", entry.usage)); }
-  if ((number(report.unresolvedAsyncChildren) ?? 0) > 0) lines.push(`${report.unresolvedAsyncChildren} 个任务的用量尚未读取，合计未包含这些任务。`);
+  const lines = [usageLine(t("fleet.mainSession"), report.parent), usageLine(t("fleet.subagents"), report.childTotal), usageLine(t("fleet.total"), report.total)];
+  for (const child of array(report.children)) { const entry = record(child); lines.push(usageLine(text(entry.label) ?? text(entry.agent) ?? t("fleet.subagents"), entry.usage)); }
+  if ((number(report.unresolvedAsyncChildren) ?? 0) > 0) lines.push(t("fleet.unresolvedUsage", { count: Number(report.unresolvedAsyncChildren) }));
   return lines.join("\n");
 }
-export function fleetReadableDetails(value: unknown): string {
+export function fleetReadableDetails(value: unknown, t: UiTranslate = englishText): string {
   if (typeof value === "string") return value;
   if (value === undefined || value === null) return "";
-  try { return JSON.stringify(value, null, 2) ?? ""; } catch { return "记录无法显示"; }
+  try { return JSON.stringify(value, null, 2) ?? ""; } catch { return t("fleet.detailsFailed"); }
 }
 export function fleetCommand(method: FleetMethod, id: string, message?: string, mode: SteerMode = "auto") {
-  if (!fleetRunId(id)) throw new Error("运行标识无效");
-  if ((method === "steer" || method === "resume") && !message?.trim()) throw new Error("请填写消息");
+  if (!fleetRunId(id)) throw new Error(englishText("fleet.invalidRun"));
+  if ((method === "steer" || method === "resume") && !message?.trim()) throw new Error(englishText("fleet.messageRequired"));
   return { method, params: { id, ...(method === "steer" || method === "resume" ? { message: message!.trim() } : {}),
     ...(method === "steer" ? { mode } : {}) } };
 }
 export function fleetUrl(sessionId: string, runId?: string): string {
   const base = `/api/agent/${encodeURIComponent(sessionId)}/subagents`;
   if (runId === undefined) return base;
-  if (!fleetRunId(runId)) throw new Error("运行标识无效");
+  if (!fleetRunId(runId)) throw new Error(englishText("fleet.invalidRun"));
   return `${base}?${new URLSearchParams({ id: runId, view: "transcript", lines: "100" })}`;
 }
 /** POST returns RPC data directly; do not mistake its optional text/details for a GET envelope. */
@@ -164,7 +165,7 @@ export async function fleetRequest(url: string, signal: AbortSignal, body?: Retu
   const value: unknown = await response.json();
   const data = record(value);
   if (!response.ok || data.error || data.success === false) {
-    throw new Error(text(data.error) ?? text(record(data.error).message) ?? `请求失败（${response.status}）`);
+    throw new Error(text(data.error) ?? text(record(data.error).message) ?? englishText("fleet.requestStatus", { status: response.status }));
   }
   return value;
 }

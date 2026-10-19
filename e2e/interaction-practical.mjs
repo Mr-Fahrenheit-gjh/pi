@@ -48,6 +48,7 @@ export async function runInteractionChecks(page, { baseURL, outputDir }) {
   await page.addInitScript(() => {
     if (location.protocol !== "http:") return;
     localStorage.setItem("pi-locale", "zh-CN");
+    localStorage.setItem("pi-ui-language-version", "english-interface-v1"); // Explicit test locale after migration.
     localStorage.setItem("pi-sidebar-open", "true");
     window.__sources = [];
     window.EventSource = class {

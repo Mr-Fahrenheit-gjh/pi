@@ -32,8 +32,8 @@ test("API is read-only and accepts no request-controlled filesystem path", () =>
   assert.doesNotMatch(route, /function (?:POST|PUT|PATCH|DELETE)|request\.|searchParams|readFile|startRpc|sendAgent/);
 });
 
-test("footer has independent 待上线 count entry, original settings and restart remain", () => {
-  assert.match(shell, /className="pending-release-entry-button"[\s\S]*?setPendingReleaseOpen\(true\)[\s\S]*?待上线 <span>/);
+test("footer has an independent localized pending release count; settings and restart remain", () => {
+  assert.match(shell, /className="pending-release-entry-button"[\s\S]*?setPendingReleaseOpen\(true\)[\s\S]*?translate\("pendingRelease\.title"\)\} <span>/);
   assert.match(shell, /pendingReleases\.snapshot\.pendingCount : pendingReleases\.loading \? "…" : "—"/);
   assert.match(shell, /!pendingReleases\.snapshot\.warnings\.length/);
   assert.match(shell, /<ServiceRestartButton \/>/);
@@ -51,13 +51,13 @@ test("panel shares Settings desktop shell, focus/Escape, read-only evidence, his
   assert.match(panel, /event\.target === event\.currentTarget\) onClose\(\)/);
   assert.match(panel, /\["pending", "deployed"\]/);
   assert.match(panel, /entry\.status === tab/);
-  assert.match(panel, /<details>[\s\S]*?<summary>查看详情<\/summary>/);
+  assert.match(panel, /<details>[\s\S]*?<summary>\{t\("pendingRelease\.details"\)\}<\/summary>/);
   for (const field of ["summary", "sourceSessions", "codeLocations", "verification", "releaseSteps", "rollback", "dependencies", "createdAt", "deployedAt", "revision"]) assert.ok(panel.includes(`entry.${field}`), field);
   assert.match(panel, /formatReleaseHandoff\(entry\)/);
   assert.match(panel, /navigator\.clipboard\.writeText\(text\)/);
   assert.match(panel, /!document\.execCommand\("copy"\)/);
-  assert.match(panel, /复制失败，请重试/);
-  assert.match(panel, /部分记录不可用，数量不完整/);
+  assert.match(panel, /t\("pendingRelease\.copyFailed"\)/);
+  assert.match(panel, /t\("pendingRelease\.warning"\)/);
   assert.match(panel, /error && <p role="alert"/);
   assert.match(panel, /<ConfigButton size="small"/);
   assert.doesNotMatch(panel, /sendAgent|useAgentSession|startRpc|\/api\/agent|\/api\/service|eval\(|dangerouslySetInnerHTML/);

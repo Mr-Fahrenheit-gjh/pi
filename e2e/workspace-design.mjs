@@ -56,6 +56,7 @@ export async function runWorkspaceDesignChecks(page, { baseURL, outputDir, proje
   await page.addInitScript(() => {
     if (location.protocol !== "http:") return;
     localStorage.setItem("pi-locale", "zh-CN");
+    localStorage.setItem("pi-ui-language-version", "english-interface-v1"); // Explicit test locale after migration.
     localStorage.setItem("pi-theme", "claude-white");
     localStorage.setItem("pi-sidebar-open", "true");
     localStorage.setItem("pi-running-send-mode", "steer");
