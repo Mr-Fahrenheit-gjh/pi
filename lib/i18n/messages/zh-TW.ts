@@ -96,6 +96,7 @@ export const zhTWLocale: LocalePlugin = {
     "packageChat.recent": "顯示最近的記錄",
     "packageChat.empty": "子代理尚未寫入記錄，執行時會自動更新。",
     "pendingRelease.title": "待上線",
+    "pendingRelease.label": "待上線",
     "pendingRelease.history": "上線記錄",
     "pendingRelease.deployed": "已上線",
     "pendingRelease.description": "已完成、已驗證的 Pi 變更；這裡僅供檢視與複製，不執行上線。",

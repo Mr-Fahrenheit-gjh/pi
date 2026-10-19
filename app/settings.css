@@ -2505,26 +2505,9 @@ select.mcp-add-input {
 .pending-release-dialog {
   font-family: var(--font-ui);
 }
-.pending-release-entry-button {
-  height: 32px;
-  border: 0;
-  border-radius: 9px;
-  background: none;
-  color: var(--text-muted);
-  font-family: var(--font-ui);
-  font-size: 12px;
-  line-height: 14px;
-  white-space: normal;
-  cursor: default;
-}
-.workspace-settings-entry > .pending-release-entry-button {
-  flex: 1.4;
-  padding: 0 4px !important;
-}
-.pending-release-entry-button:hover,
-.pending-release-entry-button:focus-visible {
-  background: var(--bg-hover);
-  color: var(--text);
+.pending-release-count {
+  font-variant-numeric: tabular-nums;
+  margin-left: -3px;
 }
 .pending-release-content {
   height: 100%;

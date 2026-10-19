@@ -89,6 +89,18 @@ test("reference upload copy stays English and normal-weight independently of UI 
   assert.match(css, /\.composer-controls-spacer \{ display: none; \}/);
 });
 
+test("composer option rows share typography and align icons without fixed-height clipping", async () => {
+  const css = await readFile(new URL("../app/workspace.css", import.meta.url), "utf8");
+  const rows = css.match(/\.composer-options > button,\s*\.composer-options > div > button \{(\s*box-sizing:[^}]+)\}/)?.[1] ?? "";
+  assert.match(rows, /height: auto !important/);
+  assert.match(rows, /font-size: 13px !important/);
+  assert.match(rows, /line-height: 20px/);
+  assert.match(rows, /text-align: left/);
+  assert.match(css, /\.composer-options > div > button > svg \{[^}]*flex: 0 0 14px/);
+  assert.match(css, /\.composer-options > div > button > span \{[^}]*white-space: normal !important/);
+  assert.doesNotMatch(css.match(/\.composer-options \.composer-options-close \{([^}]+)\}/)?.[1] ?? "", /justify-content: center/);
+});
+
 test("run cancellation is outside the hidden options group", () => {
   const html = composer({ isStreaming: true });
   const stop = html.indexOf('class="composer-stop"');

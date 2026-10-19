@@ -96,6 +96,7 @@ export const zhCNLocale: LocalePlugin = {
     "packageChat.recent": "显示最近的记录",
     "packageChat.empty": "子代理尚未写入记录，运行时会自动更新。",
     "pendingRelease.title": "待上线",
+    "pendingRelease.label": "待上线",
     "pendingRelease.history": "上线记录",
     "pendingRelease.deployed": "已上线",
     "pendingRelease.description": "已完成、已验证的 Pi 改动；这里只查看和复制，不执行上线。",

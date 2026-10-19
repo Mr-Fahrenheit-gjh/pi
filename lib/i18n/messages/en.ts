@@ -96,6 +96,7 @@ export const enLocale: LocalePlugin = {
     "packageChat.recent": "Showing the latest records",
     "packageChat.empty": "No transcript yet. Updates automatically while running.",
     "pendingRelease.title": "Pending releases",
+    "pendingRelease.label": "Releases",
     "pendingRelease.history": "Release history",
     "pendingRelease.deployed": "Deployed",
     "pendingRelease.description": "Completed and verified Pi changes. View or copy handoffs here; this panel does not deploy changes.",

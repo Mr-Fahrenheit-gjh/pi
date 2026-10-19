@@ -1494,25 +1494,22 @@ export function AppShell() {
           onClick={() => setSettingsSection(getLastSettingsSection(projectTrustCwd))}
           title={translate("common.settings")}
           aria-label={translate("common.settings")}
-          style={{
-            flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-            height: 32, padding: 0, background: "none", border: "none",
-            borderRadius: 9, color: "var(--text-muted)", cursor: "default",
-            fontSize: 12, transition: "background 0.12s, color 0.12s",
-          }}
-          onMouseEnter={(event) => { event.currentTarget.style.background = "var(--bg-hover)"; event.currentTarget.style.color = "var(--text)"; }}
-          onMouseLeave={(event) => { event.currentTarget.style.background = "none"; event.currentTarget.style.color = "var(--text-muted)"; }}
+          className="quiet-action-button"
         >
           <SettingsSectionIcon section="general" size={14} strokeWidth={2} />
           <span>{translate("common.settings")}</span>
         </button>
         <button
           type="button"
-          className="pending-release-entry-button"
-          title={pendingReleases.error ?? (pendingReleases.snapshot?.warnings.length ? translate("pendingRelease.countWarning") : undefined)}
+          className="quiet-action-button pending-release-entry-button"
+          aria-label={translate("pendingRelease.title")}
+          aria-haspopup="dialog"
+          aria-expanded={pendingReleaseOpen}
+          title={pendingReleases.error ?? (pendingReleases.snapshot?.warnings.length ? translate("pendingRelease.countWarning") : translate("pendingRelease.title"))}
           onClick={() => setPendingReleaseOpen(true)}
         >
-          {translate("pendingRelease.title")} <span>{pendingReleases.snapshot && !pendingReleases.snapshot.warnings.length
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4" /></svg>
+          <span>{translate("pendingRelease.label")}</span><span className="pending-release-count">{pendingReleases.snapshot && !pendingReleases.snapshot.warnings.length
             ? pendingReleases.snapshot.pendingCount : pendingReleases.loading ? "…" : "—"}</span>
         </button>
         <ServiceRestartButton />

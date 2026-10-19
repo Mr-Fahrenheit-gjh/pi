@@ -33,13 +33,24 @@ test("API is read-only and accepts no request-controlled filesystem path", () =>
 });
 
 test("footer has an independent localized pending release count; settings and restart remain", () => {
-  assert.match(shell, /className="pending-release-entry-button"[\s\S]*?setPendingReleaseOpen\(true\)[\s\S]*?translate\("pendingRelease\.title"\)\} <span>/);
+  assert.match(shell, /className="quiet-action-button pending-release-entry-button"[\s\S]*?setPendingReleaseOpen\(true\)[\s\S]*?translate\("pendingRelease\.label"\)/);
+  assert.match(shell, /aria-label=\{translate\("pendingRelease\.title"\)\}[\s\S]*?aria-haspopup="dialog"[\s\S]*?aria-expanded=\{pendingReleaseOpen\}/);
   assert.match(shell, /pendingReleases\.snapshot\.pendingCount : pendingReleases\.loading \? "…" : "—"/);
   assert.match(shell, /!pendingReleases\.snapshot\.warnings\.length/);
   assert.match(shell, /<ServiceRestartButton \/>/);
   assert.match(shell, /<SettingsPanel/);
   assert.match(shell, /\{pendingReleaseOpen && \([\s\S]*?<PendingReleasePanel/);
   assert.match(shell, /const pendingReleases = usePendingReleases\(pendingReleaseOpen\)/);
+});
+
+test("footer actions share typography and affordances without a special release width", async () => {
+  const workspace = await read("../app/workspace.css");
+  const footer = workspace.match(/\.workspace-settings-entry > button \{([^}]+)\}/)?.[1] ?? "";
+  assert.match(footer, /font-family: var\(--font-ui\)/);
+  assert.match(footer, /font-size: 12px/);
+  assert.match(footer, /white-space: nowrap/);
+  assert.doesNotMatch(css, /flex: 1\.4/);
+  assert.match(shell, /aria-expanded=\{pendingReleaseOpen\}/);
 });
 
 test("panel shares Settings desktop shell, focus/Escape, read-only evidence, history and copy", () => {
