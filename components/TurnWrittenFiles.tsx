@@ -39,7 +39,7 @@ export function TurnWrittenFiles({ files, onOpenFile }: {
               background: "var(--bg-subtle)",
               border: "1px solid var(--border)",
               borderRadius: 6,
-              cursor: "pointer",
+              cursor: "default",
             }}
           >
             {getFileIcon(name, 12)}

@@ -656,7 +656,7 @@ export const ChatMinimap = memo(function ChatMinimap({
         bottom: 0,
         right: 8,
         zIndex: 30,
-        cursor: "pointer",
+        cursor: "default",
         userSelect: "none",
         borderLeft: "none",
         background: "transparent",

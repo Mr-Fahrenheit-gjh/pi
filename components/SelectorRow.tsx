@@ -72,7 +72,7 @@ export function SelectorRow({
           width: "100%", minWidth: 0, padding: gutter ? "7px 36px 7px 12px" : "7px 12px",
           border: "none", background: "none",
           color: active ? "var(--text)" : "var(--text-muted)",
-          cursor: "pointer", fontSize: 12, fontWeight: active ? 600 : 400,
+          cursor: "default", fontSize: 12, fontWeight: active ? 600 : 400,
           textAlign: "left", whiteSpace: "nowrap",
         }}
       >
@@ -112,7 +112,7 @@ export function SelectorRow({
             width: 24, height: 24, padding: 0,
             background: "var(--bg-hover)", border: "1px solid var(--border)",
             borderRadius: 6, color: "var(--text-muted)",
-            cursor: "pointer",
+            cursor: "default",
             opacity: showSave ? 1 : 0,
             pointerEvents: showSave ? "auto" : "none",
             transition: "opacity 0.1s, background 0.12s, color 0.12s, border-color 0.12s",

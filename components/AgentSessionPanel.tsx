@@ -107,7 +107,7 @@ function AgentRow({
         borderLeft: selected ? "2px solid var(--accent)" : "2px solid transparent",
         background: selected ? "var(--bg-selected)" : "transparent",
         color: "var(--text)",
-        cursor: "pointer",
+        cursor: "default",
         textAlign: "left",
       }}
       onMouseEnter={(event) => {

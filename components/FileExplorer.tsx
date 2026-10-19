@@ -347,7 +347,7 @@ export function TreeNode({
           alignItems: "center",
           paddingLeft: 8 + depth * 14,
           paddingRight: 8,
-          cursor: "pointer",
+          cursor: "default",
           background: hovered ? "var(--bg-hover)" : "transparent",
           userSelect: "none",
         }}
@@ -445,7 +445,7 @@ export function TreeNode({
               border: "1px solid var(--border)",
               borderRadius: 4,
               color: "var(--accent)",
-              cursor: "pointer",
+              cursor: "default",
               fontSize: 11,
               fontWeight: 600,
               whiteSpace: "nowrap",
@@ -476,7 +476,7 @@ export function TreeNode({
               border: "1px solid var(--border)",
               borderRadius: 4,
               color: "var(--text-muted)",
-              cursor: "pointer",
+              cursor: "default",
               fontSize: 11,
               fontWeight: 600,
               whiteSpace: "nowrap",
@@ -522,7 +522,7 @@ export function TreeNode({
               border: "1px solid var(--border)",
               borderRadius: 4,
               color: "var(--accent)",
-              cursor: allowingLink ? "default" : "pointer",
+              cursor: allowingLink ? "default" : "default",
               opacity: allowingLink ? 0.6 : 1,
               fontSize: 11,
               fontWeight: 600,
@@ -609,7 +609,7 @@ function ChangeRow({
         alignItems: "center",
         paddingLeft: 10,
         paddingRight: 8,
-        cursor: "pointer",
+        cursor: "default",
         background: hovered ? "var(--bg-hover)" : "transparent",
         userSelect: "none",
         position: "relative",
@@ -678,7 +678,7 @@ function ChangeRow({
             border: "1px solid var(--border)",
             borderRadius: 4,
             color: "var(--accent)",
-            cursor: "pointer",
+            cursor: "default",
             fontSize: 11,
             fontWeight: 600,
             whiteSpace: "nowrap",
@@ -1047,13 +1047,13 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(function FileE
               </div>
             )}
             <div style={{ display: "flex", gap: 5, marginTop: 7 }}>
-              <button type="button" onClick={() => void performUpload(pendingConflict.files, "overwrite")} style={{ height: 22, padding: "0 7px", border: "1px solid #ef4444", borderRadius: 4, background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 10 }}>
+              <button type="button" onClick={() => void performUpload(pendingConflict.files, "overwrite")} style={{ height: 22, padding: "0 7px", border: "1px solid #ef4444", borderRadius: 4, background: "transparent", color: "#ef4444", cursor: "default", fontSize: 10 }}>
                 {t("files.replace")}
               </button>
-              <button type="button" onClick={() => void performUpload(pendingConflict.files, "skip")} style={{ height: 22, padding: "0 7px", border: "1px solid var(--border)", borderRadius: 4, background: "var(--bg-panel)", color: "var(--text)", cursor: "pointer", fontSize: 10 }}>
+              <button type="button" onClick={() => void performUpload(pendingConflict.files, "skip")} style={{ height: 22, padding: "0 7px", border: "1px solid var(--border)", borderRadius: 4, background: "var(--bg-panel)", color: "var(--text)", cursor: "default", fontSize: 10 }}>
                 {t("files.skipExisting")}
               </button>
-              <button type="button" onClick={() => setPendingConflict(null)} style={{ height: 22, padding: "0 7px", border: "none", borderRadius: 4, background: "transparent", color: "var(--text-muted)", cursor: "pointer", fontSize: 10 }}>
+              <button type="button" onClick={() => setPendingConflict(null)} style={{ height: 22, padding: "0 7px", border: "none", borderRadius: 4, background: "transparent", color: "var(--text-muted)", cursor: "default", fontSize: 10 }}>
                 {t("files.cancel")}
               </button>
             </div>
@@ -1105,7 +1105,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(function FileE
                   onClick={addUploadedFilesToChat}
                   title={uploadSummary.uploaded.length === 1 ? t("files.addUploadedFile") : t("files.addAllUploadedFiles")}
                   aria-label={uploadSummary.uploaded.length === 1 ? t("files.addUploadedFile") : t("files.addAllUploadedFiles")}
-                  style={{ height: 22, padding: "0 7px", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, flexShrink: 0, border: "1px solid var(--border)", borderRadius: 4, background: "var(--bg-panel)", color: "var(--accent)", cursor: "pointer", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" }}
+                  style={{ height: 22, padding: "0 7px", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, flexShrink: 0, border: "1px solid var(--border)", borderRadius: 4, background: "var(--bg-panel)", color: "var(--accent)", cursor: "default", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" }}
                 >
                   <MentionIcon />
                   {t("files.mention")}
@@ -1150,7 +1150,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(function FileE
               onClick={() => setSearchQuery("")}
               title={t("sidebar.clearSearch")}
               aria-label={t("sidebar.clearSearch")}
-              style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, padding: 0, border: "none", borderRadius: 4, background: "none", color: "var(--text-dim)", cursor: "pointer" }}
+              style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, padding: 0, border: "none", borderRadius: 4, background: "none", color: "var(--text-dim)", cursor: "default" }}
               onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-dim)"; }}
             >

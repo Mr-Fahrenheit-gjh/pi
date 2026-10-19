@@ -609,7 +609,7 @@ function ModelNoticeBanner({ tone, title, body, onClose }: { tone: "error" | "wa
             background: "none",
             border: "none",
             padding: "0 2px",
-            cursor: "pointer",
+            cursor: "default",
             color: "inherit",
             opacity: 0.7,
             fontSize: 13,
@@ -1842,7 +1842,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                     background: "transparent",
                     border: "1px solid var(--border)",
                     borderRadius: 7,
-                    cursor: "pointer",
+                    cursor: "default",
                     transition: "background 0.12s, border-color 0.12s",
                     whiteSpace: "nowrap",
                   }}
@@ -1942,7 +1942,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                     width: 16, height: 16, borderRadius: "50%",
                     background: "var(--bg-panel)", border: "1px solid var(--border)",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    cursor: "pointer", padding: 0, color: "var(--text-muted)",
+                    cursor: "default", padding: 0, color: "var(--text-muted)",
                   }}
                 >
                   <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -2026,7 +2026,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                         borderRadius: 6,
                         background: active ? "var(--bg-selected)" : "none",
                         color: "var(--text)",
-                        cursor: "pointer",
+                        cursor: "default",
                         textAlign: "left",
                         fontSize: 12.5,
                         lineHeight: 1.45,
@@ -2145,7 +2145,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                                 borderRadius: 7,
                                 background: active ? "var(--bg-selected)" : "var(--bg-panel)",
                                 color: "var(--text)",
-                                cursor: "pointer",
+                                cursor: "default",
                                 textAlign: "left",
                                 boxShadow: active ? "0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent)" : "none",
                               }}
@@ -2277,7 +2277,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                             borderRadius: 6,
                             background: active ? "var(--bg-selected)" : "none",
                             color: "var(--text)",
-                            cursor: "pointer",
+                            cursor: "default",
                             textAlign: "left",
                             fontSize: 12.5,
                             fontFamily: "var(--font-mono)",
@@ -2404,7 +2404,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                 background: "none", border: "none",
                 borderRadius: 9,
                 color: attachedImages.length ? "var(--accent)" : "var(--text-muted)",
-                cursor: "pointer",
+                cursor: "default",
                 opacity: 1,
                 transition: "background 0.12s, color 0.12s",
               }}
@@ -2489,7 +2489,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                   border: "none",
                   borderRadius: 9,
                   color: "var(--text-muted)",
-                  cursor: controlsMenuOpen ? "default" : "pointer",
+                  cursor: controlsMenuOpen ? "default" : "default",
                   fontSize: 12,
                   fontWeight: 500,
                   visibility: isMobile && controlsMenuOpen ? "hidden" : "visible",
@@ -2548,7 +2548,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                     border: "none",
                     borderRadius: 9,
                     color: "var(--text-muted)",
-                    cursor: "pointer",
+                    cursor: "default",
                     fontSize: 12,
                     transition: "background 0.12s, color 0.12s",
                   }}
@@ -2641,7 +2641,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                     border: "none",
                     borderRadius: 9,
                     color: "var(--text-muted)",
-                    cursor: isStreaming ? "not-allowed" : "pointer",
+                    cursor: isStreaming ? "not-allowed" : "default",
                     fontSize: 12,
                     opacity: isStreaming ? 0.5 : 1,
                     transition: "background 0.12s, color 0.12s",
@@ -2690,7 +2690,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                             background: isActive ? "var(--bg-selected)" : "none",
                             border: "none",
                             color: isActive ? "var(--text)" : "var(--text-muted)",
-                            cursor: "pointer", fontSize: 12, textAlign: "left",
+                            cursor: "default", fontSize: 12, textAlign: "left",
                             fontWeight: isActive ? 600 : 400,
                             whiteSpace: "nowrap",
                           }}
@@ -2723,7 +2723,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                     border: "none",
                     borderRadius: 9,
                     color: isCompacting ? "#ef4444" : "var(--text-muted)",
-                    cursor: "pointer",
+                    cursor: "default",
                     fontSize: 12,
                     transition: "background 0.12s, color 0.12s",
                   }}
@@ -2767,7 +2767,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                   border: "none",
                   borderRadius: 9,
                   color: soundEnabled ? "var(--text-muted)" : "var(--text-dim)",
-                  cursor: "pointer",
+                  cursor: "default",
                   opacity: soundEnabled ? 1 : 0.55,
                   transition: "background 0.12s, color 0.12s, opacity 0.12s",
                 }}
@@ -2823,7 +2823,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                   borderLeft: "1px solid color-mix(in srgb, var(--border) 72%, transparent)",
                   borderRadius: "0 9px 9px 0",
                   color: "var(--text)",
-                  cursor: "pointer",
+                  cursor: "default",
                   transition: "background 0.12s, color 0.12s",
                 }}
                 onMouseEnter={(e) => {

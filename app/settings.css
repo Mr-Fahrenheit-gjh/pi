@@ -81,7 +81,7 @@
   border-radius: 5px;
   background: transparent;
   color: var(--text-muted);
-  cursor: pointer;
+  cursor: default;
   font-size: 20px;
   line-height: 1;
 }
@@ -192,7 +192,7 @@
   outline: none;
   background: transparent;
   color: var(--text);
-  cursor: pointer;
+  cursor: default;
   font-family: inherit;
   font-size: 12px;
   font-weight: 400;
@@ -293,7 +293,7 @@
   border-radius: 5px;
   background: var(--accent);
   color: var(--accent-contrast);
-  cursor: pointer;
+  cursor: default;
   font-size: 12px;
   font-weight: 600;
 }
@@ -738,7 +738,7 @@
   border: none;
   background: none;
   color: var(--text-muted);
-  cursor: pointer;
+  cursor: default;
   font-size: 12px;
 }
 
@@ -938,7 +938,7 @@
   border-radius: 6px;
   background: var(--bg-panel);
   color: var(--text-dim);
-  cursor: pointer;
+  cursor: default;
   font-family: var(--font-mono);
   font-size: 11px;
   text-align: left;
@@ -1126,7 +1126,7 @@
 
 .config-footer-status-details summary {
   width: fit-content;
-  cursor: pointer;
+  cursor: default;
 }
 
 .config-footer-status-list {
@@ -1160,7 +1160,7 @@
   border-width: 1px;
   border-style: solid;
   border-radius: 5px;
-  cursor: pointer;
+  cursor: default;
   font-family: inherit;
   letter-spacing: 0;
   line-height: 1;
@@ -1257,7 +1257,7 @@
   border: 1px solid var(--border);
   border-radius: 9px;
   background: var(--bg-selected);
-  cursor: pointer;
+  cursor: default;
   transition: background 0.15s, border-color 0.15s;
 }
 
@@ -1345,7 +1345,7 @@
   border-radius: 5px;
   background: transparent;
   color: var(--text-dim);
-  cursor: pointer;
+  cursor: default;
   font-size: 12px;
 }
 
@@ -1453,7 +1453,7 @@
   outline: none;
   background: transparent;
   color: var(--text-muted);
-  cursor: pointer;
+  cursor: default;
   font-size: 12px;
   font-weight: 400;
   white-space: nowrap;
@@ -1599,7 +1599,7 @@
   border-radius: 5px;
   background: transparent;
   color: var(--text-muted);
-  cursor: pointer;
+  cursor: default;
   font-size: 12px;
   font-weight: 400;
 }
@@ -1747,7 +1747,7 @@
   border-radius: 4px;
   background: transparent;
   color: var(--text-muted);
-  cursor: pointer;
+  cursor: default;
   font-size: 12px;
   font-weight: 400;
 }
@@ -1802,7 +1802,7 @@
   border-radius: 5px;
   background: transparent;
   color: var(--text);
-  cursor: pointer;
+  cursor: default;
   font-size: 12px;
   text-align: left;
 }
@@ -2199,7 +2199,7 @@ select.mcp-add-input {
   align-items: flex-start;
   gap: 8px;
   min-width: 0;
-  cursor: pointer;
+  cursor: default;
 }
 
 .mcp-add-toggle input {
@@ -2364,7 +2364,7 @@ select.mcp-add-input {
   border-radius: 5px;
   background: transparent;
   color: var(--text-muted);
-  cursor: pointer;
+  cursor: default;
   font-size: 12px;
 }
 
@@ -2514,7 +2514,7 @@ select.mcp-add-input {
   font-family: var(--font-ui);
   font-size: 12px;
   white-space: nowrap;
-  cursor: pointer;
+  cursor: default;
 }
 .pending-release-entry-button:hover,
 .pending-release-entry-button:focus-visible {
@@ -2561,7 +2561,7 @@ select.mcp-add-input {
 }
 .pending-release-entry summary {
   width: fit-content;
-  cursor: pointer;
+  cursor: default;
   color: var(--text-muted);
 }
 .pending-release-evidence h4 {

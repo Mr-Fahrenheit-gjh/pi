@@ -128,7 +128,7 @@ function SafeMarkdownBody({ children, className, ...props }: React.ComponentProp
           borderRadius: 6,
           background: "var(--bg-panel)",
           color: "var(--text-muted)",
-          cursor: "pointer",
+          cursor: "default",
           fontSize: 12,
           textAlign: "left",
         }}
@@ -453,7 +453,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
                     padding: 0,
                     background: "none",
                     border: "none",
-                    cursor: "pointer",
+                    cursor: "default",
                     color: "var(--accent)",
                     fontFamily: "var(--font-mono)",
                     fontSize: "calc(13px + var(--chat-font-size-offset, 0px))",
@@ -527,7 +527,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
                 background: "none", border: "none",
                 borderRadius: 5,
                 color: copied ? "var(--accent)" : "var(--text-dim)",
-                cursor: "pointer",
+                cursor: "default",
                 fontSize: 11, fontWeight: 400,
                 whiteSpace: "nowrap",
                 transition: "color 0.12s",
@@ -565,7 +565,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
                     background: "none", border: "none",
                     borderRadius: 5,
                     color: "var(--text-dim)",
-                    cursor: "pointer",
+                    cursor: "default",
                     fontSize: 11, fontWeight: 400,
                     whiteSpace: "nowrap",
                     transition: "color 0.12s",
@@ -592,7 +592,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
                     background: "none", border: "none",
                     borderRadius: 5,
                     color: "var(--accent)",
-                    cursor: "pointer",
+                    cursor: "default",
                     fontSize: 11, fontWeight: 500,
                     whiteSpace: "nowrap",
                   }}
@@ -614,7 +614,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
                     background: "none", border: "none",
                     borderRadius: 5,
                     color: forking ? "var(--accent)" : "var(--text-dim)",
-                    cursor: forking ? "not-allowed" : "pointer",
+                    cursor: forking ? "not-allowed" : "default",
                     fontSize: 11, fontWeight: 400,
                     whiteSpace: "nowrap",
                     transition: "color 0.12s",
@@ -901,7 +901,7 @@ function AssistantMessageView({
                 borderRadius: 5,
                 background: "transparent",
                 color: "inherit",
-                cursor: isCompacting ? "default" : "pointer",
+                cursor: isCompacting ? "default" : "default",
                 font: "inherit",
               }}
             >
@@ -931,7 +931,7 @@ function AssistantMessageView({
               background: "none", border: "none",
               borderRadius: 5,
               color: copied ? "var(--accent)" : "var(--text-dim)",
-              cursor: "pointer",
+              cursor: "default",
               fontSize: 11, fontWeight: 400,
               whiteSpace: "nowrap",
               transition: "color 0.12s",
@@ -1078,7 +1078,7 @@ export function ThinkingBlock({ block, duration, sessionId, entryId, blockIndex 
           background: "transparent",
           border: "none",
           color: "var(--text-muted)",
-          cursor: "pointer",
+          cursor: "default",
           font: "inherit",
           textAlign: "left",
         }}
@@ -1198,7 +1198,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
             background: "none",
             border: "none",
             color: "var(--text-muted)",
-            cursor: "pointer",
+            cursor: "default",
             fontSize: 12,
             textAlign: "left",
           }}
@@ -1237,7 +1237,7 @@ function ToolCallBlock({ block, result, duration, onOpenSubagent }: { block: Too
             onClick={() => onOpenSubagent(subagent.sessionId, subagent.description || subagent.profile)}
             title={t("subagent.openTab")}
             aria-label={t("subagent.openTab")}
-            style={{ width: 32, display: "grid", placeItems: "center", border: "none", borderLeft: "1px solid var(--border)", background: "none", color: "var(--text-muted)", cursor: "pointer", flexShrink: 0 }}
+            style={{ width: 32, display: "grid", placeItems: "center", border: "none", borderLeft: "1px solid var(--border)", background: "none", color: "var(--text-muted)", cursor: "default", flexShrink: 0 }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="5" y="7" width="14" height="11" rx="2" /><path d="M9 11h.01M15 11h.01M9 15h6M12 7V4M10 4h4" /></svg>
           </button>
@@ -1703,7 +1703,7 @@ function CompactionMessageView({ message }: { message: CustomMessage }) {
               border: "none",
               background: "transparent",
               color: "var(--text)",
-              cursor: "pointer",
+              cursor: "default",
               font: "inherit",
               textAlign: "left",
             }}
@@ -1836,7 +1836,7 @@ function CustomMessageView({ message, cwd, onOpenFile }: { message: CustomMessag
               border: "none",
               background: "none",
               color: "inherit",
-              cursor: "pointer",
+              cursor: "default",
               fontSize: "inherit",
               textAlign: "left",
             }}
@@ -1898,7 +1898,7 @@ function CustomMessageView({ message, cwd, onOpenFile }: { message: CustomMessag
                     border: "none",
                     background: "none",
                     color: copied ? "var(--accent)" : "var(--text-dim)",
-                    cursor: "pointer",
+                    cursor: "default",
                     fontSize: 11,
                   }}
                 >
@@ -1914,7 +1914,7 @@ function CustomMessageView({ message, cwd, onOpenFile }: { message: CustomMessag
                     border: "none",
                     background: "none",
                     color: "var(--text-dim)",
-                    cursor: "pointer",
+                    cursor: "default",
                     fontSize: 11,
                   }}
                 >
@@ -2081,7 +2081,7 @@ function BashExecutionView({ message, sessionId }: { message: BashExecutionMessa
             <button
               onClick={loadFullOutput}
               disabled={loadingFull}
-              style={{ background: "none", border: "none", color: "var(--accent)", cursor: loadingFull ? "default" : "pointer", fontSize: 11, padding: 0, textDecoration: "underline" }}
+              style={{ background: "none", border: "none", color: "var(--accent)", cursor: loadingFull ? "default" : "default", fontSize: 11, padding: 0, textDecoration: "underline" }}
             >
               {loadingFull ? "loading…" : "view full output"}
             </button>

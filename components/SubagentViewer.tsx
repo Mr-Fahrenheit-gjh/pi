@@ -220,7 +220,7 @@ export function SubagentViewer({ sessionId, fallbackLabel, running, onOpenFile }
           aria-label={t("subagent.refresh")}
           style={{
             display: "grid", placeItems: "center", width: 24, height: 24, flexShrink: 0,
-            background: "none", border: "none", borderRadius: 4, color: "var(--text-dim)", cursor: "pointer", padding: 0,
+            background: "none", border: "none", borderRadius: 4, color: "var(--text-dim)", cursor: "default", padding: 0,
           }}
           onMouseEnter={(event) => { event.currentTarget.style.color = "var(--text)"; }}
           onMouseLeave={(event) => { event.currentTarget.style.color = "var(--text-dim)"; }}
@@ -257,7 +257,7 @@ export function SubagentViewer({ sessionId, fallbackLabel, running, onOpenFile }
                   style={{
                     fontSize: 11, padding: "4px 12px", borderRadius: 6,
                     border: "1px solid var(--border)", background: "var(--bg-panel)", color: "var(--text-muted)",
-                    cursor: loadingEarlier ? "default" : "pointer",
+                    cursor: "default",
                   }}
                 >
                   {t("i18n.loadMore")}

@@ -59,7 +59,7 @@
   font: inherit;
   font-size: 12px;
   text-align: left;
-  cursor: pointer;
+  cursor: default;
 }
 
 .sidebar-menu-item:focus {
@@ -169,7 +169,7 @@
   border-radius: 5px;
   background: transparent;
   color: var(--text-dim);
-  cursor: pointer;
+  cursor: default;
 }
 
 .sidebar-menu-secondary:focus {
@@ -554,7 +554,7 @@ html[data-keyboard-open] .sidebar-sheet {
   color: var(--text-muted);
   font: inherit;
   font-size: 15px;
-  cursor: pointer;
+  cursor: default;
 }
 
 .sidebar-sheet-cancel:hover {
@@ -641,7 +641,7 @@ html[data-keyboard-open] .sidebar-sheet {
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
-  cursor: pointer;
+  cursor: default;
 }
 
 .sidebar-toast-action:hover {
@@ -660,7 +660,7 @@ html[data-keyboard-open] .sidebar-sheet {
   border-radius: 5px;
   background: transparent;
   color: var(--text-dim);
-  cursor: pointer;
+  cursor: default;
 }
 
 .sidebar-toast-dismiss:hover {
@@ -754,7 +754,7 @@ html[data-keyboard-open] .sidebar-sheet {
   color: var(--text-muted);
   font: inherit;
   font-size: 12px;
-  cursor: pointer;
+  cursor: default;
 }
 
 .sidebar-worktree-cancel:hover {
@@ -853,7 +853,7 @@ html[data-keyboard-open] .sidebar-sheet {
   color: var(--text-muted);
   font: inherit;
   font-size: 12px;
-  cursor: pointer;
+  cursor: default;
 }
 
 .sidebar-menu-question-cancel:hover {

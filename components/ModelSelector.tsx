@@ -119,7 +119,7 @@ export function ModelSelector({
         borderRadius: 5,
         background: locked ? "var(--bg-panel)" : "var(--bg)",
         color: locked ? "var(--text-dim)" : "var(--text)",
-        cursor: locked ? "default" : "pointer",
+        cursor: locked ? "default" : "default",
         fontSize: 12,
         textAlign: "left",
       }
@@ -137,7 +137,7 @@ export function ModelSelector({
         borderRadius: 9,
         background: open ? "var(--bg-hover)" : "none",
         color: "var(--text-muted)",
-        cursor: locked ? "not-allowed" : "pointer",
+        cursor: locked ? "not-allowed" : "default",
         fontSize: 12,
         opacity: locked ? 0.5 : 1,
         transition: "background 0.12s, color 0.12s",

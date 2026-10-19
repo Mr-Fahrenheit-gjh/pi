@@ -81,7 +81,7 @@
   background: transparent;
   color: inherit;
   font: inherit;
-  cursor: pointer;
+  cursor: default;
 }
 
 .session-tree button:focus,
@@ -185,7 +185,7 @@
   left: var(--session-tree-inset-left);
   padding: 0 4px 0 calc(20px + min(var(--session-branch-depth, 0), 8) * 16px);
   border-radius: 7px;
-  cursor: pointer;
+  cursor: default;
   overflow: hidden;
 }
 
@@ -276,7 +276,7 @@
 a.session-tree-main {
   color: inherit;
   text-decoration: none;
-  cursor: pointer;
+  cursor: default;
 }
 
 .session-tree-unread {
@@ -1005,7 +1005,7 @@ a.session-tree-main {
   color: var(--text-muted);
   font-size: 12px;
   white-space: nowrap;
-  cursor: pointer;
+  cursor: default;
   transition: background 0.12s, color 0.12s;
 }
 
@@ -1286,7 +1286,7 @@ a.session-tree-main {
   font-size: 11px;
   text-align: left;
   white-space: nowrap;
-  cursor: pointer;
+  cursor: default;
 }
 
 .sidebar-files-section-toggle:hover {
@@ -1451,7 +1451,7 @@ a.session-tree-main {
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 500;
-  cursor: pointer;
+  cursor: default;
 }
 
 .sidebar-archive-back:hover {
@@ -1538,7 +1538,7 @@ a.session-tree-main {
   border-radius: 7px;
   background: transparent;
   color: var(--text-dim);
-  cursor: pointer;
+  cursor: default;
   transition: color 0.12s, background 0.12s;
 }
 

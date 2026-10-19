@@ -95,7 +95,7 @@ export function CodemodeCallList({ calls, omitted, isError }: {
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          style={{ alignSelf: "flex-start", padding: 0, border: "none", background: "none", color: "var(--accent)", cursor: "pointer", font: "inherit" }}
+          style={{ alignSelf: "flex-start", padding: 0, border: "none", background: "none", color: "var(--accent)", cursor: "default", font: "inherit" }}
         >
           {t("codemode.showEarlierCalls", { count: hidden })}
         </button>

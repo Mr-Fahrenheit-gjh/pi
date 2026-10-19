@@ -21,8 +21,9 @@ function setup() {
   const banner = { current: null };
   const context = createContext({
     agentRunningRef: { current: true }, sdkAgentActiveRef: { current: true }, sessionIdRef: { current: null },
+    interruptReplacementSessionRef: { current: null },
     setRetryInfo: (value) => { banner.current = value; },
-    cancelEventStreamGrace() {}, setAgentRunning() {}, setAgentPhase() {}, dispatch() {},
+    cancelEventStreamGrace() {}, setAgentRunning() {}, setAgentPhase() {}, dispatch() {}, refreshRunEnd() {},
   });
   return { handle: handler.runInContext(context), banner };
 }

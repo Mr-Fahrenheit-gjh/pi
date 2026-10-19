@@ -252,7 +252,7 @@ function SecretTextInput({
           border: "none",
           background: "transparent",
           color: "var(--text-dim)",
-          cursor: "pointer",
+          cursor: "default",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -293,9 +293,9 @@ function Select({ value, onChange, options, required }: { value: string; onChang
 
 function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: "var(--text-muted)" }}>
+    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "default", fontSize: 12, color: "var(--text-muted)" }}>
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)}
-        style={{ width: 13, height: 13, accentColor: "var(--accent)", cursor: "pointer" }} />
+        style={{ width: 13, height: 13, accentColor: "var(--accent)", cursor: "default" }} />
       {label}
     </label>
   );
@@ -414,7 +414,7 @@ function ProviderDetail({ name, editingName, provider, onChange, onEditingNameCh
         <TextInput value={editingName} onChange={onEditingNameChange} placeholder="provider-name" mono />
         {editingName !== name && editingName.trim() && (
           <button onClick={() => onRename(editingName.trim())}
-            style={{ marginTop: 4, padding: "3px 10px", background: "var(--accent)", border: "none", borderRadius: 4, color: "var(--accent-contrast)", cursor: "pointer", fontSize: 11, alignSelf: "flex-start" }}>
+            style={{ marginTop: 4, padding: "3px 10px", background: "var(--accent)", border: "none", borderRadius: 4, color: "var(--accent-contrast)", cursor: "default", fontSize: 11, alignSelf: "flex-start" }}>
              {t("i18n.rename")}
           </button>
         )}
@@ -458,7 +458,7 @@ function ProviderDetail({ name, editingName, provider, onChange, onEditingNameCh
             style={{
               alignSelf: "flex-start", height: 30, padding: "0 12px", border: "1px solid var(--border)", borderRadius: 5,
               background: "var(--bg-panel)", color: discoveryState.phase === "loading" ? "var(--text-dim)" : "var(--text-muted)",
-              cursor: discoveryState.phase === "loading" ? "not-allowed" : "pointer", fontSize: 11,
+              cursor: discoveryState.phase === "loading" ? "not-allowed" : "default", fontSize: 11,
             }}
           >
             {discoveryState.phase === "loading" ? t("models.discoveryFetching") : t("models.discoveryFetch")}
@@ -486,7 +486,7 @@ function ProviderDetail({ name, editingName, provider, onChange, onEditingNameCh
                 style={{
                   minHeight: 32, padding: "5px 9px", display: "flex", alignItems: "center", gap: 8,
                   position: "sticky", top: 0, zIndex: 1, borderBottom: "1px solid var(--border)",
-                  background: "var(--bg)", cursor: selectableShownIds.length ? "pointer" : "default",
+                  background: "var(--bg)", cursor: selectableShownIds.length ? "default" : "default",
                   color: "var(--text-muted)", fontSize: 10, fontWeight: 600,
                 }}
               >
@@ -510,7 +510,7 @@ function ProviderDetail({ name, editingName, provider, onChange, onEditingNameCh
                     key={model.id}
                     style={{
                       minHeight: 36, padding: "6px 9px", display: "flex", alignItems: "center", gap: 8,
-                      borderTop: index === 0 ? "none" : "1px solid var(--border)", cursor: alreadyAdded ? "default" : "pointer",
+                      borderTop: index === 0 ? "none" : "1px solid var(--border)", cursor: alreadyAdded ? "default" : "default",
                       opacity: alreadyAdded ? 0.65 : 1,
                     }}
                   >
@@ -540,7 +540,7 @@ function ProviderDetail({ name, editingName, provider, onChange, onEditingNameCh
               <button
                 onClick={addSelectedModels}
                 disabled={selectedCount === 0}
-                style={{ height: 28, padding: "0 11px", border: "none", borderRadius: 5, background: selectedCount ? "var(--accent)" : "var(--bg-panel)", color: selectedCount ? "var(--accent-contrast)" : "var(--text-dim)", cursor: selectedCount ? "pointer" : "not-allowed", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" }}
+                style={{ height: 28, padding: "0 11px", border: "none", borderRadius: 5, background: selectedCount ? "var(--accent)" : "var(--bg-panel)", color: selectedCount ? "var(--accent-contrast)" : "var(--text-dim)", cursor: selectedCount ? "default" : "not-allowed", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" }}
               >
                 {selectedCount
                   ? t("models.discoveryAddSelectedCount", { count: selectedCount })
@@ -602,7 +602,7 @@ function ThinkingLevelMapEditor({
           padding: "4px 10px",
           fontSize: 10,
           border: "none",
-          cursor: "pointer",
+          cursor: "default",
           fontWeight: 400,
           transition: "background 0.1s, color 0.1s",
           whiteSpace: "nowrap",
@@ -750,7 +750,7 @@ function HeaderListEditor({ headers, onChange }: {
     border: "1px solid rgba(239,68,68,0.3)",
     borderRadius: 4,
     color: "#ef4444",
-    cursor: "pointer",
+    cursor: "default",
     fontSize: 11,
     lineHeight: 1,
   } satisfies React.CSSProperties;
@@ -769,7 +769,7 @@ function HeaderListEditor({ headers, onChange }: {
         ...current,
         { id: nextRowIdRef.current++, name: "", value: "" },
       ])}
-        style={{ padding: "5px 9px", background: "none", border: "1px solid var(--border)", borderRadius: 4, color: "var(--text-muted)", cursor: "pointer", fontSize: 11, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, alignSelf: "flex-start" }}>
+        style={{ padding: "5px 9px", background: "none", border: "1px solid var(--border)", borderRadius: 4, color: "var(--text-muted)", cursor: "default", fontSize: 11, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, alignSelf: "flex-start" }}>
         + Add header
       </button>
     </div>
@@ -1100,7 +1100,7 @@ function ModelDetail({
               height: 28, padding: "0 10px", border: "1px solid var(--border)", borderRadius: 5,
               background: "var(--bg-panel)",
               color: !model.id.trim() || catalogState.phase === "loading" ? "var(--text-dim)" : "var(--text-muted)",
-              cursor: !model.id.trim() || catalogState.phase === "loading" ? "not-allowed" : "pointer",
+              cursor: !model.id.trim() || catalogState.phase === "loading" ? "not-allowed" : "default",
               fontSize: 11,
             }}
           >
@@ -1133,7 +1133,7 @@ function ModelDetail({
             {catalogUndoRef.current && (
               <button
                 onClick={undoCatalogFill}
-                style={{ flexShrink: 0, padding: "0 2px", border: "none", background: "none", color: "var(--accent)", cursor: "pointer", fontSize: 10 }}
+                style={{ flexShrink: 0, padding: "0 2px", border: "none", background: "none", color: "var(--accent)", cursor: "default", fontSize: 10 }}
               >
                 {t("models.catalogUndo")}
               </button>
@@ -1158,7 +1158,7 @@ function ModelDetail({
             type="button"
             onClick={toggleCostEditing}
             aria-expanded={costEditing}
-            style={{ padding: "2px 4px", border: "none", background: "transparent", color: "var(--accent)", cursor: "pointer", fontSize: 10 }}
+            style={{ padding: "2px 4px", border: "none", background: "transparent", color: "var(--accent)", cursor: "default", fontSize: 10 }}
           >
             {costEditing ? t("models.finishEditingCosts") : t("models.editCosts")}
           </button>
@@ -1219,7 +1219,7 @@ function ModelDetail({
           style={{
             width: "100%", minHeight: 48, padding: "8px 0", border: "none", background: "transparent",
             display: "grid", gridTemplateColumns: "minmax(0, 1fr) 18px", alignItems: "center", gap: 10,
-            color: "var(--text)", cursor: "pointer", textAlign: "left",
+            color: "var(--text)", cursor: "default", textAlign: "left",
           }}
         >
           <span style={{ minWidth: 0 }}>
@@ -1280,7 +1280,7 @@ function ModelDetail({
                       <button
                         type="button"
                         onClick={() => set("thinkingLevelMap", undefined)}
-                        style={{ fontSize: 10, padding: "2px 5px", background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer" }}
+                        style={{ fontSize: 10, padding: "2px 5px", background: "none", border: "none", color: "var(--text-dim)", cursor: "default" }}
                       >
                         {t("models.clearAll")}
                       </button>
@@ -1493,7 +1493,7 @@ function OAuthDetail({ provider, onRefresh, enabledModels }: {
                 <button
                   key={option.id}
                   onClick={() => submitSelection(loginState.token, option.id)}
-                  style={{ padding: "6px 9px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 5, color: "var(--text)", cursor: "pointer", fontSize: 12, textAlign: "left" }}
+                  style={{ padding: "6px 9px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 5, color: "var(--text)", cursor: "default", fontSize: 12, textAlign: "left" }}
                 >
                   {option.label}
                 </button>
@@ -1669,7 +1669,7 @@ function ApiKeyDetail({ provider, onRefresh, enabledModels }: {
             background: savedOk ? "#16a34a" : apiKey.trim() ? "var(--accent)" : "var(--bg-panel)",
             border: "none", borderRadius: 5,
             color: savedOk ? "#fff" : apiKey.trim() ? "var(--accent-contrast)" : "var(--text-dim)",
-            cursor: (saving || !apiKey.trim() || savedOk) ? "not-allowed" : "pointer",
+            cursor: (saving || !apiKey.trim() || savedOk) ? "not-allowed" : "default",
             fontSize: 12, fontWeight: 600, flexShrink: 0,
             display: "flex", alignItems: "center", gap: 5,
           }}
@@ -1728,7 +1728,7 @@ function AddProviderPicker({
     border: "1px solid var(--border)",
     borderRadius: 7,
     boxSizing: "border-box",
-    cursor: "pointer",
+    cursor: "default",
     minWidth: 0,
     textAlign: "left",
     transition: "border-color 0.12s, background 0.12s",

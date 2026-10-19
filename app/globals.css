@@ -238,6 +238,11 @@ html.dark .catppuccin-file-icon {
   box-sizing: border-box;
 }
 
+/* Hover/focus styling signals actions; keep ordinary controls on the arrow. */
+a[href] {
+  cursor: default;
+}
+
 html, body {
   width: 100%;
   height: 100vh;
@@ -370,7 +375,7 @@ html.dark .web-login-error {
   border-radius: 8px;
   background: var(--accent);
   color: var(--accent-contrast);
-  cursor: pointer;
+  cursor: default;
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -466,7 +471,7 @@ html.dark .terminal-panel {
   border-radius: 6px;
   background: transparent;
   color: var(--text-muted);
-  cursor: pointer;
+  cursor: default;
   font: inherit;
 }
 
@@ -744,7 +749,7 @@ html[data-keyboard-open] .terminal-extra-keys {
 }
 
 button.extension-widget-trigger {
-  cursor: pointer;
+  cursor: default;
   transition: background 0.12s, color 0.12s;
 }
 
@@ -863,7 +868,7 @@ button.extension-widget-trigger:focus-visible {
   font: inherit;
   line-height: 1.45;
   white-space: nowrap;
-  cursor: pointer;
+  cursor: default;
   transition: background 0.12s, color 0.12s;
 }
 
@@ -921,7 +926,7 @@ pre, code {
   font-family: var(--font-answer);
 }
 
-/* A quiet disclosure, not a status card. Only the Pi mark breathes. */
+/* A quiet disclosure: steady brand, continuous motion within the label only. */
 .process-toggle {
   display: inline-flex;
   align-items: center;
@@ -937,7 +942,7 @@ pre, code {
   font-size: 13px;
   line-height: 1.4;
   text-align: left;
-  cursor: pointer;
+  cursor: default;
   transition: color 160ms ease;
 }
 .process-toggle:hover { color: var(--text); }
@@ -964,24 +969,30 @@ pre, code {
   gap: 10px;
   font-size: 14px;
 }
-.pi-working-mark {
-  flex: none;
-  animation: pi-working-breathe 2.1s ease-in-out infinite;
-}
-@keyframes pi-working-breathe {
-  0%, 100% {
-    opacity: 0.4;
-    transform: scale(0.88);
-    filter: drop-shadow(0 0 0 transparent);
+.pi-working-mark { flex: none; }
+@supports (background-clip: text) {
+  [data-process-details][data-running] .process-toggle-label {
+    /* Both endpoints remain readable in every theme; no transparent fade. */
+    background-image: linear-gradient(100deg, var(--text-muted) 38%, var(--text) 50%, var(--text-muted) 62%);
+    background-size: 200% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    animation: pi-working-shimmer 2s linear infinite;
   }
-  50% {
-    opacity: 1;
-    transform: scale(1.08);
-    filter: drop-shadow(0 0 5px rgba(77, 154, 191, 0.38));
+}
+@keyframes pi-working-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce), (forced-colors: active) {
+  [data-process-details][data-running] .process-toggle-label {
+    animation: none;
+    background: none;
+    color: inherit;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .pi-working-mark { animation: none; }
   .process-toggle, .process-toggle-chevron { transition: none; }
 }
 
@@ -1239,7 +1250,7 @@ pre, code {
   font-size: 12px;
 }
 .compaction-file-details summary {
-  cursor: pointer;
+  cursor: default;
   font-weight: 600;
   line-height: 1.4;
 }
@@ -1311,7 +1322,7 @@ pre, code {
   padding: 2px 7px;
   background: var(--bg);
   color: var(--text-muted);
-  cursor: pointer;
+  cursor: default;
   font: inherit;
   font-size: 11px;
   line-height: 1.25;
@@ -1431,7 +1442,7 @@ pre, code {
   border-radius: 4px;
   background: none;
   color: inherit;
-  cursor: pointer;
+  cursor: default;
   font-size: 18px;
   touch-action: manipulation;
 }
@@ -1468,7 +1479,7 @@ pre, code {
   background: var(--bg-panel);
   color: var(--text-muted);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
-  cursor: pointer;
+  cursor: default;
   touch-action: manipulation;
   transition: background-color 0.12s, color 0.12s;
 }
@@ -1555,7 +1566,7 @@ pre, code {
   border: 0;
   background: transparent;
   color: var(--text-muted);
-  cursor: pointer;
+  cursor: default;
   touch-action: manipulation;
 }
 .mermaid-zoom-stepper button {
@@ -1693,7 +1704,7 @@ pre, code {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0;
-  cursor: pointer;
+  cursor: default;
   white-space: nowrap;
 }
 
@@ -1728,7 +1739,7 @@ pre, code {
   border-radius: 999px;
   background: var(--bg-panel);
   color: var(--text-muted);
-  cursor: pointer;
+  cursor: default;
   box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 16%, transparent);
   opacity: 0;
   visibility: hidden;
@@ -1949,7 +1960,7 @@ pre, code {
   color: var(--text-muted);
   font: inherit;
   text-align: left;
-  cursor: pointer;
+  cursor: default;
   transition: background 0.12s, color 0.12s;
 }
 
@@ -2202,7 +2213,7 @@ pre, code {
   border-radius: 5px;
   background: transparent;
   color: var(--text-muted);
-  cursor: pointer;
+  cursor: default;
   text-decoration: none;
 }
 
@@ -2587,7 +2598,7 @@ span.token.table {
   border: none;
   border-left: 1px solid var(--border);
   color: var(--text);
-  cursor: pointer;
+  cursor: default;
 }
 .file-panel-expand-button:hover,
 .file-panel-expand-button[aria-pressed="true"] {

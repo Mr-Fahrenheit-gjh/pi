@@ -1497,7 +1497,7 @@ export function AppShell() {
           style={{
             flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
             height: 32, padding: 0, background: "none", border: "none",
-            borderRadius: 9, color: "var(--text-muted)", cursor: "pointer",
+            borderRadius: 9, color: "var(--text-muted)", cursor: "default",
             fontSize: 12, transition: "background 0.12s, color 0.12s",
           }}
           onMouseEnter={(event) => { event.currentTarget.style.background = "var(--bg-hover)"; event.currentTarget.style.color = "var(--text)"; }}
@@ -1542,7 +1542,7 @@ export function AppShell() {
           borderRight: mobileBanner ? "none" : "1px solid var(--border)",
           borderBottom: mobileBanner ? "1px solid var(--border)" : "none",
           color: "#d97706",
-          cursor: "pointer",
+          cursor: "default",
           flexShrink: 0,
           fontSize: 11,
           lineHeight: 1.35,
@@ -1617,7 +1617,7 @@ export function AppShell() {
           background: rightPanelOpen ? "var(--bg-selected)" : "none",
           border: "none",
           color: rightPanelOpen ? "var(--text)" : "var(--text-muted)",
-          cursor: "pointer", flexShrink: 0, transition: "color 0.12s, background 0.12s",
+          cursor: "default", flexShrink: 0, transition: "color 0.12s, background 0.12s",
         }}
         onMouseEnter={(event) => { if (!covered) event.currentTarget.style.color = "var(--text)"; }}
         onMouseLeave={(event) => { event.currentTarget.style.color = rightPanelOpen ? "var(--text)" : "var(--text-muted)"; }}
@@ -1795,7 +1795,7 @@ export function AppShell() {
               display: "flex", alignItems: "center", justifyContent: "center",
               width: TOP_BAR_ICON_BUTTON_SIZE, height: TOP_BAR_ICON_BUTTON_SIZE, padding: 0,
               background: "none", border: "none", borderRight: "1px solid var(--border)",
-              color: "var(--text-muted)", cursor: "pointer", flexShrink: 0, transition: "color 0.12s",
+              color: "var(--text-muted)", cursor: "default", flexShrink: 0, transition: "color 0.12s",
             }}
             onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-muted)"; }}
@@ -1840,7 +1840,7 @@ export function AppShell() {
                     background: mobileToolbarMoreOpen ? "var(--bg-selected)" : "none",
                     border: "none", borderRight: "1px solid var(--border)",
                     color: mobileToolbarMoreOpen ? "var(--text)" : "var(--text-muted)",
-                    cursor: "pointer", flexShrink: 0, transition: "color 0.12s, background 0.12s",
+                    cursor: "default", flexShrink: 0, transition: "color 0.12s, background 0.12s",
                   }}
                 >
                   {mobileToolbarMoreOpen ? (
@@ -2039,7 +2039,7 @@ export function AppShell() {
                             background: "transparent",
                             border: "1px solid var(--border)",
                             borderRadius: 4,
-                            cursor: "pointer",
+                            cursor: "default",
                             flex: "0 0 auto",
                             transition: "color 0.12s, border-color 0.12s, background 0.12s",
                           }}

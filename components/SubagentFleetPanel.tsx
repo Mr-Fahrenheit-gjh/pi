@@ -182,7 +182,7 @@ function SessionFleetPanel({ sessionId, onClose }: SubagentFleetPanelProps) {
       </header>
       <div className="min-h-0 overflow-auto p-3">
         <p className="mb-3 text-xs text-[var(--text-muted)]">显示当前会话的任务，运行时自动刷新。</p>
-        {costReport && <details open className="mb-3"><summary className="cursor-pointer text-sm">主会话与子代理用量</summary><SafeText text={costReport} /></details>}
+        {costReport && <details open className="mb-3"><summary className="cursor-default text-sm">主会话与子代理用量</summary><SafeText text={costReport} /></details>}
         {error && <p role="alert" className="mb-3 break-words text-sm">加载失败：{error}{view ? "（下方为上次结果）" : ""}</p>}
         {!view && loading && <p role="status">正在加载子任务…</p>}
         {view && !view.available && <p role="status">当前会话暂不支持子任务。{view.error}</p>}
@@ -201,7 +201,7 @@ function SessionFleetPanel({ sessionId, onClose }: SubagentFleetPanelProps) {
             <ul className="space-y-2">{view.fleet.map((row) => <li key={row.key} className="rounded border border-[var(--border)] p-3"><RowSummary row={row} /></li>)}</ul>
           </div>}
           {(view.omitted > 0 || view.omittedRuns > 0 || view.omittedChildren > 0) && <p className="mt-2 text-xs text-[var(--text-muted)]">未展示：{view.omitted} 个成员、{view.omittedRuns} 个任务、{view.omittedChildren} 个步骤。</p>}
-          {view.text && <details className="mt-3"><summary className="cursor-pointer text-sm">状态摘要</summary><SafeText text={view.text} /></details>}
+          {view.text && <details className="mt-3"><summary className="cursor-default text-sm">状态摘要</summary><SafeText text={view.text} /></details>}
         </>}
         {selected && <section aria-label="任务记录与操作" className="mt-4 rounded border border-[var(--border)] p-3">
           <div className="flex flex-wrap items-center gap-2"><h3 className="mr-auto break-all font-semibold">{selectedRun?.label ?? "任务记录"}</h3>
@@ -212,7 +212,7 @@ function SessionFleetPanel({ sessionId, onClose }: SubagentFleetPanelProps) {
           {detailError && <p role="alert" className="mt-2">记录加载失败：{detailError}</p>}
           {detail && <>{!detail.available ? <p className="mt-2">记录暂不可用。{detail.error}</p> : <>
             <SafeText text={detail.text ?? (fleetReadableDetails(detail.details) || "暂无记录")} />
-            {detail.text && detail.details !== undefined && <details><summary className="cursor-pointer text-sm">结构化详情</summary><SafeText text={fleetReadableDetails(detail.details)} /></details>}
+            {detail.text && detail.details !== undefined && <details><summary className="cursor-default text-sm">结构化详情</summary><SafeText text={fleetReadableDetails(detail.details)} /></details>}
           </>}</>}
           {selectedRun && view?.available && !error ? <>
             {(fleetIsActive(selectedRun.state) || fleetCanResume(selectedRun.state)) && <div className="mt-3 space-y-2">

@@ -199,13 +199,14 @@ test("a locked navigator keeps the tree readable but offers no branch to switch 
 
   const unlocked = render(false);
   assert.match(unlocked, /second answer/);
-  assert.equal((unlocked.match(/cursor:pointer/g) ?? []).length, 3);
+  assert.equal((unlocked.match(/cursor:default/g) ?? []).length, 3);
+  assert.doesNotMatch(unlocked, /cursor:pointer/);
   assert.doesNotMatch(unlocked, new RegExp(lockedNotice));
 
   const locked = render(true);
   assert.match(locked, /second answer/);
   assert.match(locked, new RegExp(lockedNotice));
-  // Only the panel header stays clickable; branch rows are not.
-  assert.equal((locked.match(/cursor:pointer/g) ?? []).length, 1);
-  assert.equal((locked.match(/cursor:default/g) ?? []).length, 2);
+  // The cursor is no longer a proxy for clickability; the locked notice stays.
+  assert.doesNotMatch(locked, /cursor:pointer/);
+  assert.equal((locked.match(/cursor:default/g) ?? []).length, 3);
 });

@@ -248,7 +248,7 @@ export function ToolDefinitionsPanel({ loading, tools, translate }: Props) {
           border-bottom: 1px solid var(--border);
           background: transparent;
           color: var(--text-muted);
-          cursor: pointer;
+          cursor: default;
           text-align: left;
         }
         .tool-definitions-item:hover {

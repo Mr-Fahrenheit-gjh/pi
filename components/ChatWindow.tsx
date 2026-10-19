@@ -1785,7 +1785,7 @@ function ExtensionDialog({
             background: "var(--bg)",
             boxShadow: "0 12px 32px rgba(0,0,0,0.18)",
             color: "var(--text)",
-            cursor: "pointer",
+            cursor: "default",
             textAlign: "left",
           }}
         >
@@ -1851,7 +1851,7 @@ function ExtensionDialog({
               border: "1px solid var(--border)",
               background: "var(--bg-panel)",
               color: "var(--text-muted)",
-              cursor: "pointer",
+              cursor: "default",
               flexShrink: 0,
             }}
           >
@@ -1872,7 +1872,7 @@ function ExtensionDialog({
               border: "1px solid var(--border)",
               background: "var(--bg-panel)",
               color: "var(--text-muted)",
-              cursor: "pointer",
+              cursor: "default",
               flexShrink: 0,
             }}
           >
@@ -1929,7 +1929,7 @@ function ExtensionDialog({
                     border: "1px solid var(--border)",
                     background: "var(--bg-panel)",
                     color: "var(--text)",
-                    cursor: "pointer",
+                    cursor: "default",
                     textAlign: "left",
                     fontSize: 13,
                     overflowWrap: "anywhere",
@@ -2003,7 +2003,7 @@ function ExtensionDialog({
               border: "1px solid var(--border)",
               background: "var(--bg)",
               color: "var(--text-muted)",
-              cursor: "pointer",
+              cursor: "default",
             }}
           >
              {t("chat.cancel")}
@@ -2017,7 +2017,7 @@ function ExtensionDialog({
                 border: "1px solid var(--accent)",
                 background: "var(--accent)",
                 color: "var(--accent-contrast)",
-                cursor: "pointer",
+                cursor: "default",
               }}
             >
                {t("chat.confirm")}
@@ -2031,7 +2031,7 @@ function ExtensionDialog({
                 border: "1px solid var(--accent)",
                 background: "var(--accent)",
                 color: "var(--accent-contrast)",
-                cursor: "pointer",
+                cursor: "default",
               }}
             >
                {t("chat.submit")}
@@ -2098,7 +2098,7 @@ function ExtensionCustomPanel({
             background: "var(--bg)",
             boxShadow: "0 12px 32px rgba(0,0,0,0.18)",
             color: "var(--text)",
-            cursor: "pointer",
+            cursor: "default",
             textAlign: "left",
           }}
         >
@@ -2210,7 +2210,7 @@ function ExtensionCustomPanel({
                 border: "1px solid var(--border)",
                 background: "var(--bg-panel)",
                 color: "var(--text-muted)",
-                cursor: "pointer",
+                cursor: "default",
                 flexShrink: 0,
               }}
             >
@@ -2226,7 +2226,7 @@ function ExtensionCustomPanel({
                 border: "1px solid var(--border)",
                 background: "var(--bg-panel)",
                 color: "var(--text-muted)",
-                cursor: "pointer",
+                cursor: "default",
                 fontSize: 12,
               }}
             >

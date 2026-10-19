@@ -424,6 +424,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const sessionToolsPinnedRef = useRef(false);
   const agentRunningRef = useRef(false);
   const sdkAgentActiveRef = useRef(false);
+  // A physical run ending during interrupt replacement is not a history boundary.
+  const interruptReplacementSessionRef = useRef<string | null>(null);
   const rpcPromptPendingRef = useRef(false);
   const notifiedPromptRunIdRef = useRef(-1);
   const bashRunningRef = useRef(false);
@@ -1433,6 +1435,26 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   }, [agentRunning]);
 
   const handleAgentEvent = useCallback((event: AgentEvent) => {
+    function refreshRunEnd() {
+      const sid = sessionIdRef.current;
+      if (!sid) return;
+      const runId = promptRunIdRef.current;
+      const usageRequestId = ++contextUsageRequestIdRef.current;
+      void loadSession(sid);
+      fetch(`/api/agent/${encodeURIComponent(sid)}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((d: { state?: AgentStateResponse } | null) => {
+          if (!d || !sessionHookMountedRef.current || sessionIdRef.current !== sid || promptRunIdRef.current !== runId) return;
+          syncLiveModel(d.state);
+          applyContextUsage(d.state, sid, runId, usageRequestId);
+          if (d.state?.systemPrompt !== undefined) setSystemPrompt(d.state.systemPrompt ?? null);
+          if (d.state?.extensionStatuses !== undefined) setExtensionStatuses(d.state.extensionStatuses ?? []);
+          if (d.state?.extensionWidgets !== undefined) setExtensionWidgets(d.state.extensionWidgets ?? []);
+          // Aborted turns can leave messages queued; a dead wrapper clears them.
+          setQueuedMessages(normalizeQueuedMessages(d.state?.queuedMessages));
+        })
+        .catch(() => {});
+    }
     switch (event.type) {
       case "connected": {
         dispatch({ type: "end" });
@@ -1454,6 +1476,20 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         if (sessionIdRef.current) void refreshContextUsage(sessionIdRef.current);
         break;
       }
+      case "interrupt_steer_start":
+        interruptReplacementSessionRef.current = sessionIdRef.current;
+        break;
+      case "interrupt_steer_end": {
+        // Only the transaction end identifies the final replacement boundary:
+        // an agent_start after admission can still belong to the old preflight.
+        // Refresh history, but leave settlement to the normal terminal events.
+        const sid = sessionIdRef.current;
+        if (sid && interruptReplacementSessionRef.current === sid) {
+          interruptReplacementSessionRef.current = null;
+          refreshRunEnd();
+        }
+        break;
+      }
       case "agent_start":
         cancelEventStreamGrace();
         sdkAgentActiveRef.current = true;
@@ -1471,29 +1507,16 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         // compacting, or continuing messages queued by extension handlers.
         // Keep the stream open until prompt_done/agent_settled and the idle grace.
         if (!agentRunningRef.current) break;
-        setAgentPhase(null);
         setRetryInfo(null);
         dispatch({ type: "end" });
-        if (sessionIdRef.current) {
-          const sid = sessionIdRef.current;
-          const runId = promptRunIdRef.current;
-          const usageRequestId = ++contextUsageRequestIdRef.current;
-          loadSession(sid);
-          fetch(`/api/agent/${encodeURIComponent(sid)}`)
-            .then((r) => r.ok ? r.json() : null)
-            .then((d: { state?: AgentStateResponse } | null) => {
-              if (!d || !sessionHookMountedRef.current || sessionIdRef.current !== sid || promptRunIdRef.current !== runId) return;
-              syncLiveModel(d.state);
-              applyContextUsage(d.state, sid, runId, usageRequestId);
-              if (d.state?.systemPrompt !== undefined) setSystemPrompt(d.state.systemPrompt ?? null);
-              if (d.state?.extensionStatuses !== undefined) setExtensionStatuses(d.state.extensionStatuses ?? []);
-              if (d.state?.extensionWidgets !== undefined) setExtensionWidgets(d.state.extensionWidgets ?? []);
-              // Aborted turns can leave messages queued in pi (delivered with the
-              // next turn); dead wrapper (no state) means the queue is gone.
-              setQueuedMessages(normalizeQueuedMessages(d.state?.queuedMessages));
-            })
-            .catch(() => {});
+        if (sessionIdRef.current && interruptReplacementSessionRef.current === sessionIdRef.current) {
+          // Keep the busy row stable. An old-run GET can otherwise arrive after
+          // the replacement user message and overwrite it, shrinking the list.
+          setAgentPhase({ kind: "waiting_model" });
+          break;
         }
+        setAgentPhase(null);
+        refreshRunEnd();
         break;
       case "agent_settled": {
         const agentWasActive = sdkAgentActiveRef.current;
@@ -2526,6 +2549,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   useEffect(() => {
     let disposed = false;
     sessionHookMountedRef.current = true;
+    interruptReplacementSessionRef.current = null;
     // Usage reads started before a remount are stale.
     contextUsageAppliedIdRef.current = contextUsageRequestIdRef.current;
     if (session) {

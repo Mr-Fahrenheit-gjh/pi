@@ -43,7 +43,7 @@
 .terminal-browser-addressbar { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-bottom: 1px solid var(--border); background: var(--bg-panel); }
 .terminal-browser-addressbar input { flex: 1; min-width: 0; height: 28px; padding: 0 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); font-size: 12px; }
 .terminal-browser-addressbar button,
-.terminal-browser-addressbar a { border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); font-size: 12px; cursor: pointer; padding: 4px 7px; }
+.terminal-browser-addressbar a { border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); font-size: 12px; cursor: default; padding: 4px 7px; }
 .terminal-browser-addressbar button:hover,
 .terminal-browser-addressbar a:hover { color: var(--text); background: var(--bg-hover); }
 .terminal-browser-error { grid-row: 2; padding: 6px 12px; font-size: 11px; color: var(--terminal-error); background: var(--bg-panel); }

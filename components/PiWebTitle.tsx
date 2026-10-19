@@ -18,6 +18,21 @@ export const VERSION_SHOWN_MS = 3000;
 /** The text settles left to right over its length times this many frames. */
 export const SCRAMBLE_FRAMES_PER_CHAR = 4;
 export const SCRAMBLE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+export const RUNTIME_SWITCH_MOTION_KEY = "pi-web:runtime-switch-motion";
+export const RUNTIME_SWITCH_MOTION_MS = 400;
+
+/** A one-shot, tab-local arrival cue; reloads and direct visits stay still. */
+export function consumeRuntimeSwitchMotion(storage: Pick<Storage, "getItem" | "removeItem">, target: AgentRuntime, now = Date.now()): boolean {
+  try {
+    const value = storage.getItem(RUNTIME_SWITCH_MOTION_KEY);
+    storage.removeItem(RUNTIME_SWITCH_MOTION_KEY);
+    if (!value) return false;
+    const intent = JSON.parse(value);
+    return intent?.target === target && Number.isFinite(intent.at) && now >= intent.at && now - intent.at < 10000;
+  } catch {
+    return false;
+  }
+}
 
 /** The versions as the brand shows them: "0.11.0p1.1.0". */
 export function brandVersionText(appVersion: string | undefined, piVersion: string | undefined): string {
@@ -48,33 +63,34 @@ export function scrambleFrame(target: string, frame: number, random: () => numbe
 }
 
 /**
- * `target`, scrambled into place whenever it changes (never on mount): one
- * frame at a time until every character has settled. Under
+ * Scramble a changed target or an intentional runtime-switch arrival, but not
+ * an ordinary mount/refresh. Resolve characters over a fixed duration. Under
  * prefers-reduced-motion the text is swapped at once.
  */
-function useScramble(target: string): string {
+function useScramble(target: string, ready: boolean, animateArrival: boolean): string {
   const [text, setText] = useState(target);
-  const shownRef = useRef(target);
-  useEffect(() => {
-    if (shownRef.current === target) return;
+  const shownRef = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (!ready || shownRef.current === target) return;
+    const arrival = shownRef.current === null;
     shownRef.current = target;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+    if ((arrival && !animateArrival) || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
       setText(target);
       return;
     }
     const totalFrames = scrambleFrameCount(target);
-    let frame = 0;
+    const duration = arrival ? RUNTIME_SWITCH_MOTION_MS : totalFrames * (1000 / 60);
+    const started = performance.now();
     let request = 0;
-    const step = () => {
-      frame += 1;
-      setText(scrambleFrame(target, frame));
-      if (frame < totalFrames) request = requestAnimationFrame(step);
+    const step = (now: number) => {
+      const progress = Math.min(1, (now - started) / duration);
+      setText(scrambleFrame(target, progress * totalFrames));
+      if (progress < 1) request = requestAnimationFrame(step);
     };
-    // The new length at once, so the row is fitted to it before it paints.
     setText(scrambleFrame(target, 0));
     request = requestAnimationFrame(step);
     return () => cancelAnimationFrame(request);
-  }, [target]);
+  }, [target, ready, animateArrival]);
   return text;
 }
 
@@ -87,14 +103,22 @@ export function PiWebTitle({ onWidthChange }: {
 }) {
   const { t } = useI18n();
   const [versionShown, setVersionShown] = useState(false);
-  const [runtime, setRuntime] = useState<AgentRuntime>("pi");
+  const [{ runtime, ready, animateArrival }, setRuntimeState] = useState({ runtime: "pi" as AgentRuntime, ready: false, animateArrival: false });
+  const initializedRef = useRef(false);
   const [anchor, setAnchor] = useState<SidebarMenuAnchor | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => { setRuntime(pageRuntime()); }, []);
+  useLayoutEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    const current = pageRuntime();
+    let animate = false;
+    try { animate = consumeRuntimeSwitchMotion(window.sessionStorage, current); } catch { /* Storage can be disabled. */ }
+    setRuntimeState({ runtime: current, ready: true, animateArrival: animate });
+  }, []);
   const revertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appVersion = process.env.NEXT_PUBLIC_APP_VERSION;
   const piVersion = process.env.NEXT_PUBLIC_PI_VERSION;
-  const text = useScramble(versionShown ? brandVersionText(appVersion, piVersion) : runtime === "feynman" ? "Feynman" : BRAND_TEXT);
+  const text = useScramble(versionShown ? brandVersionText(appVersion, piVersion) : runtime === "feynman" ? "Feynman" : BRAND_TEXT, ready, animateArrival);
 
   useLayoutEffect(() => {
     onWidthChange?.();
@@ -142,7 +166,13 @@ export function PiWebTitle({ onWidthChange }: {
           ...(["pi", "feynman"] as const).map((target) => ({
             type: "item" as const, id: target, label: target === "pi" ? "Pi Web" : "Feynman",
             checked: runtime === target,
-            onSelect: () => { if (target !== runtime) window.location.assign(runtimePage(target)); },
+            onSelect: () => {
+              if (target === runtime) return;
+              try {
+                window.sessionStorage.setItem(RUNTIME_SWITCH_MOTION_KEY, JSON.stringify({ target, at: Date.now() }));
+              } catch { /* Navigation must work even when storage is disabled. */ }
+              window.location.assign(runtimePage(target));
+            },
           })),
           { type: "separator", id: "versions-separator" },
           { type: "item", id: "versions", label: t("sidebar.runtimeVersions"), onSelect: handleClick, disabled: runtime !== "pi" },

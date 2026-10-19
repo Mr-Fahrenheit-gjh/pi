@@ -147,7 +147,7 @@ function TreeNodeView({ node, activePathIds, depth, isLast, parentLines, onSelec
           display: "flex",
           alignItems: "center",
           height: 24,
-          cursor: onSelect ? "pointer" : "default",
+          cursor: "default",
         }}
         onClick={onSelect ? () => onSelect(rep.entry.id) : undefined}
       >
@@ -335,7 +335,7 @@ export function BranchNavigator({ tree, activeLeafId, onLeafChange, inline, cont
             border: "none",
             borderTop: open ? "2px solid var(--accent)" : "2px solid transparent",
             borderRight: "1px solid var(--border)",
-            cursor: "pointer",
+            cursor: "default",
             color: open ? "var(--text)" : "var(--text-muted)",
             fontSize: 11,
             whiteSpace: "nowrap",
@@ -399,7 +399,7 @@ export function BranchNavigator({ tree, activeLeafId, onLeafChange, inline, cont
           padding: "5px 12px",
           background: "none",
           border: "none",
-          cursor: "pointer",
+          cursor: "default",
           color: "var(--text-muted)",
           fontSize: 11,
           textAlign: "left",
