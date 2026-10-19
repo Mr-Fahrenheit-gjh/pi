@@ -9,7 +9,7 @@ import { normalizeCustomPanelLines } from "@/lib/ansi";
 import { splitNoticeText } from "@/lib/notice-text";
 import { EXTENSION_DIALOG_BASE_WIDTH, fitExtensionDialogWidth } from "@/lib/extension-dialog-fit";
 import { asBracketedPaste, toTerminalKeyData } from "@/lib/terminal-input";
-import { countToolCallBlocks, getAssistantErrorMessage, hasAssistantAnswer, isAssistantTruncated, isHiddenCustomMessage, isMessageGroupAnchor, splitAssistantVisibleBlocks, splitFinalAssistantBlocks } from "@/lib/message-display";
+import { countToolCallBlocks, getAssistantErrorMessage, hasAssistantAnswer, isAssistantInterrupted, isAssistantTruncated, isHiddenCustomMessage, isMessageGroupAnchor, splitAssistantVisibleBlocks, splitFinalAssistantBlocks } from "@/lib/message-display";
 import { extractTurnWrittenFiles, type WrittenFile } from "@/lib/turn-written-files";
 import { getFinalAnswerViews, keepWrittenFiles, type FinalAnswerViews } from "@/lib/turn-views";
 import { buildQuotedSelection } from "@/lib/quoted-selection";
@@ -1192,7 +1192,7 @@ export function ChatWindow({ session, packageTarget, showSubagentPanel = false, 
                       continue;
                     }
                     const split = splitAssistantVisibleBlocks(liveMessage);
-                    if (split.answerBlocks.length > 0 || getAssistantErrorMessage(liveMessage) || isAssistantTruncated(liveMessage)) rendered.push(renderMessage(liveIdx, { assistantContent: "answer", showTimestamp: false }));
+                    if (split.answerBlocks.length > 0 || getAssistantErrorMessage(liveMessage) || isAssistantTruncated(liveMessage) || isAssistantInterrupted(liveMessage)) rendered.push(renderMessage(liveIdx, { assistantContent: "answer", showTimestamp: false }));
                     const views = getFinalAnswerViews(finalAnswerViewCache, liveMessage);
                     if (!views.hasProcess) continue;
                     processToolCount += countToolCallBlocks(split.processBlocks);
@@ -1239,7 +1239,7 @@ export function ChatWindow({ session, packageTarget, showSubagentPanel = false, 
                   }
                   if (processMessage.role !== "assistant") continue;
                   const split = splitAssistantVisibleBlocks(processMessage);
-                  if (processIdx !== finalAssistantIdx && (split.answerBlocks.length > 0 || getAssistantErrorMessage(processMessage) || isAssistantTruncated(processMessage))) {
+                  if (processIdx !== finalAssistantIdx && (split.answerBlocks.length > 0 || getAssistantErrorMessage(processMessage) || isAssistantTruncated(processMessage) || isAssistantInterrupted(processMessage))) {
                     rendered.push(renderMessage(processIdx, { assistantContent: "answer", showTimestamp: false }));
                   }
                   // Filter in MessageView, keeping the stored content indices for deferred thinking.

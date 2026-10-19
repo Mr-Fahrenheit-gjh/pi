@@ -44,12 +44,37 @@ export function getAssistantErrorMessage(
   message: AssistantMessage,
   options: DisplayOptions = {},
 ): string | null {
-  if (options.isStreaming || message.stopReason !== "error") return null;
+  if (options.isStreaming || message.stopReason !== "error" || isAbortErrorMessage(message.errorMessage)) return null;
   const error = message.errorMessage?.trim() || "Unknown provider error";
   // Only this exact transient model-network failure belongs in the process.
   // Do not fold authorization, rate-limit, or other provider failures.
   const processError = error.toLowerCase() === "fetch failed";
   return processError === (options.assistantContent === "process") ? error : null;
+}
+
+const ABORT_ERROR_MESSAGES = new Set([
+  "aborted",
+  "aborterror",
+  "operation aborted",
+  "request was aborted",
+  "the operation was aborted",
+  "this operation was aborted",
+]);
+
+/** A user-initiated stop, not a provider failure that deserves a red banner. */
+export function isAbortErrorMessage(error: string | null | undefined): boolean {
+  const text = (error ?? "").trim().toLowerCase().replace(/^error:\s*/, "");
+  return ABORT_ERROR_MESSAGES.has(text);
+}
+
+/** Stop/Esc or an aborted model call: acknowledge it instead of reporting an error. */
+export function isAssistantInterrupted(
+  message: AssistantMessage,
+  options: DisplayOptions = {},
+): boolean {
+  if (options.isStreaming) return false;
+  return message.stopReason === "aborted"
+    || (message.stopReason === "error" && isAbortErrorMessage(message.errorMessage));
 }
 
 /**
