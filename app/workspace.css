@@ -322,7 +322,7 @@
 .composer-surface {
   border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
   border-radius: 16px;
-  box-shadow: 0 3px 14px color-mix(in srgb, var(--text) 3%, transparent);
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--text) 6%, transparent);
   background: var(--bg);
   transition: border-color var(--workspace-feedback-duration) ease, box-shadow var(--workspace-feedback-duration) ease;
 }
@@ -359,7 +359,8 @@
   margin: 0;
   font-family: 'Claude Interface Serif', Georgia, serif;
   font-size: clamp(28px, 3.5vw, 44px);
-  font-weight: 400;
+  font-weight: 300;
+  font-optical-sizing: auto;
   letter-spacing: -1.2px;
   line-height: 1.2;
   color: var(--text);

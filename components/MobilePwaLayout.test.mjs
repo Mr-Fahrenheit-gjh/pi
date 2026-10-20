@@ -16,7 +16,7 @@ test("the fresh composer keeps its greeting and puts the project picker in its o
   assert.match(chatWindowSource, /\{chatInputElement\}/);
   assert.doesNotMatch(chatWindowSource, /className="new-session-context-footer"/);
   assert.match(chatWindowSource, /welcomeToolbar=\{newSessionContextBar\}/);
-  assert.match(chatWindowSource, /className="new-session-greeting">Evening thoughts<\/h1>/);
+  assert.match(chatWindowSource, /className="new-session-greeting">\{greeting\}<\/h1>/);
 });
 
 test("every class the keyboard-open rules target exists on its component", () => {
