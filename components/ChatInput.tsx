@@ -60,6 +60,7 @@ interface Props {
   compact?: boolean;
   model?: { provider: string; modelId: string } | null;
   isAutoModelSelection?: boolean;
+  fastMode?: boolean;
   modelNames?: Record<string, string>;
   modelList?: { id: string; name: string; provider: string; input?: string[] }[];
   modelError?: string | null;
@@ -659,7 +660,7 @@ export function ModelScopeWarningBanner({ warnings }: { warnings?: string[] }) {
 // Memoized: its props hold still while a reply streams or a tool runs, and the
 // chat around it re-renders through both.
 export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatInput({
-  onSend, onAbort, onSteer, onFollowUp, isStreaming, model, isAutoModelSelection, modelNames, modelList, modelError, modelScopeWarnings, onModelChange, modelSwitching,
+  onSend, onAbort, onSteer, onFollowUp, isStreaming, model, isAutoModelSelection, fastMode, modelNames, modelList, modelError, modelScopeWarnings, onModelChange, modelSwitching,
   defaultModel, onSetDefaultModel,
   onCompact, onAbortCompaction, isCompacting, compactError, onDismissCompactError, compactResult, toolPreset, onToolPresetChange,
   thinkingLevel, isAutoThinkingSelection = false, onThinkingLevelChange, availableThinkingLevels, thinkingLevelMap,
@@ -2492,6 +2493,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                 disabled={isStreaming}
                 busy={modelSwitching}
                 isAutoSelection={isAutoModelSelection}
+                fastMode={fastMode}
                 defaultValue={defaultModel}
                 onSetDefault={onSetDefaultModel}
               />

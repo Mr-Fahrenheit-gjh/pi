@@ -288,7 +288,7 @@ export function ChatWindow({ session, packageTarget, showSubagentPanel = false, 
     retryInfo, contextUsage, forkingEntryId,
     isCompacting, compactError, compactResult, displayModel: displayModelValue, modelSwitching, sessionStats,
     slashCommands, slashCommandsLoading, queuedMessages,
-    notices, extensionDialog, waitingExtensionDialogCount, extensionCustomUi, waitingExtensionCustomUiCount, extensionWidgets, respondToExtensionUi, sendExtensionCustomInput, setNoticePaused, addNotice,
+    notices, extensionDialog, waitingExtensionDialogCount, extensionCustomUi, waitingExtensionCustomUiCount, extensionStatuses, extensionWidgets, respondToExtensionUi, sendExtensionCustomInput, setNoticePaused, addNotice,
     isAutoModelSelection,
     isAutoThinkingSelection,
     defaultModel,
@@ -948,6 +948,7 @@ export function ChatWindow({ session, packageTarget, showSubagentPanel = false, 
       onPromptWithStreamingBehavior={agentRunning ? handlePromptWithStreamingBehavior : undefined}
       isStreaming={sessionBusy}
       model={displayModelValue}
+      fastMode={extensionStatuses.some(({ key, text }) => key === "codex-speed" && /^(OpenAI|Codex) fast$/.test(text))}
       isAutoModelSelection={isAutoModelSelection}
       modelNames={modelNames}
       modelList={modelList}

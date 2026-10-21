@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { Script } from 'node:vm';
+import ts from 'typescript';
 import { createJiti } from 'jiti';
 const jiti = createJiti(import.meta.url, { jsx: { runtime: 'automatic' }, tsconfigPaths: true });
 const React = await jiti.import('react');
@@ -28,6 +31,36 @@ test('switching keeps the spinner rather than a stale model logo', () => {
   const html = render({ value: { provider: 'openai', modelId: 'gpt-6.1-sol' }, busy: true });
   assert.match(html, /spin 0.8s/);
   assert.doesNotMatch(html, /provider-icons\.svg/);
+});
+
+test('fast mode adds a small accessible lightning after the OpenAI model name only when enabled', () => {
+  for (const provider of ['openai', 'openai-codex']) {
+    const value = { provider, modelId: 'gpt-6.1-sol' };
+    const enabled = render({ value, fastMode: true });
+    assert.match(enabled, /data-model-fast-indicator/);
+    assert.match(enabled, /aria-label="Fast mode"/);
+    assert.ok(enabled.indexOf('gpt-6.1-sol</span>') < enabled.indexOf('data-model-fast-indicator'));
+    assert.doesNotMatch(render({ value, fastMode: false }), /data-model-fast-indicator/);
+    assert.doesNotMatch(render({ value }), /data-model-fast-indicator/);
+  }
+  assert.doesNotMatch(render({ value: null, fastMode: true }), /data-model-fast-indicator/);
+  assert.doesNotMatch(render({ value: { provider: 'anthropic', modelId: 'claude' }, fastMode: true }), /data-model-fast-indicator/);
+});
+
+test('composer derives fast mode from the live extension status, not arbitrary status text', () => {
+  const source = readFileSync(new URL('./ChatWindow.tsx', import.meta.url), 'utf8');
+  const expression = source.match(/fastMode=\{(extensionStatuses\.some\([^\n]+)\}/)?.[1];
+  assert.ok(expression, 'ChatWindow passes live fast status to ChatInput');
+  const script = new Script(ts.transpileModule(expression, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText);
+  for (const [extensionStatuses, expected] of [
+    [[], false],
+    [[{ key: 'codex-speed', text: 'Codex fast' }], true],
+    [[{ key: 'codex-speed', text: 'OpenAI fast' }], true],
+    [[{ key: 'other', text: 'Codex fast' }], false],
+    [[{ key: 'codex-speed', text: 'standard' }], false],
+  ]) assert.equal(script.runInNewContext({ extensionStatuses }), expected);
+  const input = readFileSync(new URL('./ChatInput.tsx', import.meta.url), 'utf8');
+  assert.match(input, /fastMode=\{fastMode\}/);
 });
 
 test('no selected model keeps the generic icon and empty label', () => {

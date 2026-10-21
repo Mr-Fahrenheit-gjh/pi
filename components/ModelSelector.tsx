@@ -23,6 +23,8 @@ interface ModelSelectorProps {
   disabled?: boolean;
   busy?: boolean;
   isAutoSelection?: boolean;
+  /** The session's OpenAI / Codex fast mode is enabled. */
+  fastMode?: boolean;
   ariaLabel?: string;
   variant?: "toolbar" | "field";
   placement?: "up" | "auto";
@@ -55,6 +57,7 @@ export function ModelSelector({
   disabled = false,
   busy = false,
   isAutoSelection = false,
+  fastMode = false,
   ariaLabel,
   variant = "toolbar",
   placement = "up",
@@ -219,6 +222,12 @@ export function ModelSelector({
           </svg>
         )}
         <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentName}</span>
+        {fastMode && value && (value.provider === "openai" || value.provider === "openai-codex") && (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label="Fast mode" data-model-fast-indicator style={{ flexShrink: 0 }}>
+            <title>Fast mode</title>
+            <path d="M13 2 4 14h7l-1 8 10-12h-7l1-8Z" />
+          </svg>
+        )}
         {variant === "field" && (
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, color: "var(--text-dim)" }}>
             <polyline points="6 9 12 15 18 9" />
