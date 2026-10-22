@@ -9,7 +9,7 @@ export interface Tab {
   id: string;
   label: string;
   filePath: string;
-  kind?: "terminal" | "agent" | "todo";
+  kind?: "terminal" | "agent" | "todo" | "outputs";
   closing?: boolean;
   /** A workspace entry, not a closeable document. */
   pinned?: boolean;
@@ -109,6 +109,8 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab }: Props) {
                 </svg>
               ) : tab.kind === "todo" ? (
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m3 6 2 2 3-4m3 3h10M3 13h4m4 0h10M3 19h4m4 0h10" /></svg>
+              ) : tab.kind === "outputs" ? (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 3h8l4 4v14H5V3h2Zm7 0v5h5M8 12h8M8 16h6" /></svg>
               ) : getFileIcon(tab.label, 13)}
             </span>
             <span

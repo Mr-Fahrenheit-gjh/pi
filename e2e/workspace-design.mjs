@@ -3,7 +3,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-export function prepareWorkspaceFixture(agentDir) {
+export function prepareWorkspaceFixture(agentDir, { polishSibling = false } = {}) {
   if (!/^\/(?:private\/)?tmp\//.test(resolve(agentDir))) throw new Error("Use an isolated temporary agent directory");
   const project = join(agentDir, "project");
   mkdirSync(project, { recursive: true });
@@ -32,6 +32,10 @@ export function prepareWorkspaceFixture(agentDir) {
     ] } },
   ];
   writeFileSync(join(agentDir, "sessions/design/workspace-design-fixture.jsonl"), entries.map(entry => JSON.stringify(entry)).join("\n") + "\n");
+  if (polishSibling) {
+    const sibling = entries.map(entry => entry.type === "session" ? { ...entry, id: "workspace-other-fixture" } : entry.type === "session_info" ? { ...entry, name: "Polish second conversation" } : entry);
+    writeFileSync(join(agentDir, "sessions/design/workspace-other-fixture.jsonl"), sibling.map(entry => JSON.stringify(entry)).join("\n") + "\n");
+  }
   return { project, file: join(project, "工作约定 notes.md"), image: join(project, "diagram.svg") };
 }
 

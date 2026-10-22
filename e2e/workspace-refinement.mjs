@@ -86,3 +86,100 @@ export async function runWorkspaceRefinementChecks(page, { baseURL, outputDir, p
   checks.push('agents: bounded popup, grouping, clean titles/state, exact child routing, keyboard return and Escape');
   return { passed: true, mocked: true, realModelRequests: 0, checks };
 }
+
+/** A + C: targeted dev/candidate checks; use prepareWorkspaceFixture in an isolated agentDir. */
+export async function runWorkflowPolishChecks(page, { baseURL, outputDir, project }) {
+  const check = (ok, message) => { if (!ok) throw new Error(message); };
+  if (!/^http:\/\/127\.0\.0\.1:301[5-9]\d$/.test(baseURL)) throw new Error('Isolated preview required');
+  const commands = [], errors = [], checks = [];
+  let running = false;
+  page.on('pageerror', error => errors.push(error.message));
+  await page.setViewportSize({ width: 1440, height: 950 });
+  await page.addInitScript(() => {
+    localStorage.setItem('pi-locale', 'en');
+    localStorage.setItem('pi-ui-language-version', 'english-interface-v1');
+    localStorage.setItem('pi-theme', 'claude-white');
+    localStorage.setItem('pi-sidebar-open', 'true');
+    window.__polishSources = [];
+    window.EventSource = class extends EventTarget {
+      static CONNECTING = 0; static OPEN = 1; static CLOSED = 2;
+      readyState = 1; onmessage = null; onerror = null;
+      constructor(url) { super(); this.url = url; window.__polishSources.push(this); setTimeout(() => this.onmessage?.({ data: JSON.stringify({ type: 'connected', isStreaming: false }) }), 0); }
+      close() { this.readyState = 2; }
+    };
+    window.__polishFeed = event => window.__polishSources.filter(source => source.readyState === 1).forEach(source => source.onmessage?.({ data: JSON.stringify(event) }));
+  });
+  const state = () => ({ model: { provider: 'openai', id: 'design-fixture' }, thinkingLevel: 'medium', isStreaming: running, isPromptRunning: running, messages: [], extensionStatuses: [], extensionWidgets: [] });
+  await page.route('**/api/agent/**', route => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/running')) return route.fulfill({ json: { running: [], awaitingInput: [] } });
+    if (path.includes('/subagents')) return route.fulfill({ json: { available: false } });
+    if (route.request().method() !== 'POST') return route.fulfill({ json: { running, state: state() } });
+    const command = route.request().postDataJSON(); commands.push(command);
+    if (command.type === 'get_state') return route.fulfill({ json: { success: true, data: state() } });
+    if (command.type === 'get_commands') return route.fulfill({ json: { success: true, data: { commands: [] } } });
+    if (command.type === 'get_tools') return route.fulfill({ json: { success: true, data: [] } });
+    return route.fulfill({ json: { success: true, data: {} } });
+  });
+  await page.route('**/api/models?**', route => route.fulfill({ json: { models: { 'openai/design-fixture': 'Design fixture' }, modelList: [{ provider: 'openai', id: 'design-fixture', name: 'Design fixture' }], defaultModel: { provider: 'openai', modelId: 'design-fixture' }, defaultThinkingLevel: 'medium' } }));
+  const visit = id => page.goto(`${baseURL}/?session=${id}`, { waitUntil: 'networkidle' });
+  await visit('workspace-design-fixture');
+  const composer = page.locator('.chat-input-textarea').first();
+  await composer.waitFor(); await composer.fill('KEEP_POLISH_DRAFT');
+  running = true;
+  await page.evaluate(() => window.__polishFeed({ type: 'agent_start' }));
+  await page.keyboard.press('Meta+k');
+  const dialog = page.getByRole('dialog', { name: 'Quick actions', exact: true });
+  await dialog.waitFor();
+  await page.keyboard.press('Escape');
+  check(await composer.inputValue() === 'KEEP_POLISH_DRAFT', 'Quick actions must preserve the draft');
+  check(await composer.evaluate(node => document.activeElement === node), 'Escape restores the composer focus');
+  check(!commands.some(command => command.type === 'abort'), 'Closing quick actions must not stop an agent');
+  await page.keyboard.press('Meta+k'); await dialog.waitFor();
+  await page.getByRole('combobox', { name: 'Search conversations, files or commands…' }).dispatchEvent('keydown', { key: 'Escape', isComposing: true, keyCode: 229 });
+  check(await dialog.isVisible(), 'IME Escape keeps the menu open');
+  await page.keyboard.press('Escape');
+  running = false; await page.evaluate(() => window.__polishFeed({ type: 'agent_end', messages: [] }));
+  checks.push('shortcut: IME, Escape, focus and draft preserved; no abort');
+
+  const openMenu = async query => {
+    await page.getByRole('button', { name: 'Quick actions', exact: true }).click();
+    await dialog.waitFor();
+    await dialog.getByRole('combobox').fill(query);
+  };
+  await openMenu('工作约定');
+  await dialog.getByRole('option').filter({ hasText: '工作约定 notes.md' }).waitFor();
+  await page.keyboard.press('Enter');
+  await page.locator('.file-viewer-toolbar').waitFor();
+  await page.getByRole('button', { name: 'Pin file to outputs', exact: true }).click();
+  await page.getByRole('tab', { name: 'Outputs', exact: true }).click();
+  await page.locator('.output-file').filter({ hasText: '工作约定 notes.md' }).waitFor();
+  check(await page.locator('.chat-input-textarea').count() === 1, 'Outputs must not add a composer');
+  check(await page.getByRole('combobox', { name: 'Choose an open file' }).textContent() === 'All open files are pinned', 'Pinned open files must not be described as missing');
+  await page.screenshot({ path: `${outputDir}/workflow-outputs.png` });
+  await page.locator('.output-file').first().click();
+  await page.locator('.file-viewer-toolbar').waitFor();
+  checks.push('outputs: existing indexed file opens, explicit pin, output reuses file viewer');
+
+  await visit('workspace-design-fixture');
+  const toggle = page.locator('[data-right-panel-toggle]');
+  if (await toggle.getAttribute('aria-expanded') !== 'true') await toggle.click();
+  await page.getByRole('tab', { name: 'Outputs', exact: true }).click();
+  await page.locator('.output-file').filter({ hasText: '工作约定 notes.md' }).waitFor();
+  await openMenu('Polish second conversation');
+  await dialog.getByRole('option').filter({ hasText: 'Polish second conversation' }).click();
+  await page.locator('.outputs-empty').waitFor();
+  check(await page.locator('.output-file').count() === 0, 'Another conversation must not inherit outputs');
+  checks.push('outputs: persisted after reload, isolated by conversation');
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await openMenu('');
+  check(await page.locator('.quick-actions-surface').evaluate(node => getComputedStyle(node).animationName) === 'none', 'Reduced motion removes popover animation');
+  await page.screenshot({ path: `${outputDir}/workflow-quick-actions.png` });
+  await page.keyboard.press('Escape');
+  check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'No horizontal page overflow');
+  check(!commands.some(command => ['prompt', 'steer', 'follow_up', 'abort'].includes(command.type)), 'No model prompts or stops');
+  check(errors.length === 0, errors.join('\n'));
+  checks.push('native polish: reduced motion and bounded layout; no model requests or page errors');
+  return { passed: true, mocked: true, realModelRequests: 0, checks };
+}

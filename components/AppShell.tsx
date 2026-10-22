@@ -22,6 +22,10 @@ import { ToolDefinitionsPanel } from "./ToolDefinitionsPanel";
 import { SubagentViewer } from "./SubagentViewer";
 import { AgentWorkspace } from "./AgentWorkspace";
 import { TodoWorkspace } from "./TodoWorkspace";
+import { OutputsWorkspace } from "./OutputsWorkspace";
+import { QuickActions, type QuickAction } from "./QuickActions";
+import { useTaskOutputs } from "@/hooks/useTaskOutputs";
+import { MAX_TASK_OUTPUTS, outputPathForCwd } from "@/lib/task-outputs";
 import { ServiceRestartButton } from "./ServiceRestartButton";
 import { usePackageSubagents } from "@/hooks/usePackageSubagents";
 import { TerminalPanel } from "./TerminalPanel";
@@ -221,6 +225,8 @@ export function AppShell() {
   const [explorerRefreshKey, setExplorerRefreshKey] = useState(0);
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null);
   const [pendingReleaseOpen, setPendingReleaseOpen] = useState(false);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  const closeQuickActions = useCallback(() => setQuickActionsOpen(false), []);
   const pendingReleases = usePendingReleases(pendingReleaseOpen);
   const [modelsRefreshKey, setModelsRefreshKey] = useState(0);
   const [projectTrust, setProjectTrust] = useState<ProjectTrustStatus | null>(null);
@@ -641,6 +647,7 @@ export function AppShell() {
     ...(selectedSession ? [
       { id: "todo:overview", label: translate("workspace.todos"), filePath: "", kind: "todo" as const, pinned: true },
       { id: "agent:overview", label: translate("common.agents"), filePath: "", kind: "agent" as const, pinned: true },
+      { id: "outputs:overview", label: translate("outputs.title"), filePath: "", kind: "outputs" as const, pinned: true },
     ] : []),
     ...fileTabs,
     ...terminalTabs.map((tab) => ({
@@ -708,7 +715,7 @@ export function AppShell() {
     // Subagent tabs belong to the previous project's sessions: dropped, not parked.
     setAgentTabs([]);
     // Terminal tabs span workspaces and keep control of the panel while active.
-    if (!activeFileTabId || activeFileId || activeFileTabId.startsWith("agent:") || activeFileTabId === "todo:overview") {
+    if (!activeFileTabId || activeFileId || activeFileTabId.startsWith("agent:") || activeFileTabId === "todo:overview" || activeFileTabId === "outputs:overview") {
       setActiveFileTabId(next.activeTabId);
       setRightPanelOpen(next.open);
     }
@@ -735,6 +742,7 @@ export function AppShell() {
   const initialSessionId = initialNavigation.sessionId;
   const initialLinkedSessionId = linkedSessionId(initialNavigation);
   const [activeCwd, setActiveCwd] = useState<string | null>(null);
+  const taskOutputs = useTaskOutputs(selectedSession?.id ?? null, selectedSession?.cwd ?? null);
   const activeProjectKeyRef = useRef<string | null>(null);
   // True once the initial ?session= URL param has been resolved (or confirmed absent)
   const [initialSessionRestored, setInitialSessionRestored] = useState<boolean>(() => !initialSessionId);
@@ -1049,6 +1057,7 @@ export function AppShell() {
   // Global keyboard shortcuts (handles Esc, Ctrl+Alt+N etc.)
   useGlobalKeyboardShortcuts({
     onNewSession: (cwd: string) => handleNewSession(`kb-${Date.now()}`, cwd),
+    onQuickActions: () => setQuickActionsOpen(true),
     activeCwd,
   });
 
@@ -1445,6 +1454,24 @@ export function AppShell() {
 
   const activePanelTabId = activeFileTabId ?? (selectedSession ? "todo:overview" : "");
   const activeFileTab = fileTabs.find((tab) => tab.id === activeFileTabId) ?? null;
+  const outputPinPath = selectedSession && activeFileTab ? outputPathForCwd(activeFileTab.filePath, selectedSession.cwd) : null;
+  const quickCwd = selectedSession?.cwd ?? newSessionCwd ?? activeCwd;
+  const openWorkspace = (id: string) => {
+    setActiveFileTabId(id);
+    setRightPanelOpen(true);
+    if (isMobile) setSidebarOpen(false);
+  };
+  const quickActions: QuickAction[] = [
+    { id: "composer", label: translate("quickActions.focusComposer"), run: () => document.querySelector<HTMLTextAreaElement>(".chat-input-textarea")?.focus() },
+    { id: "sidebar", label: translate(sidebarOpen ? "sidebar.hide" : "sidebar.show"), run: handleSidebarToggle },
+    { id: "settings", label: translate("common.settings"), run: () => setSettingsSection(getLastSettingsSection(projectTrustCwd)) },
+    ...(quickCwd ? [{ id: "new", label: translate("sidebar.new"), run: () => handleNewSession(`quick-${Date.now()}`, quickCwd) }] : []),
+    ...(selectedSession ? [
+      { id: "outputs", label: translate("outputs.title"), run: () => openWorkspace("outputs:overview") },
+      { id: "tasks", label: translate("workspace.todos"), run: () => openWorkspace("todo:overview") },
+    ] : []),
+    ...(outputPinPath && taskOutputs.ready && taskOutputs.paths.length < MAX_TASK_OUTPUTS && !taskOutputs.paths.includes(outputPinPath) ? [{ id: "pin-output", label: translate("outputs.pinCurrent"), run: () => taskOutputs.pin(outputPinPath) }] : []),
+  ];
   // Subagent work tabs: like files, only the active one is mounted.
   const activeAgentTab = agentTabs.find((tab) => `agent:${tab.sessionId}` === activeFileTabId) ?? null;
   const activeCwdName = activeCwd ? getFileName(activeCwd) || activeCwd : null;
@@ -1487,6 +1514,7 @@ export function AppShell() {
         onBackgroundTaskDone={handleBackgroundTaskDone}
         onRunningSessionIdsChange={handleRunningSessionIdsChange}
         onSessionsChange={handleSessionsChange}
+        onQuickActions={() => setQuickActionsOpen(true)}
       />
       <div className="workspace-settings-entry">
         <button
@@ -2280,6 +2308,9 @@ export function AppShell() {
               onCloseTab={handleCloseFileTab}
             />
           </div>
+          {outputPinPath && <button type="button" className="quiet-action-button output-pin-button" disabled={!taskOutputs.ready || (!taskOutputs.paths.includes(outputPinPath) && taskOutputs.paths.length >= MAX_TASK_OUTPUTS)} aria-pressed={taskOutputs.paths.includes(outputPinPath)} aria-label={translate(taskOutputs.paths.includes(outputPinPath) ? "outputs.unpin" : "outputs.pinCurrent")} title={translate(taskOutputs.paths.includes(outputPinPath) ? "outputs.unpin" : "outputs.pinCurrent")} onClick={() => taskOutputs.paths.includes(outputPinPath) ? taskOutputs.remove(outputPinPath) : taskOutputs.pin(outputPinPath)}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 3 6 6-5 1-3 5-4-4 5-3 1-5ZM9 15l-6 6" /></svg>
+          </button>}
           <button
             type="button"
             className="file-panel-expand-button"
@@ -2300,7 +2331,7 @@ export function AppShell() {
 
         {/* Only the active viewer is mounted. Lightweight per-tab state is restored on activation. */}
         <div style={{ flex: 1, minHeight: 0, overflow: "hidden", paddingBottom: "env(safe-area-inset-bottom)" }}>
-          {activePanelTabId === "todo:overview" && selectedSession ? ((rightPanelOpen || rightPanelPreviewOpen) && <TodoWorkspace key={selectedSession.id} sessionId={selectedSession.id} />) : activePanelTabId === "agent:overview" && selectedSession ? ((rightPanelOpen || rightPanelPreviewOpen) && (
+          {activePanelTabId === "outputs:overview" && selectedSession ? ((rightPanelOpen || rightPanelPreviewOpen) && <OutputsWorkspace key={`${selectedSession.id}:${selectedSession.cwd}`} paths={taskOutputs.paths} cwd={selectedSession.cwd} openFiles={fileTabs} ready={taskOutputs.ready} persisted={taskOutputs.persisted} onPin={taskOutputs.pin} onRemove={taskOutputs.remove} onOpen={(path, diff) => handleOpenFile(`${selectedSession.cwd.replace(/\/$/, "")}/${path}`, getFileName(path), { sourceSessionId: selectedSession.id, modeHint: diff ? "diff" : undefined })} />) : activePanelTabId === "todo:overview" && selectedSession ? ((rightPanelOpen || rightPanelPreviewOpen) && <TodoWorkspace key={selectedSession.id} sessionId={selectedSession.id} />) : activePanelTabId === "agent:overview" && selectedSession ? ((rightPanelOpen || rightPanelPreviewOpen) && (
             <AgentWorkspace
               key={selectedSession.id}
               session={selectedSession}
@@ -2363,6 +2394,7 @@ export function AppShell() {
         </div>
       </div>
     </div>
+    {quickActionsOpen && <QuickActions key={quickCwd ?? "no-workspace"} cwd={quickCwd} sessions={sessionCatalog} actions={quickActions} onClose={closeQuickActions} onSession={session => handleSelectSession(session)} onFile={path => { if (quickCwd) handleOpenFile(`${quickCwd.replace(/\/$/, "")}/${path}`, getFileName(path), { sourceSessionId: selectedSession?.id ?? null }); }} />}
     {settingsSection && (
       <SettingsPanel
         cwd={projectTrustCwd}

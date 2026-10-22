@@ -26,7 +26,7 @@ export function registerAbortHandler(handler: (() => void) | null): void {
  * agent.
  */
 export function handleGlobalEscape(event: KeyboardEvent): boolean {
-  if (event.key !== "Escape" || event.defaultPrevented || !globalAbortHandler) return false;
+  if (event.key !== "Escape" || event.defaultPrevented || event.isComposing || event.keyCode === 229 || !globalAbortHandler) return false;
 
   const tag = (event.target as HTMLElement | null)?.tagName;
   // Let textarea/input handle Esc internally (ChatInput menus / stop).
@@ -41,7 +41,16 @@ export function handleGlobalEscape(event: KeyboardEvent): boolean {
 // Hook: global keyboard shortcuts
 // ---------------------------------------------------------------------------
 
+export function isQuickActionsShortcut(event: KeyboardEvent): boolean {
+  if (event.defaultPrevented || event.repeat || event.isComposing || event.keyCode === 229 || event.altKey || event.shiftKey) return false;
+  if (event.key.toLowerCase() !== "k" || !(event.metaKey || event.ctrlKey)) return false;
+  // Ghostty owns Cmd+K; an open dialog and the IME keep their own keys too.
+  const target = event.target as Element | null;
+  return !target?.closest?.('.terminal-panel, [role="dialog"], dialog');
+}
+
 interface UseGlobalKeyboardShortcutsOptions {
+  onQuickActions?: () => void;
   /** Called when Ctrl+Alt+N is pressed. Receives current cwd. */
   onNewSession?: (cwd: string) => void;
   /** The currently selected project directory (sidebar cwd). */
@@ -64,10 +73,15 @@ interface UseGlobalKeyboardShortcutsOptions {
 export function useGlobalKeyboardShortcuts(
   options: UseGlobalKeyboardShortcutsOptions,
 ): void {
-  const { onNewSession, activeCwd } = options;
+  const { onNewSession, activeCwd, onQuickActions } = options;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
+      if (isQuickActionsShortcut(e) && onQuickActions) {
+        e.preventDefault();
+        onQuickActions();
+        return;
+      }
       // ---- Esc: stop agent ----
       if (e.key === "Escape") {
         handleGlobalEscape(e);
@@ -84,5 +98,5 @@ export function useGlobalKeyboardShortcuts(
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [activeCwd, onNewSession]);
+  }, [activeCwd, onNewSession, onQuickActions]);
 }
