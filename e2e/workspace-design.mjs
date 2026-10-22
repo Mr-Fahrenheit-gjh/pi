@@ -31,7 +31,12 @@ export function prepareWorkspaceFixture(agentDir, { polishSibling = false } = {}
       { id: 3, subject: "保留官方 Pi 图标", status: "completed" },
     ] } },
   ];
-  writeFileSync(join(agentDir, "sessions/design/workspace-design-fixture.jsonl"), entries.map(entry => JSON.stringify(entry)).join("\n") + "\n");
+  const mainEntries = polishSibling ? [...entries,
+    { type: "message", id: "output-write", parentId: "todos", timestamp, message: assistant([{ type: "toolCall", id: "create-output", name: "write", arguments: { path: "工作约定 notes.md", content: document } }]) },
+    { type: "message", id: "output-result", parentId: "output-write", timestamp, message: { role: "toolResult", toolCallId: "create-output", toolName: "write", content: [{ type: "text", text: "File written" }], isError: false } },
+    { type: "message", id: "output-delivery", parentId: "output-result", timestamp, message: assistant([{ type: "text", text: "DELIVERABLE_SEARCH_NEEDLE：已完成文件。[Diagram](diagram.svg)" }]) },
+  ] : entries;
+  writeFileSync(join(agentDir, "sessions/design/workspace-design-fixture.jsonl"), mainEntries.map(entry => JSON.stringify(entry)).join("\n") + "\n");
   if (polishSibling) {
     const sibling = entries.map(entry => entry.type === "session" ? { ...entry, id: "workspace-other-fixture" } : entry.type === "session_info" ? { ...entry, name: "Polish second conversation" } : entry);
     writeFileSync(join(agentDir, "sessions/design/workspace-other-fixture.jsonl"), sibling.map(entry => JSON.stringify(entry)).join("\n") + "\n");

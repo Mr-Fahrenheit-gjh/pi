@@ -4,7 +4,10 @@ import { join } from "node:path";
 import { NextResponse } from "next/server";
 import { allowFileRoot } from "@/lib/file-access";
 import { createAgentEventStream } from "@/lib/agent-event-stream";
-import { feynmanPaths, listFeynmanSessions, readFeynmanSession, resolveFeynmanSession } from "@/lib/feynman-store";
+import { feynmanPaths, feynmanSessionManager, listFeynmanSessions, readFeynmanSession, resolveFeynmanSession } from "@/lib/feynman-store";
+import { collectTaskOutputs } from "@/lib/task-outputs";
+import { sliceActiveBranch } from "@/lib/session-reader";
+import type { SessionEntry } from "@/lib/types";
 import { feynmanEventChannel, feynmanLiveSessions, feynmanRunningIds, getFeynmanSession, startFeynmanSession, validateFeynmanCommand } from "@/lib/feynman-rpc";
 import { forgetSessionUiState, readSessionUiState, updateSessionUiState } from "@/lib/session-ui-state";
 import { parseSessionUiStateRequest } from "@/lib/session-ui-state-shared";
@@ -132,6 +135,22 @@ async function dispatch(req: Request, { params }: Context): Promise<Response> {
     if (path[2] === "state" && method === "GET") {
       const session = getFeynmanSession(id);
       return json(session ? { running: true, state: await session.send({ type: "get_state" }) } : { running: false });
+    }
+    if (path.length === 3 && path[2] === "outputs" && method === "GET") {
+      const info = await resolveFeynmanSession(id);
+      const live = getFeynmanSession(id);
+      if (!info && !live) return json({ error: "Session not found" }, 404);
+      const leafId = url.searchParams.get("leafId") ?? undefined;
+      let entries: readonly unknown[];
+      if (info) {
+        const Manager = await feynmanSessionManager();
+        entries = Manager.open(info.path, feynmanPaths().sessions).getBranch(leafId);
+      } else {
+        const snapshot = await live!.send({ type: "get_entries" }) as { entries: SessionEntry[]; leafId: string | null };
+        if (!Array.isArray(snapshot.entries)) throw new Error("Incompatible conversation history");
+        entries = sliceActiveBranch(snapshot.entries, leafId ?? snapshot.leafId, snapshot.entries.length);
+      }
+      return json({ ...collectTaskOutputs(entries, info?.cwd ?? live!.cwd), sessionId: id });
     }
     if (method === "GET" && (path.length === 2 || path[2] === "context")) {
       const session = await readFeynmanSession(id, url.searchParams, getFeynmanSession(id));

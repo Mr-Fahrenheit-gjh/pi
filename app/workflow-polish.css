@@ -19,24 +19,27 @@
 .quick-actions-results [role="option"] { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; text-align: left; border: 0; padding: 11px 12px; border-radius: 7px; background: transparent; color: var(--text); cursor: pointer; font: 13px var(--font-ui); transition: background var(--workspace-feedback-duration) ease; }
 .quick-actions-results [role="option"][aria-selected="true"] { background: var(--bg-hover); }
 .quick-actions-results [role="option"] > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quick-action-copy > span { display: block; overflow: hidden; text-overflow: ellipsis; }
+.quick-action-preview { margin-top: 4px; color: var(--text-dim); font-size: 11px; }
 .quick-actions-results small { flex-shrink: 0; color: var(--text-dim); font-size: 10px; }
 .quick-actions-results > p { color: var(--text-muted); font-size: 13px; padding: 18px 12px; }
 .quick-actions-surface footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--workspace-divider); color: var(--text-dim); font-size: 10px; }
 .outputs-workspace { height: 100%; overflow: auto; padding: 22px 18px; font-family: var(--font-ui); color: var(--text); }
+.outputs-workspace header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
 .outputs-workspace header h2 { font-size: 16px; font-weight: 500; margin: 0 0 7px; }
+.outputs-workspace header > button { flex-shrink: 0; min-width: 28px; }
 .outputs-workspace header p, .outputs-note, .outputs-empty { font-size: 12px; line-height: 1.7; color: var(--text-muted); margin: 0; }
-.outputs-pin-row { display: flex; gap: 7px; margin: 20px 0 15px; }
-.outputs-pin-row select { flex: 1; min-width: 0; padding: 7px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); font: 12px var(--font-ui); }
-.outputs-pin-row > button { width: auto; padding: 0 10px; }
 .outputs-note { margin-bottom: 12px; }
+.outputs-note button { border: 0; padding: 0 3px; background: transparent; color: var(--accent); font: inherit; cursor: pointer; }
 .outputs-empty { padding: 25px 0; }
 .outputs-workspace ul { list-style: none; padding: 0; margin: 0; }
-.outputs-workspace li { display: flex; gap: 5px; align-items: center; border-bottom: 1px solid var(--workspace-divider); padding: 13px 0; }
-.output-file { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); padding: 2px; text-align: left; cursor: pointer; font: 13px var(--font-ui); }
+.outputs-workspace li { border-bottom: 1px solid var(--workspace-divider); }
+.output-file { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; border: 0; border-radius: 6px; background: transparent; color: var(--text); padding: 14px 5px; text-align: left; cursor: pointer; font: 13px var(--font-ui); }
+.output-file:hover { background: var(--bg-hover); }
+.output-file > svg { flex-shrink: 0; color: var(--text-muted); }
+.output-file > span { min-width: 0; }
 .output-file strong { display: block; font-weight: 500; overflow-wrap: anywhere; }
-.output-file span { display: block; font-size: 10px; color: var(--text-dim); margin-top: 5px; overflow-wrap: anywhere; }
-.outputs-workspace li > .quiet-action-button { width: auto; min-width: 28px; padding: 0 6px; font-size: 11px; }
-.output-pin-button { margin-right: 2px; }
+.output-file span span { display: block; font-size: 10px; color: var(--text-dim); margin-top: 5px; overflow-wrap: anywhere; }
 @keyframes quick-actions-enter { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 640px) { .quick-actions-backdrop { padding-top: 50px; } .quick-actions-surface { max-height: 70dvh; } .outputs-workspace { padding: 18px 14px; } }
 @media (prefers-reduced-motion: reduce) { .quick-actions-surface { animation: none; } .sidebar-quick-search, .quick-actions-trigger, .quick-actions-results [role="option"] { transition: none; } }

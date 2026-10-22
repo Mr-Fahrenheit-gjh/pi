@@ -129,37 +129,47 @@ export async function runWorkflowPolishChecks(page, { baseURL, outputDir, projec
   running = true;
   await page.evaluate(() => window.__polishFeed({ type: 'agent_start' }));
   await page.keyboard.press('Meta+k');
-  const dialog = page.getByRole('dialog', { name: 'Quick actions', exact: true });
+  const dialog = page.getByRole('dialog', { name: 'Search', exact: true });
   await dialog.waitFor();
   await page.keyboard.press('Escape');
   check(await composer.inputValue() === 'KEEP_POLISH_DRAFT', 'Quick actions must preserve the draft');
   check(await composer.evaluate(node => document.activeElement === node), 'Escape restores the composer focus');
   check(!commands.some(command => command.type === 'abort'), 'Closing quick actions must not stop an agent');
   await page.keyboard.press('Meta+k'); await dialog.waitFor();
-  await page.getByRole('combobox', { name: 'Search conversations, files or commands…' }).dispatchEvent('keydown', { key: 'Escape', isComposing: true, keyCode: 229 });
+  await page.getByRole('combobox', { name: 'Search conversations and files…' }).dispatchEvent('keydown', { key: 'Escape', isComposing: true, keyCode: 229 });
   check(await dialog.isVisible(), 'IME Escape keeps the menu open');
   await page.keyboard.press('Escape');
   running = false; await page.evaluate(() => window.__polishFeed({ type: 'agent_end', messages: [] }));
   checks.push('shortcut: IME, Escape, focus and draft preserved; no abort');
 
   const openMenu = async query => {
-    await page.getByRole('button', { name: 'Quick actions', exact: true }).click();
+    await page.locator('.quick-actions-trigger').click();
     await dialog.waitFor();
     await dialog.getByRole('combobox').fill(query);
   };
+  await openMenu('');
+  check(await dialog.getByRole('option').filter({ hasText: 'Polish second conversation' }).count() === 1, 'Recent conversations lead the empty search');
+  check(await dialog.getByRole('option').filter({ hasText: /Focus message|Show sidebar|Hide sidebar|Settings|Pin file/ }).count() === 0, 'No low-value focus/sidebar/settings/pin placeholders');
+  check(await dialog.getByRole('option').filter({ hasText: 'Open project terminal' }).count() === 1, 'Project terminal is a useful explicit action');
+  await dialog.getByRole('combobox').fill('DELIVERABLE_SEARCH_NEEDLE');
+  const bodyHit = dialog.getByRole('option').filter({ hasText: 'DELIVERABLE_SEARCH_NEEDLE' });
+  await bodyHit.waitFor(); await bodyHit.click();
+  await dialog.waitFor({ state: 'hidden' });
+  checks.push('search: recent conversations, useful project actions, full-body match and exact message navigation');
   await openMenu('工作约定');
   await dialog.getByRole('option').filter({ hasText: '工作约定 notes.md' }).waitFor();
   await page.keyboard.press('Enter');
   await page.locator('.file-viewer-toolbar').waitFor();
-  await page.getByRole('button', { name: 'Pin file to outputs', exact: true }).click();
   await page.getByRole('tab', { name: 'Outputs', exact: true }).click();
   await page.locator('.output-file').filter({ hasText: '工作约定 notes.md' }).waitFor();
+  await page.locator('.output-file').filter({ hasText: 'diagram.svg' }).waitFor();
+  check(await page.locator('.output-file').count() === 2, 'Only this conversation’s written/delivered files appear, not every project file');
   check(await page.locator('.chat-input-textarea').count() === 1, 'Outputs must not add a composer');
-  check(await page.getByRole('combobox', { name: 'Choose an open file' }).textContent() === 'All open files are pinned', 'Pinned open files must not be described as missing');
+  check(await page.locator('.outputs-pin-row, .output-pin-button').count() === 0, 'Files require no manual pin or chooser');
   await page.screenshot({ path: `${outputDir}/workflow-outputs.png` });
-  await page.locator('.output-file').first().click();
+  await page.locator('.output-file').filter({ hasText: '工作约定 notes.md' }).click();
   await page.locator('.file-viewer-toolbar').waitFor();
-  checks.push('outputs: existing indexed file opens, explicit pin, output reuses file viewer');
+  checks.push('outputs: automatically reads write records and delivery links; one-click existing file preview');
 
   await visit('workspace-design-fixture');
   const toggle = page.locator('[data-right-panel-toggle]');
@@ -170,7 +180,7 @@ export async function runWorkflowPolishChecks(page, { baseURL, outputDir, projec
   await dialog.getByRole('option').filter({ hasText: 'Polish second conversation' }).click();
   await page.locator('.outputs-empty').waitFor();
   check(await page.locator('.output-file').count() === 0, 'Another conversation must not inherit outputs');
-  checks.push('outputs: persisted after reload, isolated by conversation');
+  checks.push('outputs: derived again after reload, isolated by conversation without browser-local pins');
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await openMenu('');

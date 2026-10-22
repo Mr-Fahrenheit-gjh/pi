@@ -1,41 +1,33 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { runtimeStorageKey } from "@/lib/runtime-client.mjs";
-import { MAX_TASK_OUTPUTS, outputPathForCwd, parseTaskOutputs, taskOutputKey } from "@/lib/task-outputs";
+import { useEffect, useState } from "react";
+import { runtimeFetch as fetch, pageRuntime } from "@/lib/runtime-client.mjs";
+import { MAX_TASK_OUTPUTS, taskOutputPath } from "@/lib/task-outputs";
 
-/** Hydration never persists an empty initial list over saved references. */
-export function useTaskOutputs(sessionId: string | null, cwd: string | null) {
-  const key = sessionId && cwd ? runtimeStorageKey(taskOutputKey(sessionId, cwd)) : null;
-  const [state, setState] = useState<{ key: string | null; paths: string[]; persisted: boolean }>({ key: null, paths: [], persisted: true });
-  const fallback = useRef(new Map<string, { paths: string[]; persisted: boolean }>());
-  const ready = key !== null && state.key === key;
-  const paths = ready ? state.paths : [];
+/** Mounted only for the visible Outputs tab; hidden views do not poll or load history. */
+export function useTaskOutputs(sessionId: string, cwd: string, leafId: string | null, refreshKey: number) {
+  const scope = JSON.stringify([pageRuntime(), sessionId, cwd, leafId]);
+  const [retry, setRetry] = useState(0);
+  const [state, setState] = useState<{ scope: string; paths: string[]; loading: boolean; failed: boolean; truncated: boolean }>({ scope: "", paths: [], loading: true, failed: false, truncated: false });
   useEffect(() => {
-    let paths: string[] = [], persisted = true;
-    const cached = key ? fallback.current.get(key) : undefined;
-    if (cached && !cached.persisted) { paths = cached.paths; persisted = false; }
-    else {
-      try { if (key && cwd) paths = parseTaskOutputs(localStorage.getItem(key), cwd); }
-      catch { paths = cached?.paths ?? []; persisted = false; }
-    }
-    setState({ key, paths, persisted });
-  }, [key, cwd]);
-
-  function update(next: string[]) {
-    if (!key || !ready) return;
-    let persisted = true;
-    try { localStorage.setItem(key, JSON.stringify(next)); } catch { persisted = false; }
-    fallback.current.set(key, { paths: next, persisted });
-    setState({ key, paths: next, persisted });
-  }
+    const controller = new AbortController();
+    setState(previous => ({ scope, paths: previous.scope === scope ? previous.paths : [], loading: true, failed: false, truncated: false }));
+    const query = leafId ? `?${new URLSearchParams({ leafId })}` : "";
+    void fetch(`/api/sessions/${encodeURIComponent(sessionId)}/outputs${query}`, { signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error("Conversation files unavailable");
+        const data = await response.json();
+        if (data.sessionId !== sessionId || !Array.isArray(data.paths)) throw new Error("Invalid conversation files response");
+        const paths = [...new Set((data.paths as unknown[]).map(path => taskOutputPath(path, cwd)).filter((path): path is string => path !== null))];
+        if (!controller.signal.aborted) setState({ scope, paths: paths.slice(0, MAX_TASK_OUTPUTS), loading: false, failed: false, truncated: data.truncated === true || paths.length > MAX_TASK_OUTPUTS });
+      }).catch(() => {
+        if (!controller.signal.aborted) setState(previous => ({ scope, paths: previous.scope === scope ? previous.paths : [], loading: false, failed: true, truncated: false }));
+      });
+    return () => controller.abort();
+  }, [sessionId, cwd, leafId, scope, refreshKey, retry]);
+  const current = state.scope === scope;
   return {
-    paths, ready, persisted: state.key === key ? state.persisted : true,
-    pin(input: string) {
-      const path = cwd ? outputPathForCwd(input, cwd) : null;
-      if (!ready || !path || paths.includes(path) || paths.length >= MAX_TASK_OUTPUTS) return;
-      update([...paths, path]);
-    },
-    remove(path: string) { update(paths.filter(item => item !== path)); },
+    paths: current ? state.paths : [], loading: !current || state.loading, failed: current && state.failed, truncated: current && state.truncated,
+    refresh: () => setRetry(value => value + 1),
   };
 }
