@@ -19,6 +19,8 @@ export const zhCNLocale: LocalePlugin = {
     "quickActions.newConversation": "在当前项目新建对话",
     "quickActions.terminal": "打开项目终端",
     "quickActions.conversationFiles": "本对话的文件",
+    "quickActions.forkConversation": "从当前对话创建 Fork",
+    "quickActions.openFinder": "在 Finder 打开对话工作目录",
     "outputs.title": "成果",
     "outputs.description": "本对话中的文件，点击即可打开。",
     "outputs.empty": "对话中生成的文件会自动出现在这里。",

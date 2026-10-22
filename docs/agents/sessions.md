@@ -21,6 +21,8 @@ The copy then gets a name of its own, so the tree tells it from its source: the 
 
 The answer carries the copy's catalogue row (`readSessionInfo()` once the name is written, the list's own shape, plus `relation: { kind: "fork", originSessionId }`), so the sidebar shows it, named, before the next list load and the row does not move when that load replaces it.
 
+Cmd/Ctrl+K's Fork uses this same sidebar controller and request with the clicked current conversation, not `AgentSession.fork()` or an agent command. It shares transient refusal, per-source in-flight deduplication, toasts and the rule that a later session selection wins over a late fork response.
+
 ## In-session branching waits for the run
 pi's `navigateTree()` refuses while streaming or compacting: the file has one leaf pointer that the run appends under, and navigating swaps the agent's context. So "Edit from here" is hidden while busy, the BranchNavigator renders read-only (`locked`) with a note, and `handleLeafChange` refuses (switching only the view would show the live run under another branch). To branch from a running session, fork it.
 

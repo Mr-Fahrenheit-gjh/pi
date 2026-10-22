@@ -64,6 +64,9 @@ export function QuickActions({ actions, sessions, cwd, currentSessionId, onSessi
     return () => { clearTimeout(timer); controller.abort(); };
   }, [search]);
   const rows = useMemo(() => [
+    ...actions.filter(action => quickActionMatches(action, search)).map(action => ({
+      ...action, detail: t("quickActions.command"), preview: "", key: `action:${action.id}`,
+    })),
     ...quickSessionMatches(sessions, search, contentResponse?.results ?? [], currentSessionId).map(result => ({
       key: `session:${result.session.id}`, label: (result.session.name || result.session.firstMessage || result.session.id).slice(0, 160),
       detail: t(search ? "quickActions.conversation" : "quickActions.recent"),
@@ -72,9 +75,6 @@ export function QuickActions({ actions, sessions, cwd, currentSessionId, onSessi
     })),
     ...(search && files.key === fileKey ? files.paths : []).map(path => ({
       key: `file:${path}`, label: path, detail: t("quickActions.file"), preview: "", run: () => onFile(path),
-    })),
-    ...actions.filter(action => quickActionMatches(action, search)).map(action => ({
-      ...action, detail: t("quickActions.command"), preview: "", key: `action:${action.id}`,
     })),
   ], [actions, sessions, search, contentResponse, currentSessionId, files, fileKey, onFile, onSession, t]);
   const selected = Math.min(index, Math.max(0, rows.length - 1));

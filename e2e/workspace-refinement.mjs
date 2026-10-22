@@ -91,7 +91,7 @@ export async function runWorkspaceRefinementChecks(page, { baseURL, outputDir, p
 export async function runWorkflowPolishChecks(page, { baseURL, outputDir, project }) {
   const check = (ok, message) => { if (!ok) throw new Error(message); };
   if (!/^http:\/\/127\.0\.0\.1:301[5-9]\d$/.test(baseURL)) throw new Error('Isolated preview required');
-  const commands = [], errors = [], checks = [];
+  const commands = [], errors = [], checks = [], finderRequests = [];
   let running = false;
   page.on('pageerror', error => errors.push(error.message));
   await page.setViewportSize({ width: 1440, height: 950 });
@@ -122,6 +122,11 @@ export async function runWorkflowPolishChecks(page, { baseURL, outputDir, projec
     return route.fulfill({ json: { success: true, data: {} } });
   });
   await page.route('**/api/models?**', route => route.fulfill({ json: { models: { 'openai/design-fixture': 'Design fixture' }, modelList: [{ provider: 'openai', id: 'design-fixture', name: 'Design fixture' }], defaultModel: { provider: 'openai', modelId: 'design-fixture' }, defaultThinkingLevel: 'medium' } }));
+  // Never launch a real OS window during the isolated command check.
+  await page.route('**/api/open-in-explorer', route => {
+    if (route.request().method() === 'POST') finderRequests.push(route.request().postDataJSON());
+    return route.fulfill({ json: { supported: true, platform: 'darwin' } });
+  });
   const visit = id => page.goto(`${baseURL}/?session=${id}`, { waitUntil: 'networkidle' });
   await visit('workspace-design-fixture');
   const composer = page.locator('.chat-input-textarea').first();
@@ -148,7 +153,9 @@ export async function runWorkflowPolishChecks(page, { baseURL, outputDir, projec
     await dialog.getByRole('combobox').fill(query);
   };
   await openMenu('');
-  check(await dialog.getByRole('option').filter({ hasText: 'Polish second conversation' }).count() === 1, 'Recent conversations lead the empty search');
+  const topCommands = ['New conversation in this project', 'Open project terminal', 'Files from this conversation', 'Fork this conversation', 'Open conversation folder in Finder'];
+  for (const [index, label] of topCommands.entries()) check((await dialog.getByRole('option').nth(index).textContent()).startsWith(label), `Command ${index + 1} stays ahead of conversation results: ${label}`);
+  check(await dialog.getByRole('option').filter({ hasText: 'Polish second conversation' }).count() === 1, 'Recent conversations follow the commands');
   check(await dialog.getByRole('option').filter({ hasText: /Focus message|Show sidebar|Hide sidebar|Settings|Pin file/ }).count() === 0, 'No low-value focus/sidebar/settings/pin placeholders');
   check(await dialog.getByRole('option').filter({ hasText: 'Open project terminal' }).count() === 1, 'Project terminal is a useful explicit action');
   await dialog.getByRole('combobox').fill('DELIVERABLE_SEARCH_NEEDLE');
@@ -188,8 +195,21 @@ export async function runWorkflowPolishChecks(page, { baseURL, outputDir, projec
   await page.screenshot({ path: `${outputDir}/workflow-quick-actions.png` });
   await page.keyboard.press('Escape');
   check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'No horizontal page overflow');
-  check(!commands.some(command => ['prompt', 'steer', 'follow_up', 'abort'].includes(command.type)), 'No model prompts or stops');
-  check(errors.length === 0, errors.join('\n'));
   checks.push('native polish: reduced motion and bounded layout; no model requests or page errors');
+
+  await openMenu('Finder');
+  const finderResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/open-in-explorer' && response.request().method() === 'POST');
+  await dialog.getByRole('option').filter({ hasText: 'Open conversation folder in Finder' }).click();
+  await finderResponse;
+  check(finderRequests.length === 1 && finderRequests[0].cwd === project, 'Finder uses the current conversation working directory, with OS launch intercepted');
+  await openMenu('Fork');
+  const forkResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/sessions/workspace-other-fixture/fork' && response.request().method() === 'POST');
+  await dialog.getByRole('option').filter({ hasText: 'Fork this conversation' }).click();
+  const forkReply = await (await forkResponse).json();
+  check(forkReply.session?.relation?.originSessionId === 'workspace-other-fixture', 'Fork copies the current conversation, not another search result');
+  await page.locator(`[data-row-key$=":${forkReply.session.id}"] a.session-tree-main[aria-current="true"]`).waitFor();
+  check(!commands.some(command => ['prompt', 'steer', 'follow_up', 'abort', 'fork', 'fork_branch', 'clone'].includes(command.type)), 'No model prompts, stops or in-place agent forks');
+  check(errors.length === 0, errors.join('\n'));
+  checks.push('commands: five actions first, Finder cwd through existing API, current-conversation disk Fork opens the copy without agent mutation');
   return { passed: true, mocked: true, realModelRequests: 0, checks };
 }

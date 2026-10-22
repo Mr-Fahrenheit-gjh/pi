@@ -1463,6 +1463,14 @@ export function AppShell() {
       { id: "terminal", label: translate("quickActions.terminal"), keywords: ["terminal", "shell", "终端", "終端"], run: () => handleOpenTerminal(quickCwd) },
     ] : []),
     ...(selectedSession ? [{ id: "outputs", label: translate("quickActions.conversationFiles"), keywords: ["outputs", "files", "成果", "文件"], run: () => openWorkspace("outputs:overview") }] : []),
+    ...(selectedSession && !selectedSession.transient && pageRuntime() === "pi" ? [{
+      id: "fork", label: translate("quickActions.forkConversation"), keywords: ["fork", "clone", "分叉", "分支"],
+      run: () => { setSidebarOpen(true); sidebarControlRef.current?.forkSession(selectedSession); },
+    }] : []),
+    ...(selectedSession ? [{
+      id: "finder", label: translate("quickActions.openFinder"), keywords: ["finder", "folder", "directory", "工作目录", "工作目錄"],
+      run: () => { void sidebarControlRef.current?.openDirectoryInFileManager(selectedSession.cwd).then(failed => { if (failed) setSidebarOpen(true); }); },
+    }] : []),
   ];
   // Subagent work tabs: like files, only the active one is mounted.
   const activeAgentTab = agentTabs.find((tab) => `agent:${tab.sessionId}` === activeFileTabId) ?? null;

@@ -249,6 +249,10 @@ export interface SessionSidebarControl {
   refreshWorktrees(): void;
   /** Creates a worktree of `project` and lists it at once; the caller starts the session in it. */
   createWorktree(project: ProjectChoice, branch: string): Promise<{ path: string } | { error: string }>;
+  /** Same disk-only Fork and navigation as the session row menu. */
+  forkSession(session: SessionInfo): void;
+  /** Explicit conversation cwd, not whichever folder the file browser currently shows. */
+  openDirectoryInFileManager(cwd: string): Promise<boolean>;
 }
 
 type WorktreeEntry = WorktreeChoice;
@@ -817,9 +821,9 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   }, [selectedCwd, selectedCwdProp]);
 
   /** Resolves true when it failed: the message is then in the files' body. */
-  const openInFileManager = useCallback(async (): Promise<boolean> => {
-    const dir = selectedCwd ?? selectedCwdProp;
+  const openInFileManager = useCallback(async (dir = selectedCwd ?? selectedCwdProp, notify = false): Promise<boolean> => {
     if (!dir) return false;
+    let reason: string;
     try {
       const res = await fetch("/api/open-in-explorer", {
         method: "POST",
@@ -831,12 +835,14 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         return false;
       }
       const data = await res.json().catch(() => ({})) as { error?: string };
-      setFileManagerError(data.error ?? `HTTP ${res.status}`);
+      reason = data.error ?? `HTTP ${res.status}`;
     } catch (error) {
-      setFileManagerError(error instanceof Error ? error.message : String(error));
+      reason = error instanceof Error ? error.message : String(error);
     }
+    setFileManagerError(reason);
+    if (notify) showToast(t(FILE_MANAGER_ERROR_KEYS[reason] ?? reason));
     return true;
-  }, [selectedCwd, selectedCwdProp]);
+  }, [selectedCwd, selectedCwdProp, showToast, t]);
 
   const fileManagerLabel = t(
     fileManager?.platform === "darwin"
@@ -1298,9 +1304,14 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   // The handle below is made once: it calls the newest closure.
   const startNewSessionInRef = useRef(startNewSessionIn);
   startNewSessionInRef.current = startNewSessionIn;
+  const forkSessionRef = useRef<((session: SessionInfo, fromRowKey: string | null) => Promise<void>) | null>(null);
+  const openInFileManagerRef = useRef(openInFileManager);
+  openInFileManagerRef.current = openInFileManager;
 
   useImperativeHandle(controlRef, () => ({
     startNewSessionIn: (target) => startNewSessionInRef.current(target),
+    forkSession: (session) => { void forkSessionRef.current?.(session, null); },
+    openDirectoryInFileManager: (cwd) => openInFileManagerRef.current(cwd, true),
     openFolderForNewSession: (onPicked, returnFocusTo) => {
       folderPickRef.current = onPicked;
       folderReturnFocusRef.current = returnFocusTo;
@@ -1904,8 +1915,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   // One fork per session at a time: F again on a session whose fork is under
   // way does nothing; another session's Fork goes ahead.
   const forkingIdsRef = useRef(new Set<string>());
-  const forkFamily = useCallback(async (row: SessionRow) => {
-    const source = row.family.root;
+  const forkSession = useCallback(async (source: SessionInfo, fromRowKey: string | null) => {
     if (source.transient || forkingIdsRef.current.has(source.id)) return;
     forkingIdsRef.current.add(source.id);
     const selectedAtClick = selectedSessionIdRef.current;
@@ -1940,7 +1950,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         showToast(message, [{ id: "open", label: t("sidebar.open"), onClick: () => openForkedRef.current(forked, null) }], tail);
         return;
       }
-      openForkedRef.current(forked, row.key);
+      openForkedRef.current(forked, fromRowKey);
       showToast(message, [], tail);
     } catch (error) {
       showToast(t("sidebar.forkFailed", { error: error instanceof Error ? error.message : String(error) }));
@@ -1948,6 +1958,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
       forkingIdsRef.current.delete(source.id);
     }
   }, [loadSessions, showToast, t]);
+  forkSessionRef.current = forkSession;
 
   // Open in new tab (the row menu's T): the row's session in a browser tab of
   // its own, by the same link its title carries. This tab's selection, cwd and
@@ -1968,7 +1979,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
       case "pin": setFamilyPinned(family, true); break;
       case "unpin": setFamilyPinned(family, false); break;
       case "rename": startRename(family); break;
-      case "fork": void forkFamily(row); break;
+      case "fork": void forkSession(row.family.root, row.key); break;
       case "mark-read": markFamilyRead(family, true); break;
       case "mark-unread": markFamilyRead(family, false); break;
       case "archive": archiveFamily(family); break;
