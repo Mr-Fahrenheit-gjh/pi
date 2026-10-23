@@ -55,6 +55,7 @@ This is the local composition contract layered over the upstream sidebar/session
 - Implementation/testing does not authorize actually restarting the formal service. Unit/VM tests never run launchctl; candidate tests reject restart. A real restart still requires explicit operator confirmation and separate live verification.
 
 ## Motion and file rows
+- With an empty Quick Actions query, the first nine visible actions/results have leading 1–9 key hints and matching `aria-keyshortcuts`. Unmodified, non-repeating digits in the focused search field choose that exact row through the normal close/restore/run path. Hide/disable numeric shortcuts once any query text exists (including a leading space for numeric searches); preserve IME, modified browser shortcuts, arrows, Enter and Escape.
 - Micro feedback uses the shared 110ms workspace token; the quick-actions surface uses one 160ms opacity/small-translation entrance. Keep focus-visible feedback and selected theme/fonts; no looping decoration or transcript animation. Panel transitions share the workspace easing curve without extending the desktop's 200ms exit contract. Reduced motion disables panel, backdrop, composer and file-chevron transitions, including preview and inline-style overrides.
 - File rows share 28px height and 6px corners. Preserve indentation, path tooltips, Git status, hover actions and folder expansion. Stacked file-header spacing does not change the files-tab layout or session navigation.
 

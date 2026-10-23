@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
 import { createServer } from 'node:net';
+import { checkComposerFocus } from './composer-focus.mjs';
+import { checkQuickActionShortcuts } from './quick-actions-shortcuts.mjs';
 
 const source = dirname(dirname(fileURLToPath(import.meta.url)));
 const root = process.env.PI_WEB_CHAT_PACKAGE_ROOT || source;
@@ -190,8 +192,10 @@ try {
   assert.equal(await page.locator('[data-process-details]').count(), 0, 'final failed history does not restore a finished-process entry');
   assert.equal(await fetchError.count(), 0);
   await page.screenshot({ path: join(out, 'fetch-final-error-desktop.png'), fullPage: true });
+  const focusChecks = process.env.PI_WEB_TEST_MOBILE === '1' ? [] : await checkComposerFocus(page, { base, sessionId: sid });
+  const shortcutChecks = process.env.PI_WEB_TEST_MOBILE === '1' ? [] : await checkQuickActionShortcuts(page, { base, sessionId: sid, outputDir: out });
   assert.deepEqual(errors, []);
-  const result = { passed: true, buildId: readFileSync(join(root, '.next/BUILD_ID'), 'utf8').trim(), packageRoot: root, isolatedAgentDir: agentDir, desktopAndMobile: process.env.PI_WEB_TEST_MOBILE === '1', tested: ['finished history process controls absent', 'live collapse', 'running expand and collapse', 'streaming reasoning hidden', 'streaming answer visible', 'tool failure summary absent; running details available when expanded', 'provider error visible', 'extension confirm visible', 'completion removes process controls', 'fetch failed history/no-content/final-error hidden; running details expandable', 'partial answer with fetch failure visible', 'retry success keeps fetch errors hidden', 'other model failures and truncation visible'], timestamp: new Date().toISOString() };
+  const result = { passed: true, buildId: readFileSync(join(root, '.next/BUILD_ID'), 'utf8').trim(), packageRoot: root, isolatedAgentDir: agentDir, desktopAndMobile: process.env.PI_WEB_TEST_MOBILE === '1', tested: ['finished history process controls absent', 'live collapse', 'running expand and collapse', 'streaming reasoning hidden', 'streaming answer visible', 'tool failure summary absent; running details available when expanded', 'provider error visible', 'extension confirm visible', 'completion removes process controls', 'fetch failed history/no-content/final-error hidden; running details expandable', 'partial answer with fetch failure visible', 'retry success keeps fetch errors hidden', 'other model failures and truncation visible', ...focusChecks, ...shortcutChecks], timestamp: new Date().toISOString() };
   writeFileSync(join(out, 'result.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
 } finally {

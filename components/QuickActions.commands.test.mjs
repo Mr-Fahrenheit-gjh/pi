@@ -42,9 +42,9 @@ const { renderToStaticMarkup } = await jiti.import('react-dom/server');
 const { I18nProvider } = await jiti.import('@/hooks/useI18n.tsx');
 const { QuickActions } = await jiti.import('./QuickActions.tsx');
 
-function renderActivity({ running = [], awaiting = [], unread = [] } = {}) {
+function renderActivity({ running = [], awaiting = [], unread = [], actions = [{ id: 'command', label: 'Command fixture', run() {} }] } = {}) {
   return renderToStaticMarkup(React.createElement(I18nProvider, null, React.createElement(QuickActions, {
-    actions: [{ id: 'command', label: 'Command fixture', run() {} }],
+    actions,
     sessions: ['active', 'idle'].map(id => ({ id, name: `${id} fixture`, cwd: '/project', firstMessage: '', modified: '2026-10-23' })),
     cwd: '/project', currentSessionId: null,
     runningSessionIds: new Set(running), awaitingInputSessionIds: new Set(awaiting), unreadSessionIds: new Set(unread),
@@ -85,6 +85,49 @@ test('overlapping conversation states prefer input, then running, then unread; c
       assert.equal(row.includes(className), className === expected, `flags=${flags}, icon=${className}`);
     }
     assert.equal(row.includes('quick-action-status'), Boolean(expected));
+  }
+});
+
+test('the first nine visible items have leading numeric hints and accessible shortcuts', () => {
+  const actions = Array.from({ length: 12 }, (_, i) => ({ id: `command-${i}`, label: `Command ${i + 1} fixture`, run() {} }));
+  const html = renderActivity({ actions });
+  for (let i = 0; i < actions.length; i++) {
+    const option = optionWithLabel(html, actions[i].label);
+    if (i < 9) {
+      assert.match(option, new RegExp(`aria-keyshortcuts="${i + 1}"`));
+      assert.ok(option.indexOf('quick-action-shortcut') < option.indexOf('quick-action-copy'));
+      assert.match(option, new RegExp(`<kbd[^>]*>${i + 1}</kbd>`));
+    } else assert.doesNotMatch(option, /quick-action-shortcut|aria-keyshortcuts/);
+  }
+});
+
+test('plain 1–9 executes the matching row once, without hijacking search, IME or modified keys', () => {
+  const source = ts.createSourceFile('QuickActions.tsx', menu, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  function findHandler(node) {
+    if (ts.isJsxAttribute(node) && node.name.getText(source) === 'onKeyDown') return node.initializer.expression;
+    return ts.forEachChild(node, findHandler);
+  }
+  const script = new Script(ts.transpileModule(`(${findHandler(source).getText(source)})`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText);
+  const cases = [
+    ['first', { key: '1' }, '', 12, 0], ['ninth', { key: '9' }, '', 12, 8],
+    ['number while searching', { key: '2' }, 'report', 12, null],
+    ['space-prefixed numeric search', { key: '2' }, ' ', 12, null],
+    ['zero is not a shortcut', { key: '0' }, '', 12, null],
+    ['missing row', { key: '9' }, '', 6, null],
+    ['no rows', { key: '1' }, '', 0, null],
+    ...['metaKey', 'ctrlKey', 'altKey', 'shiftKey', 'repeat', 'defaultPrevented'].map(flag => [flag, { key: '1', [flag]: true }, '', 12, null]),
+    ['IME', { key: '1', nativeEvent: { isComposing: true } }, '', 12, null],
+    ['legacy IME', { key: '1', nativeEvent: { keyCode: 229 } }, '', 12, null],
+  ];
+  for (const [label, flags, query, count, expected] of cases) {
+    const calls = [];
+    let prevented = false;
+    const target = {};
+    const rows = Array.from({ length: count }, (_, index) => ({ run: () => calls.push(index) }));
+    const handler = script.runInNewContext({ query, rows, input: { current: target }, document: { activeElement: target }, choose: run => run() });
+    handler({ nativeEvent: {}, preventDefault() { prevented = true; }, ...flags });
+    assert.deepEqual(calls, expected === null ? [] : [expected], label);
+    assert.equal(prevented, expected !== null, label);
   }
 });
 

@@ -17,6 +17,8 @@
 .quick-actions-results [role="option"] { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; text-align: left; border: 0; padding: 11px 12px; border-radius: 7px; background: transparent; color: var(--text); cursor: default; font: 13px var(--font-ui); transition: background var(--workspace-feedback-duration) ease; }
 .quick-actions-results [role="option"][aria-selected="true"] { background: var(--bg-hover); }
 .quick-actions-results [role="option"] > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quick-action-shortcut { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 20px; height: 20px; border: 1px solid var(--border); border-radius: 4px; color: var(--text-dim); font: 11px var(--font-ui); }
+.quick-action-copy { flex: 1; }
 .quick-action-copy > span { display: block; overflow: hidden; text-overflow: ellipsis; }
 .quick-action-preview { margin-top: 4px; color: var(--text-dim); font-size: 11px; }
 .quick-action-meta { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }

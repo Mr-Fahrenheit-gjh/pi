@@ -89,6 +89,12 @@ export function QuickActions({ actions, sessions, cwd, currentSessionId, running
     onPointerDown={event => { if (event.target === event.currentTarget) onClose(); }}
     onKeyDown={event => {
       if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+      if (query === "" && !event.defaultPrevented && !event.repeat
+        && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
+        && /^[1-9]$/.test(event.key) && document.activeElement === input.current) {
+        const row = rows[Number(event.key) - 1];
+        if (row) { event.preventDefault(); choose(row.run); return; }
+      }
       if (event.key === "Tab") {
         const controls = [...(panel.current?.querySelectorAll<HTMLElement>('input, button:not(:disabled):not([tabindex="-1"])') || [])];
         const first = controls[0], last = controls.at(-1);
@@ -115,7 +121,9 @@ export function QuickActions({ actions, sessions, cwd, currentSessionId, running
             ? awaitingInputSessionIds.has(row.sessionId) ? "awaiting" : runningSessionIds.has(row.sessionId) ? "running" : unreadSessionIds.has(row.sessionId) ? "unread" : null
             : null;
           const statusLabel = status ? t(status === "awaiting" ? "sidebar.agentAwaitingInput" : status === "running" ? "sidebar.agentRunning" : "sidebar.newSessionActivity") : undefined;
-          return <button type="button" role="option" aria-selected={itemIndex === selected} tabIndex={-1} id={`${listId}-${itemIndex}`} key={row.key} onPointerMove={() => setIndex(itemIndex)} onClick={() => choose(row.run)}>
+          const shortcut = query === "" && itemIndex < 9 ? String(itemIndex + 1) : undefined;
+          return <button type="button" role="option" aria-selected={itemIndex === selected} aria-keyshortcuts={shortcut} tabIndex={-1} id={`${listId}-${itemIndex}`} key={row.key} onPointerMove={() => setIndex(itemIndex)} onClick={() => choose(row.run)}>
+            {shortcut && <kbd className="quick-action-shortcut" aria-hidden="true">{shortcut}</kbd>}
             <span className="quick-action-copy"><span>{row.label}</span>{row.preview && <span className="quick-action-preview">{row.preview}</span>}</span>
             <span className="quick-action-meta">
               {status && <span className="quick-action-status" title={statusLabel}>

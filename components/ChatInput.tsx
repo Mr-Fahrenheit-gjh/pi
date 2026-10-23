@@ -1056,7 +1056,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
 
       const active = document.activeElement;
       if (active === textarea) return; // Keep the existing caret/selection untouched.
-      const clickedNavigation = entering && active?.matches('.session-tree-main, .sidebar-new-button')
+      const clickedNavigation = entering && active?.matches('.session-tree-main, .sidebar-new-button, .sidebar-quick-new')
         && !active.matches(":focus-visible");
       if (active && active !== document.body && active !== document.documentElement && !clickedNavigation) return;
       textarea.focus({ preventScroll: true });
