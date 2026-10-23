@@ -1514,7 +1514,6 @@ export function AppShell() {
         onBackgroundTaskDone={handleBackgroundTaskDone}
         onRunningSessionIdsChange={handleRunningSessionIdsChange}
         onSessionsChange={handleSessionsChange}
-        onQuickActions={() => setQuickActionsOpen(true)}
       />
       <div className="workspace-settings-entry">
         <button

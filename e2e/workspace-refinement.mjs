@@ -147,8 +147,9 @@ export async function runWorkflowPolishChecks(page, { baseURL, outputDir, projec
   running = false; await page.evaluate(() => window.__polishFeed({ type: 'agent_end', messages: [] }));
   checks.push('shortcut: IME, Escape, focus and draft preserved; no abort');
 
+  check(await page.locator('.sidebar-quick-search button').count() === 0, 'The sidebar search has no shortcut button taking input space');
   const openMenu = async query => {
-    await page.locator('.quick-actions-trigger').click();
+    await page.keyboard.press('Meta+k');
     await dialog.waitFor();
     await dialog.getByRole('combobox').fill(query);
   };

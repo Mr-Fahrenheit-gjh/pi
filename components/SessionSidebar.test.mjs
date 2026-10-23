@@ -128,6 +128,7 @@ test("on a desktop the files sit below the sessions by default, both in view", (
   assert.match(html, /<div class="sidebar-header"><button type="button" class="sidebar-brand" aria-label="Switch agent" aria-haspopup="menu" aria-expanded="false">Pi Web<\/button><span class="sidebar-header-spacer"><\/span><\/div><div class="sidebar-quick-actions">/);
   assert.doesNotMatch(html, /role="tablist"|role="tab"|role="tabpanel"|View options|sidebar-title/);
   assert.match(html, /class="sidebar-quick-search"[\s\S]*?<input id="session-search-input" type="search"/);
+  assert.doesNotMatch(source, /quick-actions-trigger|⌘K|onQuickActions/, "the search field has no shortcut button or reserved trigger");
   assert.match(html, /class="sidebar-quick-new"[\s\S]*?<span>New<\/span>/);
   assert.doesNotMatch(html, /class="sidebar-new-button"|class="sidebar-search-toggle"/);
   // Two regions, both shown: the sessions, the separator, the files.
