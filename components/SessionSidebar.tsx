@@ -228,6 +228,7 @@ interface Props {
   onRunningSessionIdsChange?: (ids: Set<string>) => void;
   onAwaitingInputSessionIdsChange?: (ids: Set<string>) => void;
   onUnreadSessionIdsChange?: (ids: Set<string>) => void;
+  onDesignDecksChange?: (decks: import("@/lib/design-deck").DesignDeckPresentation[]) => void;
   onSessionsChange?: (sessions: SessionInfo[]) => void;
 }
 
@@ -487,7 +488,7 @@ function buttonAnchor(element: HTMLElement, align: "start" | "end"): SidebarMenu
   return { kind: "rect", rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }, align };
 }
 
-export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSession, controlRef, onNewSessionContextChange, initialSessionId, initialSessionLinked, skipInitialProjectSelection, onInitialRestoreDone, refreshKey, onSessionDeleted, selectedCwd: selectedCwdProp, onCwdChange, onOpenFile, onOpenTerminal, explorerRefreshKey, onExplorerRefresh, onAtMention, onAtMentions, onBackgroundTaskDone, onRunningSessionIdsChange, onAwaitingInputSessionIdsChange, onUnreadSessionIdsChange, onSessionsChange }: Props) {
+export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSession, controlRef, onNewSessionContextChange, initialSessionId, initialSessionLinked, skipInitialProjectSelection, onInitialRestoreDone, refreshKey, onSessionDeleted, selectedCwd: selectedCwdProp, onCwdChange, onOpenFile, onOpenTerminal, explorerRefreshKey, onExplorerRefresh, onAtMention, onAtMentions, onBackgroundTaskDone, onRunningSessionIdsChange, onAwaitingInputSessionIdsChange, onUnreadSessionIdsChange, onDesignDecksChange, onSessionsChange }: Props) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const [allSessions, setAllSessions] = useState<SessionInfo[]>([]);
@@ -899,8 +900,10 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
           awaitingInputSessionIds?: string[];
           completionNotificationSuppressedSessionIds?: string[];
           sessionUiStateRevision?: number | null;
+          designDecks?: import("@/lib/design-deck").DesignDeckPresentation[];
         };
         if (stopped || controller !== current) return;
+        onDesignDecksChange?.(data.designDecks ?? []);
         runningPollAuthoritativeRef.current = true;
         currentSuppressedCompletionSessionIdsRef.current = new Set(
           data.completionNotificationSuppressedSessionIds ?? [],
@@ -939,7 +942,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
       controller?.abort();
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [loadSessions, noteUiRevision]);
+  }, [loadSessions, noteUiRevision, onDesignDecksChange]);
 
   useEffect(() => {
     onRunningSessionIdsChange?.(runningSessionIds);

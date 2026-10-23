@@ -7,8 +7,10 @@ import { browserRequest, createBrowserWriter } from "@/lib/browser-client";
 import type { BrowserCommand, BrowserEvent, BrowserPageState } from "@/lib/browser-types";
 
 const modifiers = (e: { altKey: boolean; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => (e.altKey ? 1 : 0) | (e.ctrlKey ? 2 : 0) | (e.metaKey ? 4 : 0) | (e.shiftKey ? 8 : 0);
-export function NativeBrowser({ url, onNavigate, collapsed, controlsId, active, onExpand }: {
+export function NativeBrowser({ url, onNavigate, collapsed, controlsId, active, onExpand, presentationId }: {
   url: string; onNavigate: (url: string) => void; collapsed: boolean; controlsId: string; active: boolean; onExpand: () => void;
+  /** Host-owned presentation: reconnect across reloads; only its live registry closes the page. */
+  presentationId?: string;
 }) {
   const { t } = useI18n();
   const surface = useRef<HTMLDivElement>(null);
@@ -34,22 +36,28 @@ export function NativeBrowser({ url, onNavigate, collapsed, controlsId, active, 
   useEffect(() => {
     mounted.current = true;
     const browserId = id.current;
-    return () => { mounted.current = false; void writer.current?.stop(); void fetch(`/api/browser/${browserId}`, { method: "DELETE", keepalive: true }).catch(() => {}); };
-  }, []);
+    return () => {
+      mounted.current = false; void writer.current?.stop();
+      if (!presentationId) void fetch(`/api/browser/${browserId}`, { method: "DELETE", keepalive: true }).catch(() => {});
+    };
+  }, [presentationId]);
   useEffect(() => {
     if (!active || ready) return;
     let cancelled = false;
     const rect = surface.current?.getBoundingClientRect();
-    if (!creation.current) creation.current = browserRequest("/api/browser", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id.current, url: latestUrl.current, width: Math.max(200, Math.min(2400, Math.round(rect?.width || 1000))), height: Math.max(150, Math.min(1600, Math.round(rect?.height || 800))) }) });
+    if (!creation.current) creation.current = browserRequest("/api/browser", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id.current, url: latestUrl.current, ...(presentationId ? { designDeckId: presentationId } : {}), width: Math.max(200, Math.min(2400, Math.round(rect?.width || 1000))), height: Math.max(150, Math.min(1600, Math.round(rect?.height || 800))) }) });
     creation.current.then(result => {
-      if (!mounted.current) { void fetch(`/api/browser/${id.current}`, { method: "DELETE", keepalive: true }); return; }
+      if (!mounted.current) {
+        if (!presentationId) void fetch(`/api/browser/${id.current}`, { method: "DELETE", keepalive: true });
+        return;
+      }
       if (cancelled || !result.state) return;
       actualUrl.current = result.state.url; setPage(result.state);
       writer.current = createBrowserWriter(id.current, e => { if (mounted.current) setError(e.message); });
       setClosed(false); setReady(true); setError(result.state.error ?? "");
     }).catch((e: Error) => { creation.current = null; if (!cancelled) setError(e.message); });
     return () => { cancelled = true; };
-  }, [active, ready, reopen]);
+  }, [active, ready, reopen, presentationId]);
   useEffect(() => {
     setAddress(url);
     if (ready && url !== actualUrl.current) {

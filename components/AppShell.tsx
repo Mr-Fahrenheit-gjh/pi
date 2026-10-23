@@ -23,6 +23,8 @@ import { SubagentViewer } from "./SubagentViewer";
 import { AgentWorkspace } from "./AgentWorkspace";
 import { TodoWorkspace } from "./TodoWorkspace";
 import { OutputsWorkspace } from "./OutputsWorkspace";
+import { DesignDeckWorkspace } from "./DesignDeckWorkspace";
+import { sameDesignDecks, type DesignDeckPresentation } from "@/lib/design-deck";
 import { QuickActions, type QuickAction } from "./QuickActions";
 import { ServiceRestartButton } from "./ServiceRestartButton";
 import { usePackageSubagents } from "@/hooks/usePackageSubagents";
@@ -643,12 +645,22 @@ export function AppShell() {
   // Subagent work tabs are session-scoped and transient: no persistence, and
   // they are dropped when the project changes (they belong to its sessions).
   const [agentTabs, setAgentTabs] = useState<{ sessionId: string; label: string }[]>([]);
+  const [designDecks, setDesignDecks] = useState<DesignDeckPresentation[]>([]);
+  const openedDesignDecks = useRef(new Set<string>());
+  const handleDesignDecksChange = useCallback((decks: DesignDeckPresentation[]) => {
+    const liveIds = new Set(decks.map(deck => deck.id));
+    for (const id of openedDesignDecks.current) if (!liveIds.has(id)) openedDesignDecks.current.delete(id);
+    setDesignDecks(previous => sameDesignDecks(previous, decks) ? previous : decks);
+  }, []);
+  const selectedDesignDeck = designDecks.find(deck => deck.sessionId === selectedSession?.id);
+  const selectedDesignDeckId = selectedDesignDeck?.id;
   const panelTabs: Tab[] = [
     ...(selectedSession ? [
       { id: "todo:overview", label: translate("workspace.todos"), filePath: "", kind: "todo" as const, pinned: true },
       { id: "agent:overview", label: translate("common.agents"), filePath: "", kind: "agent" as const, pinned: true },
       { id: "outputs:overview", label: translate("outputs.title"), filePath: "", kind: "outputs" as const, pinned: true },
     ] : []),
+    ...(selectedDesignDeck ? [{ id: "design-deck:active", label: "Design Deck", filePath: "", kind: "design-deck" as const, pinned: true }] : []),
     ...fileTabs,
     ...terminalTabs.map((tab) => ({
       id: tab.id,
@@ -1451,6 +1463,18 @@ export function AppShell() {
     if (cwd === projectTrustCwd) setProjectTrust(status);
   }, [projectTrustCwd]);
 
+  useEffect(() => {
+    if (!selectedDesignDeckId) {
+      setActiveFileTabId(current => current === "design-deck:active" ? null : current);
+      return;
+    }
+    if (openedDesignDecks.current.has(selectedDesignDeckId)) return;
+    openedDesignDecks.current.add(selectedDesignDeckId);
+    setActiveFileTabId("design-deck:active");
+    setRightPanelOpen(true);
+    if (isMobile) setSidebarOpen(false);
+  }, [selectedDesignDeckId, isMobile]);
+
   const activePanelTabId = activeFileTabId ?? (selectedSession ? "todo:overview" : "");
   const activeFileTab = fileTabs.find((tab) => tab.id === activeFileTabId) ?? null;
   const quickCwd = selectedSession?.cwd ?? newSessionCwd ?? activeCwd;
@@ -1521,6 +1545,7 @@ export function AppShell() {
         onRunningSessionIdsChange={handleRunningSessionIdsChange}
         onAwaitingInputSessionIdsChange={setAwaitingInputSessionIds}
         onUnreadSessionIdsChange={setUnreadSessionIds}
+        onDesignDecksChange={handleDesignDecksChange}
         onSessionsChange={handleSessionsChange}
       />
       <div className="workspace-settings-entry">
@@ -2370,11 +2395,17 @@ export function AppShell() {
                 { sourceSessionId: activeFileTab.sourceSessionId, page },
               )}
             />
-          ) : !terminalTabs.some((tab) => tab.id === activeFileTabId) && !activeAgentTab ? (
+          ) : activePanelTabId !== "design-deck:active" && !terminalTabs.some((tab) => tab.id === activeFileTabId) && !activeAgentTab ? (
             <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-dim)", fontSize: 12 }}>
                {translate("files.noneOpen")}
             </div>
           ) : null}
+          {designDecks.map(deck => {
+            const selected = deck.id === selectedDesignDeckId && activePanelTabId === "design-deck:active";
+            return <div key={deck.id} hidden={!selected} style={{ width: "100%", height: "100%" }}>
+              <DesignDeckWorkspace deck={deck} active={selected && (rightPanelOpen || rightPanelPreviewOpen)} />
+            </div>;
+          })}
           {terminalTabs.map((tab) => (
             <div key={tab.id} hidden={tab.id !== activeFileTabId} style={{ width: "100%", height: "100%" }}>
               <TerminalPanel

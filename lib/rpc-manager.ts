@@ -22,6 +22,7 @@ import { notifySessionComplete } from "./web-push";
 import { hasActiveSessionLivenessProvider } from "./session-liveness";
 import { assertServiceNotRestarting } from "./service-restart-state";
 import { createPackageSubagentExtension } from "./package-subagent-bridge";
+import { createDesignDeckExtension } from "./design-deck-bridge";
 import { createRuntimePeerExtension } from "./runtime-peer-extension";
 import type { SlashCommandInfo } from "@earendil-works/pi-coding-agent";
 import type { AgentSessionLike, ExtensionUiContextLike, ToolInfo } from "./pi-types";
@@ -2577,6 +2578,7 @@ export async function startRpcSession(
         ?? (chatOnly ? subagentResources.appendSystemPrompt[0] ?? "" : undefined),
     }) : undefined;
     const subagentExtensionFactories = [
+      createDesignDeckExtension(),
       ...(subagentCodemode ? [subagentCodemode] : []),
       ...(subagentMcp && subagentResources
         ? [...subagentMcp.extensions, createSubagentMcpPolicyExtension(() => subagentResources)]
@@ -2610,6 +2612,7 @@ export async function startRpcSession(
               ...(builtins?.extensions ?? []),
               createReadOnlyMcpPolicyExtension(),
               createPackageSubagentExtension(),
+              createDesignDeckExtension(),
               createRuntimePeerExtension(),
               createProjectCommandBashExtension({
                 cwd: sessionCwd,

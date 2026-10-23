@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getDesignDecks } from "@/lib/design-deck-bridge";
 import { getSessionListVersion } from "@/lib/session-reader";
 import {
   getAwaitingInputRpcSessionIds,
@@ -17,6 +18,7 @@ export async function GET() {
   return NextResponse.json(
     {
       sessionListVersion: getSessionListVersion(),
+      designDecks: getDesignDecks(),
       runningSessionIds: getRunningRpcSessionIds(),
       otherRuntimeRunningSessionIds: feynmanRestartBlockingIds(),
       awaitingInputSessionIds: getAwaitingInputRpcSessionIds(),
