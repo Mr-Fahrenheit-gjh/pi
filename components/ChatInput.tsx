@@ -1041,6 +1041,37 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
     });
   }, [draftKey]);
 
+  useEffect(function restoreComposerFocus() {
+    if (compact) return;
+    const focusInput = (entering = false) => {
+      const textarea = textareaRef.current;
+      // Check the live viewport: useIsMobile initially reports the SSR desktop value.
+      if (!textarea || window.matchMedia("(max-width: 640px), (pointer: coarse)").matches
+        || document.visibilityState !== "visible" || !document.hasFocus()
+        || !textarea.isConnected || textarea.getClientRects().length === 0
+        || textarea.closest('[inert], [aria-hidden="true"]')) return;
+      if (Array.from(document.querySelectorAll('dialog[open], [role="dialog"], [role="alertdialog"], [role="menu"], [aria-modal="true"]'))
+        .some((element) => element.getClientRects().length > 0)) return;
+      if (window.getSelection()?.isCollapsed === false) return;
+
+      const active = document.activeElement;
+      if (active === textarea) return; // Keep the existing caret/selection untouched.
+      const clickedNavigation = entering && active?.matches('.session-tree-main, .sidebar-new-button')
+        && !active.matches(":focus-visible");
+      if (active && active !== document.body && active !== document.documentElement && !clickedNavigation) return;
+      textarea.focus({ preventScroll: true });
+    };
+    const restoreFocus = () => focusInput();
+    const frame = requestAnimationFrame(() => focusInput(true));
+    window.addEventListener("focus", restoreFocus);
+    document.addEventListener("visibilitychange", restoreFocus);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("focus", restoreFocus);
+      document.removeEventListener("visibilitychange", restoreFocus);
+    };
+  }, [compact, draftKey]);
+
   const resizeTextarea = useCallback(() => {
     const ta = textareaRef.current;
     if (!ta) return;
