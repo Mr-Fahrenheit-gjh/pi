@@ -1,0 +1,45 @@
+.figure {
+  --visual-blue: #2563eb;
+  --visual-orange: #ba581d;
+  --visual-green: #16805c;
+  --visual-purple: #8550c5;
+  --visual-red: #c64251;
+  margin: 16px 0;
+  max-width: 640px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  overflow: hidden;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  contain: layout;
+}
+.figure[data-dark="true"] {
+  --visual-blue: #80b0ff;
+  --visual-orange: #f3aa79;
+  --visual-green: #70d4ad;
+  --visual-purple: #c0a0f4;
+  --visual-red: #fa929e;
+}
+.heading { padding: 13px 16px 0; color: var(--text); font-size: 14px; font-weight: 600; }
+.plot { display: block; width: 100%; height: auto; max-height: 364px; font: 12px var(--font-ui); }
+.grid { stroke: var(--border); stroke-width: .7; }
+.axes { stroke: var(--text-muted); stroke-width: 1.2; }
+.tickLabels { fill: var(--text-muted); font-size: 11px; }
+.draggable { cursor: grab; touch-action: none; }
+.draggable:active { cursor: grabbing; }
+.draggable:focus-visible { outline: none; }
+.draggable:focus-visible circle:last-of-type { stroke: var(--text); stroke-width: 3; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 0 16px 10px; font-size: 12px; }
+.parameters { display: flex; align-items: end; flex-wrap: wrap; gap: 12px 18px; padding: 12px 16px; border-top: 1px solid var(--border); }
+.parameter { display: grid; flex: 1 1 150px; min-width: 0; gap: 7px; color: var(--text-muted); }
+.parameter > span { display: flex; justify-content: space-between; gap: 16px; }
+.parameter output, .readouts output { color: var(--text); font-variant-numeric: tabular-nums; }
+.parameter input { width: 100%; min-width: 0; margin: 0; accent-color: var(--visual-blue); }
+.parameters button { padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text-muted); font: inherit; cursor: pointer; }
+.parameters button:hover { color: var(--text); background: var(--bg-hover); }
+.readouts { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 0 16px 13px; color: var(--text-muted); }
+.readouts output { margin-left: 6px; font-weight: 600; }
+.status { min-height: 52px; display: flex; align-items: center; margin: 16px 0; padding: 12px 16px; border-left: 2px solid var(--border); color: var(--text-muted); font: 13px/1.5 var(--font-ui); }
+.note { margin: 0 !important; padding: 0 16px 12px; color: var(--text-muted); font: 12px/1.5 var(--font-ui); }

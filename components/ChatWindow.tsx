@@ -16,6 +16,7 @@ import { getFinalAnswerViews, keepWrittenFiles, type FinalAnswerViews } from "@/
 import { buildQuotedSelection } from "@/lib/quoted-selection";
 import { chatAttachmentMentionText, splitDroppedItems, uploadChatAttachments, type DroppedItem } from "@/lib/file-upload-client";
 import { MessageView } from "./MessageView";
+import { InlineVisualSessionState } from "./InlineVisual";
 import { MarkdownBody } from "./MarkdownBody";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
 import { getPromptSuggestion } from "@/lib/prompt-suggestions";
@@ -1087,6 +1088,7 @@ export function ChatWindow({ session, packageTarget, showSubagentPanel = false, 
           style={{ visibility: pendingScrollRestore ? "hidden" : undefined }}
         >
           <div style={{ minWidth: 0, padding: `0 ${CHAT_COLUMN_PADDING}px` }}>
+            <InlineVisualSessionState key={session?.id ?? sessionIdRef.current}>
             <div ref={messageContentRef} onPointerUp={captureQuotedSelection} style={{ width: "100%", minWidth: 0, maxWidth: "var(--chat-content-max-width, 820px)", margin: "0 auto" }}>
             {(() => {
               let lastUserIdx = -1;
@@ -1355,6 +1357,7 @@ export function ChatWindow({ session, packageTarget, showSubagentPanel = false, 
 
             <div ref={promptAnchorSpacerRef} aria-hidden="true" />
             </div>
+            </InlineVisualSessionState>
           </div>
         </div>
         {isMobile || pendingScrollRestore ? null : (

@@ -4,6 +4,7 @@ import { runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
 import { memo, useState, useRef, useEffect, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { MarkdownBody } from "./MarkdownBody";
+import { InlineVisualMessageState } from "./InlineVisual";
 import { ProviderIcon } from "./ProviderIcon";
 import { modelManufacturerIcon } from "@/lib/model-manufacturer";
 import { ImagePreview } from "./ImagePreview";
@@ -845,7 +846,9 @@ function AssistantMessageView({
         {/* Not keyed by the entry id: a message of this run gets one when the file is
             read again, and its blocks keep their state across that read (#1184). */}
         {blockItems.map(({ block, originalIndex }) => (
-          <BlockView key={originalIndex} block={block} searchTarget={block === searchBlock} toolResults={toolResults} isStreaming={isStreaming} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} />
+          <InlineVisualMessageState key={originalIndex} identity={`${message.timestamp}:${block.type}:${message.content.slice(0, originalIndex).filter(item => item.type === block.type).length}`}>
+            <BlockView block={block} searchTarget={block === searchBlock} toolResults={toolResults} isStreaming={isStreaming} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} />
+          </InlineVisualMessageState>
         ))}
       </div>
 
@@ -982,7 +985,7 @@ function BlockView({ block, searchTarget, toolResults, isStreaming, streamingDur
 }
 
 function TextBlock({ block, isStreaming, cwd, onOpenFile }: { block: TextContent; isStreaming?: boolean; cwd?: string; onOpenFile?: (filePath: string, page?: number) => void }) {
-  return <SafeMarkdownBody className="markdown-assistant-message" isStreaming={isStreaming} cwd={cwd} onOpenFile={onOpenFile}>{block.text}</SafeMarkdownBody>;
+  return <SafeMarkdownBody className="markdown-assistant-message" allowInlineVisuals isStreaming={isStreaming} cwd={cwd} onOpenFile={onOpenFile}>{block.text}</SafeMarkdownBody>;
 }
 
 export function ThinkingBlock({ block, duration, sessionId, entryId, blockIndex }: {

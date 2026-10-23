@@ -53,6 +53,7 @@ import { isBuiltInSubagentsEnabled } from "./subagent-settings";
 import { resolveShellTools } from "./powershell-settings";
 import { CHAT_ONLY_RESOURCE_LOADER_OPTIONS, contextFilesSystemPrompt } from "./chat-only";
 import { createExactSystemPromptExtension } from "./exact-system-prompt";
+import { bindInlineVisualPrompt, createInlineVisualExtension, updateInlineVisualPreference, type InlineVisualPreference } from "./inline-visual-prompt";
 import { createPiWebBuiltinExtensions, createSubagentCodemodeExtension, createSubagentMcpExtensions } from "./builtin-extensions";
 import type { McpHost } from "./mcp-host";
 import { mcpPromptPreparation, type McpCommandCandidate } from "./mcp-command";
@@ -136,6 +137,7 @@ type ExtensionCommandContextActionsLike = {
 
 type AgentSessionWrapperOptions = {
   exactSystemPrompt?: () => string;
+  inlineVisualPreference?: InlineVisualPreference;
   chatOnly?: boolean;
   onAgentRunComplete?: AgentRunCompleteListener;
   suppressCompletionNotifications?: boolean;
@@ -333,6 +335,7 @@ export class AgentSessionWrapper {
   private extensionBindingPromise: Promise<void> | null = null;
   private extensionBindingError: unknown = null;
   private readonly exactSystemPrompt?: () => string;
+  private readonly inlineVisualPreference?: InlineVisualPreference;
   private readonly chatOnly: boolean;
   private readonly onAgentRunComplete?: AgentRunCompleteListener;
   private readonly suppressCompletionNotifications: boolean;
@@ -361,6 +364,7 @@ export class AgentSessionWrapper {
     options: AgentSessionWrapperOptions = {},
   ) {
     this.exactSystemPrompt = options.exactSystemPrompt;
+    this.inlineVisualPreference = options.inlineVisualPreference;
     this.chatOnly = options.chatOnly ?? false;
     this.onAgentRunComplete = options.onAgentRunComplete;
     this.suppressCompletionNotifications = options.suppressCompletionNotifications ?? false;
@@ -851,6 +855,7 @@ export class AgentSessionWrapper {
         throw new Error("Prompt admission cancelled by Stop");
       }
 
+      updateInlineVisualPreference(this.inlineVisualPreference, type, command.inlineVisuals);
       switch (type) {
       case "prompt":
       case "steer": {
@@ -2549,6 +2554,7 @@ export async function startRpcSession(
     // system prompt. The prompt is resolved at prompt time through this inline
     // extension: it may read the session's context files, which exist only
     // after the session is created, so the getter is filled in below.
+    const inlineVisualPreference: InlineVisualPreference = {};
     const exactSystemPromptRef: { current?: () => string } = {};
     const exactSystemPromptExtension = createExactSystemPromptExtension(() => exactSystemPromptRef.current?.());
     // codemode, tool-search, and mcp, as the pi CLI loads them, and the host that decides
@@ -2606,11 +2612,12 @@ export async function startRpcSession(
             appendSystemPrompt: subagentResources.appendSystemPrompt,
           }
         : chatOnly
-          ? { ...CHAT_ONLY_RESOURCE_LOADER_OPTIONS, extensionFactories: [exactSystemPromptExtension] }
+          ? { ...CHAT_ONLY_RESOURCE_LOADER_OPTIONS, extensionFactories: [exactSystemPromptExtension, createInlineVisualExtension(inlineVisualPreference)] }
         : {
             extensionFactories: [
               ...(builtins?.extensions ?? []),
               createReadOnlyMcpPolicyExtension(),
+              createInlineVisualExtension(inlineVisualPreference),
               createPackageSubagentExtension(),
               createDesignDeckExtension(),
               createRuntimePeerExtension(),
@@ -2735,6 +2742,7 @@ export async function startRpcSession(
     }
 
     skillsBinding?.setActiveToolsGetter(() => inner.getActiveToolNames());
+    if (!subagentResources) bindInlineVisualPrompt(inner.agent, inlineVisualPreference);
     const exactSystemPrompt = subagentResources
       ? skillsBinding!.getExactSystemPrompt
       : chatOnly
@@ -2744,6 +2752,7 @@ export async function startRpcSession(
     const mcpHost = builtins?.mcpHost ?? subagentMcp?.mcpHost;
     const wrapper = new AgentSessionWrapper(inner, {
       exactSystemPrompt,
+      ...(!subagentResources ? { inlineVisualPreference } : {}),
       chatOnly,
       onAgentRunComplete: (completedSessionId, sessionName) => {
         void notifySessionComplete(completedSessionId, sessionName).catch((error) => {

@@ -8,8 +8,32 @@ import { markdownAppUrlTransform, markdownRehypePlugins, markdownRemarkPlugins, 
 import { splitMarkdownBlocks } from "@/lib/markdown-blocks";
 import { ImagePreview } from "./ImagePreview";
 import { MermaidBlock, CodeBlock } from "./MermaidBlock";
+import { InlineVisualBlock, useInlineVisualValues, type VisualValueCache } from "./InlineVisual";
+import { INLINE_VISUAL_LANGUAGE, isClosedVisualFence } from "@/lib/inline-visual";
 
 const MarkdownLinkContext = createContext(false);
+const MarkdownSourceContext = createContext<{
+  markdown: string; offset: number; isStreaming: boolean; allowInlineVisuals: boolean; visualValues: VisualValueCache;
+} | null>(null);
+
+function MarkdownCode({ className, children, node, ...props }: ComponentProps<"code"> & ExtraProps) {
+  const source = useContext(MarkdownSourceContext);
+  const lang = className?.replace("language-", "").toLowerCase() ?? "";
+  const raw = String(children);
+  if (className?.includes("language-") || raw.includes("\n")) {
+    const code = raw.replace(/\n$/, "");
+    if (lang === INLINE_VISUAL_LANGUAGE && source?.allowInlineVisuals) {
+      const start = node?.position?.start.offset;
+      return <InlineVisualBlock source={code}
+        ready={isClosedVisualFence(source.markdown, start, node?.position?.end.offset)}
+        isStreaming={source.isStreaming} cache={source.visualValues}
+        cacheKey={`${source.offset + (start ?? 0)}:${code}`} />;
+    }
+    if (lang === "mermaid") return <MermaidBlock code={code} isStreaming={source?.isStreaming} defaultPreview />;
+    return <CodeBlock code={code} lang={lang} isStreaming={source?.isStreaming} />;
+  }
+  return <code className="markdown-inline-code" {...props}>{children}</code>;
+}
 
 interface MarkdownBodyProps {
   children: string;
@@ -19,6 +43,8 @@ interface MarkdownBodyProps {
   onOpenFile?: (filePath: string, page?: number) => void;
   /** Render every line ending as a line break, for text the user typed. */
   keepLineBreaks?: boolean;
+  /** Only assistant answer blocks opt in; quoted/user/tool content stays code. */
+  allowInlineVisuals?: boolean;
 }
 
 function MarkdownImage({
@@ -50,11 +76,17 @@ interface MarkdownBlockProps {
   remarkPlugins: typeof markdownRemarkPlugins;
   urlTransform: typeof markdownUrlTransform;
   components: Components;
+  offset: number;
+  isStreaming: boolean;
+  allowInlineVisuals: boolean;
+  visualValues: VisualValueCache;
 }
 
 /** One parse; skipped while its text and renderers stay the same. */
-const MarkdownBlock = memo(function MarkdownBlock({ markdown, remarkPlugins, urlTransform, components }: MarkdownBlockProps) {
+const MarkdownBlock = memo(function MarkdownBlock({ markdown, remarkPlugins, urlTransform, components, offset, isStreaming, allowInlineVisuals, visualValues }: MarkdownBlockProps) {
+  const source = useMemo(() => ({ markdown, offset, isStreaming, allowInlineVisuals, visualValues }), [markdown, offset, isStreaming, allowInlineVisuals, visualValues]);
   return (
+    <MarkdownSourceContext.Provider value={source}>
     <ReactMarkdown
       remarkPlugins={remarkPlugins}
       rehypePlugins={markdownRehypePlugins}
@@ -63,10 +95,12 @@ const MarkdownBlock = memo(function MarkdownBlock({ markdown, remarkPlugins, url
     >
       {markdown}
     </ReactMarkdown>
+    </MarkdownSourceContext.Provider>
   );
 });
 
-export const MarkdownBody = memo(function MarkdownBody({ children, className, isStreaming, cwd, onOpenFile, keepLineBreaks }: MarkdownBodyProps) {
+export const MarkdownBody = memo(function MarkdownBody({ children, className, isStreaming = false, cwd, onOpenFile, keepLineBreaks, allowInlineVisuals = false }: MarkdownBodyProps) {
+  const visualValues = useInlineVisualValues();
   const normalizedMarkdown = useMemo(() => normalizeDisplayMath(children), [children]);
   // A streaming reply grows by a few characters per chunk; parsing all of it
   // each time made a long reply quadratic. Its finished blocks keep their
@@ -77,31 +111,7 @@ export const MarkdownBody = memo(function MarkdownBody({ children, className, is
   );
   // Stable renderer identities keep stateful blocks mounted across message hover updates.
   const components = useMemo<Components>(() => ({
-    code({ className, children, ...props }) {
-      const lang = className?.replace("language-", "").toLowerCase() ?? "";
-      const raw = String(children);
-      const isBlock = className?.includes("language-") || raw.includes("\n");
-      if (isBlock) {
-        if (lang === "mermaid") {
-          return (
-            <MermaidBlock
-              code={raw.replace(/\n$/, "")}
-              isStreaming={isStreaming}
-              defaultPreview
-            />
-          );
-        }
-        return <CodeBlock code={raw.replace(/\n$/, "")} lang={lang} isStreaming={isStreaming} />;
-      }
-      return (
-        <code
-          className="markdown-inline-code"
-          {...props}
-        >
-          {children}
-        </code>
-      );
-    },
+    code: MarkdownCode,
     pre({ children }) {
       return <>{children}</>;
     },
@@ -153,19 +163,26 @@ export const MarkdownBody = memo(function MarkdownBody({ children, className, is
         </div>
       );
     },
-  }), [cwd, isStreaming, onOpenFile]);
+  }), [cwd, onOpenFile]);
 
+  let offset = 0;
   return (
     <div className={["markdown-body", className].filter(Boolean).join(" ")}>
-      {blocks.map((block, index) => (
-        <MarkdownBlock
+      {blocks.map((block, index) => {
+        const blockOffset = offset;
+        offset += block.length;
+        return <MarkdownBlock
           key={index}
           markdown={block}
+          offset={blockOffset}
+          isStreaming={isStreaming}
+          allowInlineVisuals={allowInlineVisuals}
+          visualValues={visualValues}
           remarkPlugins={keepLineBreaks ? markdownUserRemarkPlugins : markdownRemarkPlugins}
           urlTransform={onOpenFile ? markdownUrlTransform : markdownAppUrlTransform}
           components={components}
-        />
-      ))}
+        />;
+      })}
     </div>
   );
 });

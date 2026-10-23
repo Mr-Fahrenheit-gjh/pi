@@ -18,6 +18,8 @@ import {
 import { useEnterSendMode, setEnterSendMode } from "@/hooks/useEnterSendMode";
 import { useRunningSendMode, setRunningSendMode } from "@/hooks/useRunningSendMode";
 import { useFilesPlacement, setFilesPlacement } from "@/hooks/useFilesPlacement";
+import { useInlineVisuals } from "@/hooks/useInlineVisuals";
+import { setInlineVisualsEnabled } from "@/lib/inline-visual-preference";
 import { useArchiveVisibility, setArchiveVisibility } from "@/hooks/useArchiveVisibility";
 import { sendAgentCommand } from "@/lib/agent-client";
 import type { ProjectTrustStatus, ToolSettingsResponse } from "@/lib/api-types";
@@ -85,6 +87,7 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
   const enterSendMode = useEnterSendMode();
   const runningSendMode = useRunningSendMode();
   const filesPlacement = useFilesPlacement();
+  const inlineVisualsEnabled = useInlineVisuals();
   const showArchived = useArchiveVisibility();
   const [shellSettings, setShellSettings] = useState<ToolSettingsResponse | null>(null);
   const [shellSaving, setShellSaving] = useState(false);
@@ -291,6 +294,11 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
               onChange={onQuoteSelectionChange}
             />
           </div>
+          <div className="settings-chat-option settings-chat-switch-option">
+            <span>{t("settings.inlineVisuals")}</span>
+            <ConfigSwitch checked={inlineVisualsEnabled} label={t("settings.inlineVisuals")} onChange={setInlineVisualsEnabled} />
+          </div>
+          <p className="settings-general-description">{t("settings.inlineVisualsDescription")}</p>
           <div className="settings-chat-option settings-chat-switch-option" role="radiogroup" aria-label={t("settings.enterSendMode")}>
             <span>{t("settings.enterSendMode")}</span>
             <div className="settings-send-mode-options">
