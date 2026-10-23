@@ -154,7 +154,7 @@ export async function runWorkflowPolishChecks(page, { baseURL, outputDir, projec
     await dialog.getByRole('combobox').fill(query);
   };
   await openMenu('');
-  const topCommands = ['New conversation in this project', 'Open project terminal', 'Files from this conversation', 'Fork this conversation', 'Open conversation folder in Finder'];
+  const topCommands = ['New conversation in this project', 'Open project terminal', 'Files from this conversation', 'Rename this conversation', 'Fork this conversation', 'Open conversation folder in Finder'];
   for (const [index, label] of topCommands.entries()) check((await dialog.getByRole('option').nth(index).textContent()).startsWith(label), `Command ${index + 1} stays ahead of conversation results: ${label}`);
   check(await dialog.getByRole('option').filter({ hasText: 'Polish second conversation' }).count() === 1, 'Recent conversations follow the commands');
   check(await dialog.getByRole('option').filter({ hasText: /Focus message|Show sidebar|Hide sidebar|Settings|Pin file/ }).count() === 0, 'No low-value focus/sidebar/settings/pin placeholders');
@@ -198,6 +198,30 @@ export async function runWorkflowPolishChecks(page, { baseURL, outputDir, projec
   check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'No horizontal page overflow');
   checks.push('native polish: reduced motion and bounded layout; no model requests or page errors');
 
+  const renameRequests = [];
+  const collectRename = request => {
+    if (new URL(request.url()).pathname === '/api/sessions/workspace-other-fixture' && request.method() === 'PATCH') renameRequests.push(request.postDataJSON());
+  };
+  page.on('request', collectRename);
+  await openMenu('rename');
+  await dialog.getByRole('option').filter({ hasText: 'Rename this conversation' }).click();
+  const renameInput = page.locator('.session-tree-rename');
+  await renameInput.waitFor();
+  check(await renameInput.evaluate(node => document.activeElement === node), 'Rename focuses the existing sidebar editor');
+  await renameInput.fill('CANCELLED_RENAME'); await renameInput.press('Escape');
+  await renameInput.waitFor({ state: 'hidden' });
+  check(renameRequests.length === 0, 'Escape cancels Rename without writing');
+  await openMenu('rename');
+  await dialog.getByRole('option').filter({ hasText: 'Rename this conversation' }).click();
+  await renameInput.waitFor(); await renameInput.fill('Renamed polish conversation');
+  const renameResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/sessions/workspace-other-fixture' && response.request().method() === 'PATCH');
+  await renameInput.press('Enter');
+  check((await renameResponse).ok(), 'Rename saves through the existing session API');
+  await page.locator('[data-row-key$=":workspace-other-fixture"] a.session-tree-main').filter({ hasText: 'Renamed polish conversation' }).waitFor();
+  check(renameRequests.length === 1 && renameRequests[0].name === 'Renamed polish conversation', 'Rename writes once to the current conversation');
+  page.off('request', collectRename);
+  checks.push('rename: existing inline editor, Escape cancels, Enter saves the exact current conversation');
+
   await openMenu('Finder');
   const finderResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/open-in-explorer' && response.request().method() === 'POST');
   await dialog.getByRole('option').filter({ hasText: 'Open conversation folder in Finder' }).click();
@@ -211,6 +235,6 @@ export async function runWorkflowPolishChecks(page, { baseURL, outputDir, projec
   await page.locator(`[data-row-key$=":${forkReply.session.id}"] a.session-tree-main[aria-current="true"]`).waitFor();
   check(!commands.some(command => ['prompt', 'steer', 'follow_up', 'abort', 'fork', 'fork_branch', 'clone'].includes(command.type)), 'No model prompts, stops or in-place agent forks');
   check(errors.length === 0, errors.join('\n'));
-  checks.push('commands: five actions first, Finder cwd through existing API, current-conversation disk Fork opens the copy without agent mutation');
+  checks.push('commands: six actions first, Finder cwd through existing API, current-conversation disk Fork opens the copy without agent mutation');
   return { passed: true, mocked: true, realModelRequests: 0, checks };
 }

@@ -19,6 +19,7 @@ import {
   forgetKeptOpenGroups,
   forgetShownMoreOfFolded,
   isFamilyArchived,
+  isFamilyPinned,
   isGroupExpanded,
   keepOutgoingGroupOpen,
   nextProjectKeysToRecord,
@@ -248,6 +249,8 @@ export interface SessionSidebarControl {
   refreshWorktrees(): void;
   /** Creates a worktree of `project` and lists it at once; the caller starts the session in it. */
   createWorktree(project: ProjectChoice, branch: string): Promise<{ path: string } | { error: string }>;
+  /** Reveals the saved conversation and opens its existing inline rename field. */
+  renameSession(session: SessionInfo): void;
   /** Same disk-only Fork and navigation as the session row menu. */
   forkSession(session: SessionInfo): void;
   /** Explicit conversation cwd, not whichever folder the file browser currently shows. */
@@ -1303,12 +1306,14 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   // The handle below is made once: it calls the newest closure.
   const startNewSessionInRef = useRef(startNewSessionIn);
   startNewSessionInRef.current = startNewSessionIn;
+  const renameSessionRef = useRef<((session: SessionInfo) => void) | null>(null);
   const forkSessionRef = useRef<((session: SessionInfo, fromRowKey: string | null) => Promise<void>) | null>(null);
   const openInFileManagerRef = useRef(openInFileManager);
   openInFileManagerRef.current = openInFileManager;
 
   useImperativeHandle(controlRef, () => ({
     startNewSessionIn: (target) => startNewSessionInRef.current(target),
+    renameSession: (session) => renameSessionRef.current?.(session),
     forkSession: (session) => { void forkSessionRef.current?.(session, null); },
     openDirectoryInFileManager: (cwd) => openInFileManagerRef.current(cwd, true),
     openFolderForNewSession: (onPicked, returnFocusTo) => {
@@ -1803,6 +1808,36 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     setConfirmDeleteRootId(null);
     setRenamingRootId(family.root.id);
   }, []);
+
+  const renameSession = useCallback((session: SessionInfo) => {
+    if (session.transient) return;
+    const family = familyByRootId.get(session.id);
+    if (!family || family.root.transient) return;
+    setSidebarTab("sessions");
+    setSessionSearchQuery("");
+    setSessionSearchOpen(false);
+    const archived = isFamilyArchived(family, uiState, runningSessionIds);
+    setArchiveView(archived);
+    if (isFamilyPinned(family, uiState, runningSessionIds)) {
+      setPinnedCollapsed(false);
+      savePinnedCollapsed(false);
+    } else if (!archived) {
+      const groupKey = workspaceKeyOf(family.root);
+      if (shownGroupExpansion[groupKey] !== true) {
+        saveGroupChoices({ ...groupExpansion, [groupKey]: true }, [groupKey]);
+      }
+    }
+    const ancestors = new Set<string>();
+    let ancestor: SessionInfo | undefined = family.root;
+    while (ancestor && !ancestors.has(ancestor.id)) {
+      ancestors.add(ancestor.id);
+      const relation: SessionInfo["relation"] = ancestor.relation;
+      ancestor = relation?.kind === "fork" && relation.originSessionId ? familyByRootId.get(relation.originSessionId)?.root : undefined;
+    }
+    setBranchExpansion((choices) => Object.fromEntries(Object.entries(choices).filter(([id]) => !ancestors.has(id))));
+    startRename(family);
+  }, [familyByRootId, uiState, runningSessionIds, setArchiveView, shownGroupExpansion, groupExpansion, saveGroupChoices, startRename]);
+  renameSessionRef.current = renameSession;
 
   const commitRename = useCallback(async (family: SessionFamily, renameValue: string) => {
     const session = family.root;

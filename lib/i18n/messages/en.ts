@@ -19,6 +19,7 @@ export const enLocale: LocalePlugin = {
     "quickActions.newConversation": "New conversation in this project",
     "quickActions.terminal": "Open project terminal",
     "quickActions.conversationFiles": "Files from this conversation",
+    "quickActions.renameConversation": "Rename this conversation",
     "quickActions.forkConversation": "Fork this conversation",
     "quickActions.openFinder": "Open conversation folder in Finder",
     "outputs.title": "Outputs",

@@ -19,6 +19,7 @@ export const zhTWLocale: LocalePlugin = {
     "quickActions.newConversation": "在目前專案新增對話",
     "quickActions.terminal": "開啟專案終端",
     "quickActions.conversationFiles": "本對話的檔案",
+    "quickActions.renameConversation": "重新命名目前對話",
     "quickActions.forkConversation": "從目前對話建立 Fork",
     "quickActions.openFinder": "在 Finder 開啟對話工作目錄",
     "outputs.title": "成果",

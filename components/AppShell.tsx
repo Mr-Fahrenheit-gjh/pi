@@ -1463,6 +1463,10 @@ export function AppShell() {
       { id: "terminal", label: translate("quickActions.terminal"), keywords: ["terminal", "shell", "终端", "終端"], run: () => handleOpenTerminal(quickCwd) },
     ] : []),
     ...(selectedSession ? [{ id: "outputs", label: translate("quickActions.conversationFiles"), keywords: ["outputs", "files", "成果", "文件"], run: () => openWorkspace("outputs:overview") }] : []),
+    ...(selectedSession && !selectedSession.transient && selectedSession.relation?.kind !== "subagent" && pageRuntime() === "pi" ? [{
+      id: "rename", label: translate("quickActions.renameConversation"), keywords: ["rename", "title", "重命名", "改名", "重新命名"],
+      run: () => { setRightPanelExpanded(false); setSidebarOpen(true); sidebarControlRef.current?.renameSession(selectedSession); },
+    }] : []),
     ...(selectedSession && !selectedSession.transient && pageRuntime() === "pi" ? [{
       id: "fork", label: translate("quickActions.forkConversation"), keywords: ["fork", "clone", "分叉", "分支"],
       run: () => { setSidebarOpen(true); sidebarControlRef.current?.forkSession(selectedSession); },
