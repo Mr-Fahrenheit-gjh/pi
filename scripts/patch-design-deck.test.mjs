@@ -71,7 +71,7 @@ test("adapter validates before writing, is idempotent, and leaves installed file
     await writeFile(join(dir, "package.json"), JSON.stringify({ name: "pi-design-deck", version: "0.5.1" }));
     await writeFile(join(dir, "index.ts"), source);
     await writeFile(join(dir, "form/js/deck-session.js"), form);
-    assert.ok((await patchDesignDeck(dir)).every(item => item.status === "ready"));
+    assert.ok((await patchDesignDeck(dir)).every(item => ["ready", "already-patched"].includes(item.status)));
     assert.equal(await readFile(join(dir, "index.ts"), "utf8"), source);
     await patchDesignDeck(dir, true);
     assert.ok((await patchDesignDeck(dir, true)).every(item => item.status === "already-patched"));

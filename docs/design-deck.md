@@ -9,8 +9,8 @@
 ## Activation (not performed by source validation)
 
 Both pieces must ship together: this Web source and `scripts/patch-design-deck.mjs`.
-At an authorized, idle release boundary, back up the installed package's `index.ts` and `form/js/deck-session.js`, run:
-`node scripts/patch-design-deck.mjs --check <pi-design-deck-package>`, then `--apply` with the same path.
-Use the existing guarded Web release/restart; do not apply the extension patch early to a live shared host.
-Rollback restores those two original package files and the prior Web package.
+Use the existing release guard with `upgrade_when_idle.py --prepare <history-session> --design-deck`, then its authorized `--apply`.
+Prepare patches only an offline copy and binds the two files' hashes, modes, package metadata and adapter identity. After the idle gate has stopped Web, apply backs up both installed originals before replacing either file and starting the new Web package.
+Do not run the adapter directly on a live shared installation. Confirm no independent CLI/runner is using the shared extension; the Web guard does not authorize stopping those hosts.
+Rollback first proves the new service is idle, then restores both original files and the prior Web package; unknown edits or unknown/busy host state block recovery rather than overwriting active work.
 Tests use temporary copies/stubs, never modify the installed extension or restart 30141.
