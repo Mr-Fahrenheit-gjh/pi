@@ -111,7 +111,7 @@ export function QuickActions({ actions, sessions, cwd, currentSessionId, running
       </div>
       <div className="quick-actions-results" role="listbox" id={listId} aria-label={t("quickActions.results")}>
         {rows.map((row, itemIndex) => {
-          const status = "sessionId" in row
+          const status = "sessionId" in row && typeof row.sessionId === "string"
             ? awaitingInputSessionIds.has(row.sessionId) ? "awaiting" : runningSessionIds.has(row.sessionId) ? "running" : unreadSessionIds.has(row.sessionId) ? "unread" : null
             : null;
           const statusLabel = status ? t(status === "awaiting" ? "sidebar.agentAwaitingInput" : status === "running" ? "sidebar.agentRunning" : "sidebar.newSessionActivity") : undefined;
