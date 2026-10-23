@@ -19,6 +19,8 @@
 .quick-actions-results [role="option"] > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .quick-action-copy > span { display: block; overflow: hidden; text-overflow: ellipsis; }
 .quick-action-preview { margin-top: 4px; color: var(--text-dim); font-size: 11px; }
+.quick-action-meta { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.quick-action-status { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; flex: none; color: var(--accent); }
 .quick-actions-results small { flex-shrink: 0; color: var(--text-dim); font-size: 10px; }
 .quick-actions-results > p { color: var(--text-muted); font-size: 13px; padding: 18px 12px; }
 .quick-actions-surface footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--workspace-divider); color: var(--text-dim); font-size: 10px; }

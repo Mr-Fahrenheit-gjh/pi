@@ -3,6 +3,7 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
 import { useI18n } from "@/hooks/useI18n";
+import { SpinnerIcon } from "@/components/SidebarIcons";
 import { focusModalPanel, listenForStackedDialogEscape } from "@/lib/stacked-dialog";
 import { outputPathForCwd } from "@/lib/task-outputs";
 import { quickActionMatches, quickSessionMatches } from "@/lib/quick-actions";
@@ -12,11 +13,12 @@ import type { SessionInfo } from "@/lib/types";
 export interface QuickAction { id: string; label: string; keywords?: readonly string[]; run: () => void }
 interface Props {
   actions: QuickAction[]; sessions: SessionInfo[]; cwd: string | null; currentSessionId: string | null;
+  runningSessionIds: ReadonlySet<string>; awaitingInputSessionIds: ReadonlySet<string>; unreadSessionIds: ReadonlySet<string>;
   onSession: (session: SessionInfo, entryId?: string, blockIndex?: number) => void;
   onFile: (relativePath: string) => void; onClose: () => void;
 }
 
-export function QuickActions({ actions, sessions, cwd, currentSessionId, onSession, onFile, onClose }: Props) {
+export function QuickActions({ actions, sessions, cwd, currentSessionId, runningSessionIds, awaitingInputSessionIds, unreadSessionIds, onSession, onFile, onClose }: Props) {
   const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
@@ -68,7 +70,7 @@ export function QuickActions({ actions, sessions, cwd, currentSessionId, onSessi
       ...action, detail: t("quickActions.command"), preview: "", key: `action:${action.id}`,
     })),
     ...quickSessionMatches(sessions, search, contentResponse?.results ?? [], currentSessionId).map(result => ({
-      key: `session:${result.session.id}`, label: (result.session.name || result.session.firstMessage || result.session.id).slice(0, 160),
+      key: `session:${result.session.id}`, sessionId: result.session.id, label: (result.session.name || result.session.firstMessage || result.session.id).slice(0, 160),
       detail: t(search ? "quickActions.conversation" : "quickActions.recent"),
       preview: result.match ? `${result.before}${result.match}${result.after}` : result.session.cwd,
       run: () => onSession(result.session, result.entryId, result.entryId ? result.blockIndex : undefined),
@@ -108,9 +110,21 @@ export function QuickActions({ actions, sessions, cwd, currentSessionId, onSessi
         <button type="button" onClick={onClose} aria-label={t("fleet.close")}><kbd>esc</kbd></button>
       </div>
       <div className="quick-actions-results" role="listbox" id={listId} aria-label={t("quickActions.results")}>
-        {rows.map((row, itemIndex) => <button type="button" role="option" aria-selected={itemIndex === selected} tabIndex={-1} id={`${listId}-${itemIndex}`} key={row.key} onPointerMove={() => setIndex(itemIndex)} onClick={() => choose(row.run)}>
-          <span className="quick-action-copy"><span>{row.label}</span>{row.preview && <span className="quick-action-preview">{row.preview}</span>}</span><small>{row.detail}</small>
-        </button>)}
+        {rows.map((row, itemIndex) => {
+          const status = "sessionId" in row
+            ? awaitingInputSessionIds.has(row.sessionId) ? "awaiting" : runningSessionIds.has(row.sessionId) ? "running" : unreadSessionIds.has(row.sessionId) ? "unread" : null
+            : null;
+          const statusLabel = status ? t(status === "awaiting" ? "sidebar.agentAwaitingInput" : status === "running" ? "sidebar.agentRunning" : "sidebar.newSessionActivity") : undefined;
+          return <button type="button" role="option" aria-selected={itemIndex === selected} tabIndex={-1} id={`${listId}-${itemIndex}`} key={row.key} onPointerMove={() => setIndex(itemIndex)} onClick={() => choose(row.run)}>
+            <span className="quick-action-copy"><span>{row.label}</span>{row.preview && <span className="quick-action-preview">{row.preview}</span>}</span>
+            <span className="quick-action-meta">
+              {status && <span className="quick-action-status" title={statusLabel}>
+                {status === "running" ? <SpinnerIcon size={12} label={statusLabel} /> : <span className={status === "awaiting" ? "session-tree-awaiting" : "session-tree-unread"} role="img" aria-label={statusLabel} />}
+              </span>}
+              <small>{row.detail}</small>
+            </span>
+          </button>;
+        })}
         {!rows.length && <p>{t("quickActions.empty")}</p>}
       </div>
       <footer><span>↑↓　{t("quickActions.navigate")}　↵　{t("quickActions.open")}</span>

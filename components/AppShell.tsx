@@ -175,6 +175,8 @@ export function AppShell() {
   );
   const packageAgents = usePackageSubagents(selectedSession);
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
+  const [awaitingInputSessionIds, setAwaitingInputSessionIds] = useState<Set<string>>(() => new Set());
+  const [unreadSessionIds, setUnreadSessionIds] = useState<Set<string>>(() => new Set());
   const handleRunningSessionIdsChange = useCallback((ids: Set<string>) => {
     setRunningSessionIds((previous) => {
       if (previous.size === ids.size && [...ids].every((id) => previous.has(id))) return previous;
@@ -1517,6 +1519,8 @@ export function AppShell() {
         onAtMentions={handleAtMentions}
         onBackgroundTaskDone={handleBackgroundTaskDone}
         onRunningSessionIdsChange={handleRunningSessionIdsChange}
+        onAwaitingInputSessionIdsChange={setAwaitingInputSessionIds}
+        onUnreadSessionIdsChange={setUnreadSessionIds}
         onSessionsChange={handleSessionsChange}
       />
       <div className="workspace-settings-entry">
@@ -2394,7 +2398,7 @@ export function AppShell() {
         </div>
       </div>
     </div>
-    {quickActionsOpen && <QuickActions key={quickCwd ?? "no-workspace"} cwd={quickCwd} currentSessionId={selectedSession?.id ?? null} sessions={sessionCatalog} actions={quickActions} onClose={closeQuickActions} onSession={(session, entryId, blockIndex) => handleSelectSession(session, false, entryId, blockIndex)} onFile={path => { if (quickCwd) handleOpenFile(`${quickCwd.replace(/\/$/, "")}/${path}`, getFileName(path), { sourceSessionId: selectedSession?.id ?? null }); }} />}
+    {quickActionsOpen && <QuickActions key={quickCwd ?? "no-workspace"} cwd={quickCwd} currentSessionId={selectedSession?.id ?? null} sessions={sessionCatalog} actions={quickActions} runningSessionIds={runningSessionIds} awaitingInputSessionIds={awaitingInputSessionIds} unreadSessionIds={unreadSessionIds} onClose={closeQuickActions} onSession={(session, entryId, blockIndex) => handleSelectSession(session, false, entryId, blockIndex)} onFile={path => { if (quickCwd) handleOpenFile(`${quickCwd.replace(/\/$/, "")}/${path}`, getFileName(path), { sourceSessionId: selectedSession?.id ?? null }); }} />}
     {settingsSection && (
       <SettingsPanel
         cwd={projectTrustCwd}

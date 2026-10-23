@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Script } from 'node:vm';
 import ts from 'typescript';
+import { createJiti } from 'jiti';
 import { quickActionMatches, quickSessionMatches } from '../lib/quick-actions.ts';
 import { enLocale } from '../lib/i18n/messages/en.ts';
 const shell = readFileSync(new URL('./AppShell.tsx', import.meta.url), 'utf8');
@@ -33,6 +34,58 @@ function rows(search = '') {
 test('all six commands precede recent conversations and matching file results', () => {
   assert.deepEqual(rows(), ['action:new', 'action:terminal', 'action:outputs', 'action:rename', 'action:fork', 'action:finder', 'session:other']);
   assert.deepEqual(rows('file'), ['action:outputs', 'session:other', 'file:report.md']);
+});
+
+const jiti = createJiti(import.meta.url, { jsx: { runtime: 'automatic' }, tsconfigPaths: true });
+const React = await jiti.import('react');
+const { renderToStaticMarkup } = await jiti.import('react-dom/server');
+const { I18nProvider } = await jiti.import('@/hooks/useI18n.tsx');
+const { QuickActions } = await jiti.import('./QuickActions.tsx');
+
+function renderActivity({ running = [], awaiting = [], unread = [] } = {}) {
+  return renderToStaticMarkup(React.createElement(I18nProvider, null, React.createElement(QuickActions, {
+    actions: [{ id: 'command', label: 'Command fixture', run() {} }],
+    sessions: ['active', 'idle'].map(id => ({ id, name: `${id} fixture`, cwd: '/project', firstMessage: '', modified: '2026-10-23' })),
+    cwd: '/project', currentSessionId: null,
+    runningSessionIds: new Set(running), awaitingInputSessionIds: new Set(awaiting), unreadSessionIds: new Set(unread),
+    onSession() {}, onFile() {}, onClose() {},
+  })));
+}
+
+function optionWithLabel(html, label) {
+  const option = html.match(/<button\b[^>]*role="option"[\s\S]*?<\/button>/g)?.find(row => row.includes(label));
+  assert.ok(option, `${label} option was rendered`);
+  return option;
+}
+
+test('conversation status icons match the sidebar and have accessible labels and tooltips', () => {
+  const cases = [
+    [{ running: ['active'] }, 'sidebar-spin', 'sidebar.agentRunning'],
+    [{ awaiting: ['active'] }, 'session-tree-awaiting', 'sidebar.agentAwaitingInput'],
+    [{ unread: ['active'] }, 'session-tree-unread', 'sidebar.newSessionActivity'],
+  ];
+  for (const [activity, className, labelKey] of cases) {
+    const html = renderActivity(activity);
+    const row = optionWithLabel(html, 'active fixture');
+    assert.ok(row.includes(className));
+    assert.ok(row.includes(`aria-label="${enLocale.messages[labelKey]}"`));
+    assert.ok(row.includes(`title="${enLocale.messages[labelKey]}"`));
+    assert.doesNotMatch(optionWithLabel(html, 'idle fixture'), /quick-action-status/);
+    assert.doesNotMatch(optionWithLabel(html, 'Command fixture'), /quick-action-status/);
+  }
+});
+
+test('overlapping conversation states prefer input, then running, then unread; cleared states have no icon', () => {
+  for (let flags = 0; flags < 8; flags++) {
+    const row = optionWithLabel(renderActivity({
+      awaiting: flags & 4 ? ['active'] : [], running: flags & 2 ? ['active'] : [], unread: flags & 1 ? ['active'] : [],
+    }), 'active fixture');
+    const expected = flags & 4 ? 'session-tree-awaiting' : flags & 2 ? 'sidebar-spin' : flags & 1 ? 'session-tree-unread' : null;
+    for (const className of ['session-tree-awaiting', 'sidebar-spin', 'session-tree-unread']) {
+      assert.equal(row.includes(className), className === expected, `flags=${flags}, icon=${className}`);
+    }
+    assert.equal(row.includes('quick-action-status'), Boolean(expected));
+  }
 });
 
 test('Rename matches English and Chinese aliases and opens the current conversation editor', () => {
