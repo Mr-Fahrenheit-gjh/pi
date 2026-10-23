@@ -1,20 +1,26 @@
-// Focused, isolated dev check. Never installs packages or touches the production service.
-// node e2e/design-deck.mjs
+// Focused, isolated dev or built-candidate check. Never installs packages or touches the production service.
+// node e2e/design-deck.mjs; PI_WEB_CHAT_PACKAGE_ROOT=<candidate> uses its production build.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:net";
 import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { createWriteStream, existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir, tmpdir } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
 import { chromium } from "playwright";
 import { patchDesignDeck } from "../scripts/patch-design-deck.mjs";
 
-const root = dirname(dirname(fileURLToPath(import.meta.url)));
-assert.ok(!existsSync(join(root, ".next/dev/lock")), "Source checkout already has a dev server; do not start a second one");
+const source = dirname(dirname(fileURLToPath(import.meta.url)));
+const root = resolve(process.env.PI_WEB_CHAT_PACKAGE_ROOT || source);
+const builtCandidate = Boolean(process.env.PI_WEB_CHAT_PACKAGE_ROOT);
+if (builtCandidate) {
+  assert.notEqual(root, source, "Use an independent candidate, not the source checkout");
+  assert.notEqual(root, "/opt/homebrew/lib/node_modules/@agegr/pi-web", "Never launch the installed package as a fixture");
+  assert.ok(existsSync(join(root, ".next/BUILD_ID")), "Candidate has not been built");
+} else assert.ok(!existsSync(join(root, ".next/dev/lock")), "Source checkout already has a dev server; do not start a second one");
 const fixture = await mkdtemp(join(tmpdir(), "pi-design-deck-e2e-"));
 const agentDir = join(fixture, "agent"), project = join(fixture, "project");
 const resultFile = join(fixture, "result.json"), launchFile = join(fixture, "unexpected-launch");
@@ -67,9 +73,9 @@ export default function(pi) {
   assert.notEqual(port, 30141);
   await new Promise(resolve => probe.close(resolve));
   const base = `http://127.0.0.1:${port}`;
-  const env = { ...process.env, NODE_ENV: "development", PI_CODING_AGENT_DIR: agentDir, PI_WEB_PASSWORD: "", NEXT_TELEMETRY_DISABLED: "1", SSH_CONNECTION: "isolated-e2e" };
+  const env = { ...process.env, NODE_ENV: builtCandidate ? "production" : "development", PI_CODING_AGENT_DIR: agentDir, PI_WEB_PASSWORD: "", NEXT_TELEMETRY_DISABLED: "1", SSH_CONNECTION: "isolated-e2e" };
   delete env.__NEXT_PRIVATE_ORIGIN;
-  server = spawn(process.execPath, [join(root, "node_modules/next/dist/bin/next"), "dev", "-H", "127.0.0.1", "-p", String(port)], {
+  server = spawn(process.execPath, [join(root, "node_modules/next/dist/bin/next"), builtCandidate ? "start" : "dev", "-H", "127.0.0.1", "-p", String(port)], {
     cwd: root, stdio: ["ignore", "pipe", "pipe"], env,
   });
   serverExited = once(server, "exit");
@@ -159,7 +165,7 @@ export default function(pi) {
   await page.getByRole("tab", { name: "Design Deck", exact: true }).waitFor({ state: "detached" });
   assert.equal(existsSync(launchFile), false);
   checks.push("keyboard selection and submit resolve original tool; completion removes the tab");
-  await writeFile(join(artifacts, "result.json"), JSON.stringify({ status: "passed", stage: "isolated-dev", checks }, null, 2));
+  await writeFile(join(artifacts, "result.json"), JSON.stringify({ status: "passed", stage: builtCandidate ? "isolated-candidate" : "isolated-dev", packageRoot: root, ...(builtCandidate ? { buildId: (await readFile(join(root, ".next/BUILD_ID"), "utf8")).trim() } : {}), checks }, null, 2));
   console.log(JSON.stringify({ status: "passed", checks, artifacts }));
 } catch (error) {
   await page?.screenshot({ path: join(artifacts, "failure.png") }).catch(() => {});
