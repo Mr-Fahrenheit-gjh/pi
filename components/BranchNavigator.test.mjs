@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { createJiti } from "jiti";
 
 const jiti = createJiti(import.meta.url, {
@@ -176,6 +177,20 @@ test("compressChain never labels a branch with a transcript system message", () 
   assert.equal(labelEntry.id, "u1");
   assert.equal(rep.entry.id, "a1");
   assert.equal(skipped, 2);
+});
+
+test("the top-corner branch trigger is icon-only but keeps its accessible name and navigation", () => {
+  const tree = [node(msg("u1", "user", "question"), [node(msg("a1", "assistant", "first")), node(msg("a2", "assistant", "second"))])];
+  const render = compact => renderToStaticMarkup(React.createElement(I18nProvider, null,
+    React.createElement(BranchNavigator, { tree, activeLeafId: "a1", onLeafChange() {}, inline: true, compact, hasSession: true })));
+  const compact = render(true);
+  assert.match(compact, /aria-label="Branches"/);
+  assert.match(compact, /title="Branches"/);
+  assert.doesNotMatch(compact, /<span>Branches<\/span>/);
+  assert.match(render(false), /<span>Branches<\/span>/);
+  const shell = readFileSync(new URL("./AppShell.tsx", import.meta.url), "utf8");
+  const toolbar = shell.slice(shell.indexOf("  const renderChatToolbarActions ="), shell.indexOf("  const renderSessionStatsButton ="));
+  assert.equal((toolbar.match(/inline compact containerRef/g) ?? []).length, 2);
 });
 
 test("a locked navigator keeps the tree readable but offers no branch to switch to", () => {

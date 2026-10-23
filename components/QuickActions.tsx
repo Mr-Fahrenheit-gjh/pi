@@ -6,7 +6,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { SpinnerIcon } from "@/components/SidebarIcons";
 import { focusModalPanel, listenForStackedDialogEscape } from "@/lib/stacked-dialog";
 import { outputPathForCwd } from "@/lib/task-outputs";
-import { quickActionMatches, quickSessionMatches } from "@/lib/quick-actions";
+import { QUICK_ACTION_PAGE_SIZE, quickActionMatches, quickActionPage, quickActionShortcut, quickSessionMatches } from "@/lib/quick-actions";
 import type { SessionSearchResponse } from "@/lib/session-search";
 import type { SessionInfo } from "@/lib/types";
 
@@ -80,6 +80,13 @@ export function QuickActions({ actions, sessions, cwd, currentSessionId, running
     })),
   ], [actions, sessions, search, contentResponse, currentSessionId, files, fileKey, onFile, onSession, t]);
   const selected = Math.min(index, Math.max(0, rows.length - 1));
+  const currentPage = quickActionPage(rows.length, selected);
+  const visibleRows = rows.slice(currentPage.start, currentPage.end);
+  const movePage = (direction: number) => {
+    const page = Math.max(0, Math.min(currentPage.total - 1, currentPage.number - 1 + direction));
+    setIndex(page * QUICK_ACTION_PAGE_SIZE);
+    input.current?.focus();
+  };
   const choose = (run: () => void) => {
     onClose();
     // Modal cleanup restores its opener before a result focuses another surface.
@@ -89,11 +96,15 @@ export function QuickActions({ actions, sessions, cwd, currentSessionId, running
     onPointerDown={event => { if (event.target === event.currentTarget) onClose(); }}
     onKeyDown={event => {
       if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
-      if (query === "" && !event.defaultPrevented && !event.repeat
-        && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
-        && /^[1-9]$/.test(event.key) && document.activeElement === input.current) {
-        const row = rows[Number(event.key) - 1];
+      if (document.activeElement === input.current) {
+        const shortcut = quickActionShortcut(event, query);
+        const row = shortcut === null ? undefined : visibleRows[shortcut];
         if (row) { event.preventDefault(); choose(row.run); return; }
+        if (!event.defaultPrevented && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+          const direction = event.key === "PageDown" || (query === "" && event.key === "ArrowRight") ? 1
+            : event.key === "PageUp" || (query === "" && event.key === "ArrowLeft") ? -1 : 0;
+          if (direction) { event.preventDefault(); movePage(direction); return; }
+        }
       }
       if (event.key === "Tab") {
         const controls = [...(panel.current?.querySelectorAll<HTMLElement>('input, button:not(:disabled):not([tabindex="-1"])') || [])];
@@ -106,7 +117,7 @@ export function QuickActions({ actions, sessions, cwd, currentSessionId, running
         event.preventDefault();
         const next = (selected + (event.key === "ArrowDown" ? 1 : -1) + rows.length) % Math.max(1, rows.length);
         setIndex(next);
-        panel.current?.querySelector(`#${CSS.escape(`${listId}-${next}`)}`)?.scrollIntoView({ block: "nearest" });
+        requestAnimationFrame(() => panel.current?.querySelector(`#${CSS.escape(`${listId}-${next}`)}`)?.scrollIntoView({ block: "nearest" }));
       } else if (event.key === "Enter" && document.activeElement === input.current) {
         event.preventDefault(); if (rows[selected]) choose(rows[selected].run);
       }
@@ -116,26 +127,33 @@ export function QuickActions({ actions, sessions, cwd, currentSessionId, running
         <button type="button" onClick={onClose} aria-label={t("fleet.close")}><kbd>esc</kbd></button>
       </div>
       <div className="quick-actions-results" role="listbox" id={listId} aria-label={t("quickActions.results")}>
-        {rows.map((row, itemIndex) => {
+        {visibleRows.map((row, pageIndex) => {
+          const itemIndex = currentPage.start + pageIndex;
           const status = "sessionId" in row && typeof row.sessionId === "string"
             ? awaitingInputSessionIds.has(row.sessionId) ? "awaiting" : runningSessionIds.has(row.sessionId) ? "running" : unreadSessionIds.has(row.sessionId) ? "unread" : null
             : null;
           const statusLabel = status ? t(status === "awaiting" ? "sidebar.agentAwaitingInput" : status === "running" ? "sidebar.agentRunning" : "sidebar.newSessionActivity") : undefined;
-          const shortcut = query === "" && itemIndex < 9 ? String(itemIndex + 1) : undefined;
-          return <button type="button" role="option" aria-selected={itemIndex === selected} aria-keyshortcuts={shortcut} tabIndex={-1} id={`${listId}-${itemIndex}`} key={row.key} onPointerMove={() => setIndex(itemIndex)} onClick={() => choose(row.run)}>
-            {shortcut && <kbd className="quick-action-shortcut" aria-hidden="true">{shortcut}</kbd>}
-            <span className="quick-action-copy"><span>{row.label}</span>{row.preview && <span className="quick-action-preview">{row.preview}</span>}</span>
+          const digit = String(pageIndex + 1);
+          const shortcut = query === "" ? digit : `Alt+${digit}`;
+          return <button type="button" role="option" aria-selected={itemIndex === selected} aria-keyshortcuts={shortcut} aria-posinset={itemIndex + 1} aria-setsize={rows.length} tabIndex={-1} id={`${listId}-${itemIndex}`} key={row.key} onPointerMove={() => setIndex(itemIndex)} onClick={() => choose(row.run)}>
+            <kbd className="quick-action-shortcut" aria-hidden="true">{query === "" ? digit : `⌥${digit}`}</kbd>
+            <span className="quick-action-copy"><span title={row.label}>{row.label}</span>{row.preview && <span className="quick-action-preview" title={row.preview}>{row.preview}</span>}</span>
             <span className="quick-action-meta">
               {status && <span className="quick-action-status" title={statusLabel}>
                 {status === "running" ? <SpinnerIcon size={12} label={statusLabel} /> : <span className={status === "awaiting" ? "session-tree-awaiting" : "session-tree-unread"} role="img" aria-label={statusLabel} />}
               </span>}
-              <small>{row.detail}</small>
+              <small title={row.detail}>{row.detail}</small>
             </span>
           </button>;
         })}
         {!rows.length && <p>{t("quickActions.empty")}</p>}
       </div>
-      <footer><span>↑↓　{t("quickActions.navigate")}　↵　{t("quickActions.open")}</span>
+      <footer><span className="quick-actions-help"><span><kbd>↑↓</kbd> {t("quickActions.navigate")}</span><span><kbd>↵ / {query === "" ? "1–9" : "⌥1–9"}</kbd> {t("quickActions.open")}</span></span>
+        {currentPage.total > 1 && <nav className="quick-actions-pages" aria-label={t("quickActions.pages")}>
+          <button type="button" aria-label={t("quickActions.previousPage")} disabled={currentPage.number === 1} onClick={() => movePage(-1)}>‹</button>
+          <span aria-live="polite" aria-label={t("quickActions.page", { current: currentPage.number, total: currentPage.total })} title={query === "" ? "← / →" : "PageUp / PageDown"}>{currentPage.number} / {currentPage.total}</span>
+          <button type="button" aria-label={t("quickActions.nextPage")} disabled={currentPage.number === currentPage.total} onClick={() => movePage(1)}>›</button>
+        </nav>}
         {search && (!contentResponse || contentResponse.truncated || contentFailed) && <span role="status">{t(contentFailed ? "sidebar.sessionSearchFailed" : contentResponse?.truncated ? "sidebar.sessionSearchPartial" : "sidebar.sessionSearching")}</span>}
         {search && files.key === fileKey && files.failed && <span role="status">{t("quickActions.filesUnavailable")}</span>}
       </footer>

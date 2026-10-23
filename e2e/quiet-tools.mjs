@@ -24,12 +24,17 @@ const sid = 'quiet-tools-smoke';
 const timestamp = new Date().toISOString();
 const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } };
 const assistant = (content, extra = {}) => ({ role: 'assistant', content, api: 'openai-completions', provider: 'test', model: 'test', usage, stopReason: 'stop', timestamp: Date.now(), ...extra });
+const quotedMathSource = String.raw`> 若 \(f(x)\) 连续且 \(a_n=f(n)\)，则
+>
+> \[\boxed{
+> \sum_{n=N}^{\infty}a_n \quad\text{与}\quad \int_N^\infty f(x)\,dx \text{同敛散}.
+> }\]`;
 const entries = [];
 const add = (message) => entries.push({ type: 'message', id: `entry${entries.length}`, parentId: entries.at(-1)?.id ?? null, timestamp, message });
 add({ role: 'user', content: '已完成的测试任务', timestamp: Date.now() });
 add(assistant([{ type: 'text', text: '过程中的说明始终可见' }, { type: 'thinking', thinking: 'HIDDEN_THINKING' }, { type: 'toolCall', id: 'call1', name: 'bash', arguments: { command: 'echo HIDDEN_COMMAND' } }]));
 add({ role: 'toolResult', toolCallId: 'call1', toolName: 'bash', content: [{ type: 'text', text: 'HIDDEN_OUTPUT' }], isError: false, timestamp: Date.now() });
-add(assistant([{ type: 'text', text: '正式回答可见' }]));
+add(assistant([{ type: 'text', text: `正式回答可见\n\n${quotedMathSource}\n\n公式后续正文` }]));
 add({ role: 'user', content: '历史无内容网络失败', timestamp: Date.now() });
 add(assistant([], { stopReason: 'error', errorMessage: 'fetch failed' }));
 add({ role: 'user', content: '历史部分回答后重试', timestamp: Date.now() });
@@ -45,6 +50,14 @@ add({ role: 'toolResult', toolCallId: 'call2', toolName: 'read', content: [{ typ
 const sessionFile = join(agentDir, 'sessions/quiet', `2026-10-12T00-00-00-000Z_${sid}.jsonl`);
 const save = () => writeFileSync(sessionFile, [{ type: 'session', version: 3, id: sid, timestamp, cwd: project }, ...entries].map(x => JSON.stringify(x)).join('\n') + '\n');
 save();
+const shortcutSessions = Array.from({ length: 8 }, (_, index) => ({ id: `shortcut-fixture-${index + 1}`, name: `Numbered conversation ${index + 1}` }));
+for (const session of shortcutSessions) {
+  writeFileSync(join(agentDir, 'sessions/quiet', `2026-10-12T00-00-00-000Z_${session.id}.jsonl`), [
+    { type: 'session', version: 3, id: session.id, timestamp, cwd: project },
+    { type: 'message', id: 'user', parentId: null, timestamp, message: { role: 'user', content: session.name, timestamp: Date.now() } },
+    { type: 'message', id: 'answer', parentId: 'user', timestamp, message: assistant([{ type: 'text', text: 'Completed shortcut fixture.' }]) },
+  ].map(entry => JSON.stringify(entry)).join('\n') + '\n');
+}
 const probe = createServer().listen(0, '127.0.0.1');
 await once(probe, 'listening');
 const port = probe.address().port;
@@ -86,6 +99,12 @@ try {
   await page.goto(`${base}/?session=${sid}`, { waitUntil: 'networkidle' });
   await page.getByText('正式回答可见', { exact: true }).waitFor();
   await page.getByText('过程中的说明始终可见', { exact: true }).waitFor();
+  const quotedMath = page.locator('.markdown-assistant-message blockquote').filter({ hasText: '连续' });
+  await quotedMath.locator('.katex-display').waitFor();
+  assert.equal(await quotedMath.locator('.katex-error').count(), 0);
+  assert.equal(await quotedMath.locator('.katex-display').count(), 1);
+  await page.getByText('公式后续正文', { exact: true }).waitFor();
+  await quotedMath.screenshot({ path: join(out, 'quoted-display-math.png') });
   assert.equal(await page.getByText('HIDDEN_OUTPUT', { exact: true }).count(), 0);
   assert.equal(await page.getByText('HIDDEN_FAILURE_DETAIL', { exact: true }).count(), 0);
   assert.equal(await page.getByText('有 1 次工具执行失败，可展开过程查看详情。', { exact: true }).count(), 0);
@@ -193,9 +212,9 @@ try {
   assert.equal(await fetchError.count(), 0);
   await page.screenshot({ path: join(out, 'fetch-final-error-desktop.png'), fullPage: true });
   const focusChecks = process.env.PI_WEB_TEST_MOBILE === '1' ? [] : await checkComposerFocus(page, { base, sessionId: sid });
-  const shortcutChecks = process.env.PI_WEB_TEST_MOBILE === '1' ? [] : await checkQuickActionShortcuts(page, { base, sessionId: sid, outputDir: out });
+  const shortcutChecks = process.env.PI_WEB_TEST_MOBILE === '1' ? [] : await checkQuickActionShortcuts(page, { base, sessionId: sid, outputDir: out, recentSessions: shortcutSessions });
   assert.deepEqual(errors, []);
-  const result = { passed: true, buildId: readFileSync(join(root, '.next/BUILD_ID'), 'utf8').trim(), packageRoot: root, isolatedAgentDir: agentDir, desktopAndMobile: process.env.PI_WEB_TEST_MOBILE === '1', tested: ['finished history process controls absent', 'live collapse', 'running expand and collapse', 'streaming reasoning hidden', 'streaming answer visible', 'tool failure summary absent; running details available when expanded', 'provider error visible', 'extension confirm visible', 'completion removes process controls', 'fetch failed history/no-content/final-error hidden; running details expandable', 'partial answer with fetch failure visible', 'retry success keeps fetch errors hidden', 'other model failures and truncation visible', ...focusChecks, ...shortcutChecks], timestamp: new Date().toISOString() };
+  const result = { passed: true, buildId: readFileSync(join(root, '.next/BUILD_ID'), 'utf8').trim(), packageRoot: root, isolatedAgentDir: agentDir, desktopAndMobile: process.env.PI_WEB_TEST_MOBILE === '1', tested: ['finished history process controls absent', 'live collapse', 'running expand and collapse', 'streaming reasoning hidden', 'streaming answer visible', 'tool failure summary absent; running details available when expanded', 'provider error visible', 'extension confirm visible', 'completion removes process controls', 'fetch failed history/no-content/final-error hidden; running details expandable', 'partial answer with fetch failure visible', 'retry success keeps fetch errors hidden', 'other model failures and truncation visible', 'quoted glued bracket display math renders boxed integral test without errors and preserves following prose', ...focusChecks, ...shortcutChecks], timestamp: new Date().toISOString() };
   writeFileSync(join(out, 'result.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
 } finally {

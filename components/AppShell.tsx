@@ -1634,13 +1634,13 @@ export function AppShell() {
       return (
         <div className="workspace-session-toolbar">
           <span className="workspace-header-spacer" aria-hidden="true" />
-          {sessionHasBranches && <BranchNavigator tree={branchTree} activeLeafId={branchActiveLeafId} onLeafChange={handleBranchLeafChange} locked={branchSwitchLocked} inline containerRef={topBarRef} open={activeTopPanel === "branches"} onToggle={() => toggleTopPanel("branches")} hasSession />}
+          {sessionHasBranches && <BranchNavigator tree={branchTree} activeLeafId={branchActiveLeafId} onLeafChange={handleBranchLeafChange} locked={branchSwitchLocked} inline compact containerRef={topBarRef} open={activeTopPanel === "branches"} onToggle={() => toggleTopPanel("branches")} hasSession />}
         </div>
       );
     }
     return (
       <div className="workspace-session-toolbar">
-        {sessionHasBranches && <BranchNavigator tree={branchTree} activeLeafId={branchActiveLeafId} onLeafChange={handleBranchLeafChange} locked={branchSwitchLocked} inline containerRef={topBarRef} open={activeTopPanel === "branches"} onToggle={() => toggleTopPanel("branches", true)} hasSession />}
+        {sessionHasBranches && <BranchNavigator tree={branchTree} activeLeafId={branchActiveLeafId} onLeafChange={handleBranchLeafChange} locked={branchSwitchLocked} inline compact containerRef={topBarRef} open={activeTopPanel === "branches"} onToggle={() => toggleTopPanel("branches", true)} hasSession />}
       </div>
     );
   };

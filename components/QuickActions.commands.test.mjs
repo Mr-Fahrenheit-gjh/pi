@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { Script } from 'node:vm';
 import ts from 'typescript';
 import { createJiti } from 'jiti';
-import { quickActionMatches, quickSessionMatches } from '../lib/quick-actions.ts';
+import { quickActionMatches, quickActionShortcut, quickSessionMatches } from '../lib/quick-actions.ts';
 import { enLocale } from '../lib/i18n/messages/en.ts';
 const shell = readFileSync(new URL('./AppShell.tsx', import.meta.url), 'utf8');
 const sidebar = readFileSync(new URL('./SessionSidebar.tsx', import.meta.url), 'utf8');
@@ -88,17 +88,23 @@ test('overlapping conversation states prefer input, then running, then unread; c
   }
 });
 
-test('the first nine visible items have leading numeric hints and accessible shortcuts', () => {
+test('each page has at most nine numbered rows with aligned slots and accessible positions', () => {
   const actions = Array.from({ length: 12 }, (_, i) => ({ id: `command-${i}`, label: `Command ${i + 1} fixture`, run() {} }));
   const html = renderActivity({ actions });
-  for (let i = 0; i < actions.length; i++) {
+  assert.equal((html.match(/role="option"/g) ?? []).length, 9);
+  for (let i = 0; i < 9; i++) {
     const option = optionWithLabel(html, actions[i].label);
-    if (i < 9) {
-      assert.match(option, new RegExp(`aria-keyshortcuts="${i + 1}"`));
-      assert.ok(option.indexOf('quick-action-shortcut') < option.indexOf('quick-action-copy'));
-      assert.match(option, new RegExp(`<kbd[^>]*>${i + 1}</kbd>`));
-    } else assert.doesNotMatch(option, /quick-action-shortcut|aria-keyshortcuts/);
+    assert.match(option, new RegExp(`aria-keyshortcuts="${i + 1}"`));
+    assert.match(option, new RegExp(`aria-posinset="${i + 1}"`));
+    assert.match(option, /aria-setsize="14"/);
+    assert.ok(option.indexOf('quick-action-shortcut') < option.indexOf('quick-action-copy'));
+    assert.match(option, new RegExp(`<kbd[^>]*>${i + 1}</kbd>`));
   }
+  assert.doesNotMatch(html, /Command 10 fixture/);
+  assert.match(html, /aria-label="Next results"/);
+  const css = readFileSync(new URL('../app/workflow-polish.css', import.meta.url), 'utf8');
+  assert.match(css, /grid-template-columns: 28px minmax\(0, 1fr\) 96px/);
+  assert.match(css, /width: 100%; height: 52px/);
 });
 
 test('plain 1–9 executes the matching row once, without hijacking search, IME or modified keys', () => {
@@ -110,6 +116,10 @@ test('plain 1–9 executes the matching row once, without hijacking search, IME 
   const script = new Script(ts.transpileModule(`(${findHandler(source).getText(source)})`, { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText);
   const cases = [
     ['first', { key: '1' }, '', 12, 0], ['ninth', { key: '9' }, '', 12, 8],
+    ['second page first', { key: '1' }, '', 14, 9, 9],
+    ['second page last', { key: '5' }, '', 14, 13, 9],
+    ['second page missing row', { key: '9' }, '', 14, null, 9],
+    ['Option digit while searching', { key: '¡', code: 'Digit1', altKey: true }, 'report', 12, 0],
     ['number while searching', { key: '2' }, 'report', 12, null],
     ['space-prefixed numeric search', { key: '2' }, ' ', 12, null],
     ['zero is not a shortcut', { key: '0' }, '', 12, null],
@@ -119,12 +129,12 @@ test('plain 1–9 executes the matching row once, without hijacking search, IME 
     ['IME', { key: '1', nativeEvent: { isComposing: true } }, '', 12, null],
     ['legacy IME', { key: '1', nativeEvent: { keyCode: 229 } }, '', 12, null],
   ];
-  for (const [label, flags, query, count, expected] of cases) {
+  for (const [label, flags, query, count, expected, pageStart = 0] of cases) {
     const calls = [];
     let prevented = false;
     const target = {};
     const rows = Array.from({ length: count }, (_, index) => ({ run: () => calls.push(index) }));
-    const handler = script.runInNewContext({ query, rows, input: { current: target }, document: { activeElement: target }, choose: run => run() });
+    const handler = script.runInNewContext({ query, rows, visibleRows: rows.slice(pageStart, pageStart + 9), quickActionShortcut, input: { current: target }, document: { activeElement: target }, choose: run => run() });
     handler({ nativeEvent: {}, preventDefault() { prevented = true; }, ...flags });
     assert.deepEqual(calls, expected === null ? [] : [expected], label);
     assert.equal(prevented, expected !== null, label);

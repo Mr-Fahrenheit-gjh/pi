@@ -93,8 +93,14 @@ function rewriteEscapedInlineCodeBackticks(line: string): string {
 
 export function normalizeDisplayMath(markdown: string): string {
   const lineBreak = markdown.includes("\r\n") ? "\r\n" : "\n";
-  const lines = markdown.split(/\r?\n/);
+  return normalizeDisplayMathLines(markdown.split(/\r?\n/)).join(lineBreak);
+}
+
+function normalizeDisplayMathLines(lines: string[], prefixes: string[] = [], quoteDepth = 0): string[] {
   const normalized: string[] = [];
+  const append = (index: number, ...content: string[]) => {
+    for (const line of content) normalized.push(`${prefixes[index] ?? ""}${line}`);
+  };
   let fence: { marker: string; size: number } | null = null;
   let inlineCodeMarkerSize = 0;
   let rawCodeTag: string | null = null;
@@ -104,7 +110,7 @@ export function normalizeDisplayMath(markdown: string): string {
     let line = lines[index];
 
     if (rawCodeTag) {
-      normalized.push(line);
+      append(index, line);
       if (new RegExp(`</${rawCodeTag}\\s*>`, "i").test(line)) rawCodeTag = null;
       continue;
     }
@@ -116,12 +122,33 @@ export function normalizeDisplayMath(markdown: string): string {
       if (!fence) fence = { marker, size };
       else if (marker === fence.marker && size >= fence.size) fence = null;
       inlineCodeMarkerSize = 0;
-      normalized.push(line);
+      append(index, line);
       continue;
     }
 
     if (fence) {
-      normalized.push(line);
+      append(index, line);
+      continue;
+    }
+
+    // Normalize one explicit quote container at a time. Its fences and inline
+    // code get the same protection as root Markdown; a depth change remains a
+    // block boundary, and an unclosed quote fence cannot leak into the root.
+    // Leave unusually deep quotes alone instead of risking the client stack.
+    if (quoteDepth < 32 && !inlineCodeMarkerSize && /^ {0,3}>/.test(line)) {
+      const quotedLines: string[] = [];
+      const quotedPrefixes: string[] = [];
+      let end = index;
+      for (; end < lines.length; end++) {
+        const quote = lines[end].match(/^ {0,3}>[ \t]?/);
+        if (!quote) break;
+        quotedLines.push(lines[end].slice(quote[0].length));
+        quotedPrefixes.push(`${prefixes[end] ?? ""}${quote[0]}`);
+      }
+      for (const quotedLine of normalizeDisplayMathLines(quotedLines, quotedPrefixes, quoteDepth + 1)) {
+        normalized.push(quotedLine);
+      }
+      index = end - 1;
       continue;
     }
 
@@ -131,13 +158,13 @@ export function normalizeDisplayMath(markdown: string): string {
       const remainder = line.slice((rawCodeOpen.index ?? 0) + rawCodeOpen[0].length);
       if (!new RegExp(`</${tag}\\s*>`, "i").test(remainder)) rawCodeTag = tag;
       inlineCodeMarkerSize = 0;
-      normalized.push(line);
+      append(index, line);
       continue;
     }
 
     if (/^(?: {4}|\t)/.test(line) || line.trim() === "") {
       inlineCodeMarkerSize = 0;
-      normalized.push(line);
+      append(index, line);
       continue;
     }
 
@@ -145,7 +172,7 @@ export function normalizeDisplayMath(markdown: string): string {
 
     if (inlineCodeMarkerSize || line.includes("`")) {
       inlineCodeMarkerSize = updateInlineCodeMarker(line, inlineCodeMarkerSize);
-      normalized.push(line);
+      append(index, line);
       continue;
     }
 
@@ -158,7 +185,7 @@ export function normalizeDisplayMath(markdown: string): string {
         // at column 0 becomes a "lazy continuation" line, which makes remark-math
         // mis-parse the fence pair: the opening `$$` turns into an empty math node
         // and the closing one swallows the rest of the document as math content.
-        normalized.push(
+        append(index,
           `${bracketDisplayOneLine[1]}$$`,
           `${bracketDisplayOneLine[1]}${math}`,
           `${bracketDisplayOneLine[1]}$$`,
@@ -171,7 +198,7 @@ export function normalizeDisplayMath(markdown: string): string {
     if (looseBracketDisplayOneLine) {
       const math = looseBracketDisplayOneLine[2].trim();
       if (isLikelyMathExpression(math)) {
-        normalized.push(
+        append(index,
           `${looseBracketDisplayOneLine[1]}$$`,
           `${looseBracketDisplayOneLine[1]}${math}`,
           `${looseBracketDisplayOneLine[1]}$$`,
@@ -180,20 +207,20 @@ export function normalizeDisplayMath(markdown: string): string {
       }
     }
 
-    const bracketDisplayStart = line.match(/^([ ]{0,3})\\\[[ \t]*$/);
-    if (bracketDisplayStart) {
-      const closingIndex = findBracketDisplayClose(lines, index + 1);
-      if (closingIndex !== -1) {
-        // Same lazy-continuation guard as above: indent content lines that sit at
-        // column 0 so the block stays parseable when nested inside a list item.
-        normalized.push(
-          `${bracketDisplayStart[1]}$$`,
-          ...lines.slice(index + 1, closingIndex).map((mathLine) =>
-            indentDisplayMathContent(mathLine, bracketDisplayStart[1]),
-          ),
-          `${bracketDisplayStart[1]}$$`,
-        );
-        index = closingIndex;
+    const bracketDisplayStart = line.match(/^([ ]{0,3})\\\[(.*)$/);
+    if (bracketDisplayStart && !/\\[\[\]]/.test(bracketDisplayStart[2])) {
+      const closing = findBracketDisplayClose(lines, index + 1);
+      if (closing) {
+        const indent = bracketDisplayStart[1];
+        append(index, `${indent}$$`);
+        if (bracketDisplayStart[2].trim()) append(index, `${indent}${bracketDisplayStart[2].trim()}`);
+        // Keep lazy content lines inside their list/quote container, as above.
+        for (let j = index + 1; j < closing.index; j++) {
+          append(j, indentDisplayMathContent(lines[j], indent));
+        }
+        if (closing.content) append(closing.index, indentDisplayMathContent(closing.content, indent));
+        append(closing.index, `${indent}$$`);
+        index = closing.index;
         continue;
       }
     }
@@ -205,7 +232,7 @@ export function normalizeDisplayMath(markdown: string): string {
         // See the comment on bracketDisplayOneLine: without matching indentation,
         // a formula nested in a GFM list item is mis-parsed by remark-math and the
         // text after the formula renders as a garbled KaTeX error block.
-        normalized.push(
+        append(index,
           `${displayMathMatch[1]}$$`,
           `${displayMathMatch[1]}${math}`,
           `${displayMathMatch[1]}$$`,
@@ -233,12 +260,12 @@ export function normalizeDisplayMath(markdown: string): string {
           unmatchedDisplayMathUntil,
         );
         if (closing) {
-          normalized.push(`${indent}$$`, `${indent}${firstLine}`);
+          append(index, `${indent}$$`, `${indent}${firstLine}`);
           for (let j = index + 1; j < closing.index; j++) {
-            normalized.push(indentDisplayMathContent(lines[j], indent));
+            append(j, indentDisplayMathContent(lines[j], indent));
           }
-          if (closing.content) normalized.push(`${indent}${closing.content}`);
-          normalized.push(`${indent}$$`);
+          if (closing.content) append(closing.index, `${indent}${closing.content}`);
+          append(closing.index, `${indent}$$`);
           index = closing.index;
           continue;
         }
@@ -263,21 +290,21 @@ export function normalizeDisplayMath(markdown: string): string {
         unmatchedDisplayMathUntil,
       );
       if (closing && (closing.glued || indent !== "")) {
-        normalized.push(`${indent}$$`);
+        append(index, `${indent}$$`);
         for (let j = index + 1; j < closing.index; j++) {
-          normalized.push(indentDisplayMathContent(lines[j], indent));
+          append(j, indentDisplayMathContent(lines[j], indent));
         }
-        if (closing.content) normalized.push(`${indent}${closing.content}`);
-        normalized.push(`${indent}$$`);
+        if (closing.content) append(closing.index, `${indent}${closing.content}`);
+        append(closing.index, `${indent}$$`);
         index = closing.index;
         continue;
       }
     }
 
-    normalized.push(normalizeInlineLatexMath(line));
+    append(index, normalizeInlineLatexMath(line));
   }
 
-  return normalized.join(lineBreak);
+  return normalized;
 }
 
 interface DisplayMathClose {
@@ -353,22 +380,22 @@ function indentDisplayMathContent(line: string, indent: string): string {
   return `${indent.slice(leadingSpaces)}${line}`;
 }
 
-function findBracketDisplayClose(lines: string[], startIndex: number): number {
+function findBracketDisplayClose(lines: string[], startIndex: number): DisplayMathClose | null {
   for (let index = startIndex; index < lines.length; index++) {
     const line = lines[index];
-    if (/^ {0,3}\\\][ \t]*$/.test(line)) return index;
-
-    // Do not pair delimiters across another Markdown block boundary.
-    if (
-      /^ {0,3}(`{3,}|~{3,})/.test(line) ||
-      /^ {0,3}\\\[[ \t]*$/.test(line) ||
-      /<(code|pre|script|style)\b/i.test(line)
-    ) {
-      return -1;
+    // Stop at every new opener, even a glued one: unmatched blocks then scan
+    // disjoint ranges rather than repeatedly scanning to the end of the input.
+    if (isDisplayMathBlockBoundary(line) || /^ {0,3}(?:\\\[|\$\$)/.test(line) || line.includes("`")) {
+      return null;
+    }
+    const closing = line.match(/^(.*?)\\\][ \t]*$/);
+    if (closing && !closing[1].endsWith("\\")) {
+      const content = closing[1].trimEnd();
+      return { index, content, glued: content.trim() !== "" };
     }
   }
 
-  return -1;
+  return null;
 }
 
 function updateInlineCodeMarker(line: string, initialMarkerSize: number): number {
