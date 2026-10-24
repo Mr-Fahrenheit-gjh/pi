@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useGlobalKeyboardShortcuts, type QuickActionsMode } from "@/hooks/useKeyboardShortcuts";
 import { SessionSidebar, type SelectSessionOptions, type SessionSidebarControl } from "./SessionSidebar";
 import { ChatWindow } from "./ChatWindow";
+import { SplitConversation } from "./SplitConversation";
 import { ConversationTransition } from "./ConversationTransition";
 import { NewSessionContextBar, type NewSessionContextControl } from "./NewSessionContextBar";
 import type { ChatScrollPosition } from "@/lib/chat-scroll-position";
@@ -230,6 +231,9 @@ export function AppShell() {
   const [explorerRefreshKey, setExplorerRefreshKey] = useState(0);
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null);
   const [pendingReleaseOpen, setPendingReleaseOpen] = useState(false);
+  const [splitOpen, setSplitOpen] = useState(false);
+  const [activeChatPane, setActiveChatPane] = useState<"primary" | "secondary">("primary");
+  const splitInputRef = useRef<ChatInputHandle | null>(null);
   const [quickActionsMode, setQuickActionsMode] = useState<QuickActionsMode | null>(null);
   const closeQuickActions = useCallback(() => setQuickActionsMode(null), []);
   const pendingReleases = usePendingReleases(pendingReleaseOpen);
@@ -1513,6 +1517,11 @@ export function AppShell() {
       keywords: ["intelligence ui", "intellgence ui", "interactive", "inline visuals", "diagram", "交互图解", "互動圖解"],
       run: () => setInlineVisualsEnabled(!inlineVisualsEnabled),
     },
+    ...(!isMobile ? [{
+      id: "split", label: translate(splitOpen ? "split.close" : "split.command"),
+      keywords: ["split", "side by side", "分屏", "左右", "分割"],
+      run: () => { setSplitOpen(!splitOpen); setActiveChatPane("primary"); setRightPanelOpen(false); },
+    }] : []),
   ];
   // Subagent work tabs: like files, only the active one is mounted.
   const activeAgentTab = agentTabs.find((tab) => `agent:${tab.sessionId}` === activeFileTabId) ?? null;
@@ -2210,12 +2219,14 @@ export function AppShell() {
         {isMobile && renderProjectTrustWarning(true)}
         </div>
 
-        {/* Chat content */}
-        <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
+        {/* Chat content: both panes retain their own session and composer. */}
+        <div className={`conversation-layout${splitOpen ? " is-split" : ""}`}>
+        <div className="primary-conversation" onPointerDownCapture={() => setActiveChatPane("primary")} onFocusCapture={() => setActiveChatPane("primary")}>
           {showChat ? (
             <ConversationTransition transitionKey={sessionKey}>
             <ChatWindow
               key={sessionKey}
+              globalEscapeEnabled={!splitOpen || isMobile || activeChatPane === "primary"}
               session={selectedSession}
               searchTarget={searchTarget?.sessionId === selectedSession?.id ? searchTarget : null}
               onSearchTargetHandled={handleSearchTargetHandled}
@@ -2297,6 +2308,20 @@ export function AppShell() {
               </div>
             )
           ) : null}
+        </div>
+        {splitOpen && <div className="secondary-conversation" onPointerDownCapture={() => setActiveChatPane("secondary")} onFocusCapture={() => setActiveChatPane("secondary")}>
+          <SplitConversation
+            cwd={quickCwd}
+            sessions={sessionCatalog}
+            primarySessionId={selectedSession?.id ?? null}
+            runningSessionIds={runningSessionIds}
+            active={!isMobile && activeChatPane === "secondary"}
+            chatInputRef={splitInputRef}
+            onClose={() => { setSplitOpen(false); setActiveChatPane("primary"); }}
+            onRefresh={() => { setRefreshKey(k => k + 1); setExplorerRefreshKey(k => k + 1); }}
+            onOpenFile={(path, page, sourceSessionId) => handleOpenFile(path, getFileName(path), { sourceSessionId: sourceSessionId ?? null, page })}
+          />
+        </div>}
         </div>
       </div>
 

@@ -10,6 +10,7 @@ import "./sidebar-terminal-polish.css";
 import "./sidebar-menu.css";
 import "./workspace.css";
 import "./workflow-polish.css";
+import "./split-conversation.css";
 
 const notoSansMono = Noto_Sans_Mono({
   subsets: ["latin", "cyrillic"],
