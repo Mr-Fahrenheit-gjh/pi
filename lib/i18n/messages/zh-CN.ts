@@ -8,6 +8,8 @@ export const zhCNLocale: LocalePlugin = {
     "quickActions.title": "搜索",
     "quickActions.search": "搜索对话内容和文件…",
     "quickActions.results": "搜索结果",
+    "quickActions.searchCommands": "搜索指令…",
+    "quickActions.mode": "搜索模式",
     "quickActions.command": "操作",
     "quickActions.conversation": "会话",
     "quickActions.file": "文件",

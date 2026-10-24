@@ -8,6 +8,8 @@ export const zhTWLocale: LocalePlugin = {
     "quickActions.title": "搜尋",
     "quickActions.search": "搜尋對話內容和檔案…",
     "quickActions.results": "搜尋結果",
+    "quickActions.searchCommands": "搜尋指令…",
+    "quickActions.mode": "搜尋模式",
     "quickActions.command": "操作",
     "quickActions.conversation": "對話",
     "quickActions.file": "檔案",

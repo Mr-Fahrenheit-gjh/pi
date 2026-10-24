@@ -3,7 +3,7 @@ import { pageRuntime, runtimeFetch as fetch, runtimeStorageKey } from "@/lib/run
 
 import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useGlobalKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useGlobalKeyboardShortcuts, type QuickActionsMode } from "@/hooks/useKeyboardShortcuts";
 import { SessionSidebar, type SelectSessionOptions, type SessionSidebarControl } from "./SessionSidebar";
 import { ChatWindow } from "./ChatWindow";
 import { ConversationTransition } from "./ConversationTransition";
@@ -227,8 +227,8 @@ export function AppShell() {
   const [explorerRefreshKey, setExplorerRefreshKey] = useState(0);
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null);
   const [pendingReleaseOpen, setPendingReleaseOpen] = useState(false);
-  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
-  const closeQuickActions = useCallback(() => setQuickActionsOpen(false), []);
+  const [quickActionsMode, setQuickActionsMode] = useState<QuickActionsMode | null>(null);
+  const closeQuickActions = useCallback(() => setQuickActionsMode(null), []);
   const pendingReleases = usePendingReleases(pendingReleaseOpen);
   const [modelsRefreshKey, setModelsRefreshKey] = useState(0);
   const [projectTrust, setProjectTrust] = useState<ProjectTrustStatus | null>(null);
@@ -1068,7 +1068,7 @@ export function AppShell() {
   // Global keyboard shortcuts (handles Esc, Ctrl+Alt+N etc.)
   useGlobalKeyboardShortcuts({
     onNewSession: (cwd: string) => handleNewSession(`kb-${Date.now()}`, cwd),
-    onQuickActions: () => setQuickActionsOpen(true),
+    onQuickActions: setQuickActionsMode,
     activeCwd,
   });
 
@@ -2429,7 +2429,7 @@ export function AppShell() {
         </div>
       </div>
     </div>
-    {quickActionsOpen && <QuickActions key={quickCwd ?? "no-workspace"} cwd={quickCwd} currentSessionId={selectedSession?.id ?? null} sessions={sessionCatalog} actions={quickActions} runningSessionIds={runningSessionIds} awaitingInputSessionIds={awaitingInputSessionIds} unreadSessionIds={unreadSessionIds} onClose={closeQuickActions} onSession={(session, entryId, blockIndex) => handleSelectSession(session, false, entryId, blockIndex)} onFile={path => { if (quickCwd) handleOpenFile(`${quickCwd.replace(/\/$/, "")}/${path}`, getFileName(path), { sourceSessionId: selectedSession?.id ?? null }); }} />}
+    {quickActionsMode && <QuickActions mode={quickActionsMode} onModeChange={setQuickActionsMode} key={quickCwd ?? "no-workspace"} cwd={quickCwd} currentSessionId={selectedSession?.id ?? null} sessions={sessionCatalog} actions={quickActions} runningSessionIds={runningSessionIds} awaitingInputSessionIds={awaitingInputSessionIds} unreadSessionIds={unreadSessionIds} onClose={closeQuickActions} onSession={(session, entryId, blockIndex) => handleSelectSession(session, false, entryId, blockIndex)} onFile={path => { if (quickCwd) handleOpenFile(`${quickCwd.replace(/\/$/, "")}/${path}`, getFileName(path), { sourceSessionId: selectedSession?.id ?? null }); }} />}
     {settingsSection && (
       <SettingsPanel
         cwd={projectTrustCwd}

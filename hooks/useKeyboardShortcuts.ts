@@ -41,16 +41,22 @@ export function handleGlobalEscape(event: KeyboardEvent): boolean {
 // Hook: global keyboard shortcuts
 // ---------------------------------------------------------------------------
 
+export type QuickActionsMode = "command" | "chat";
+
+export function quickActionsShortcutMode(event: KeyboardEvent): QuickActionsMode | null {
+  if (event.defaultPrevented || event.repeat || event.isComposing || event.keyCode === 229 || event.altKey || event.shiftKey || !(event.metaKey || event.ctrlKey)) return null;
+  return event.key.toLowerCase() === "k" ? "command" : event.key.toLowerCase() === "j" ? "chat" : null;
+}
+
 export function isQuickActionsShortcut(event: KeyboardEvent): boolean {
-  if (event.defaultPrevented || event.repeat || event.isComposing || event.keyCode === 229 || event.altKey || event.shiftKey) return false;
-  if (event.key.toLowerCase() !== "k" || !(event.metaKey || event.ctrlKey)) return false;
-  // Ghostty owns Cmd+K; an open dialog and the IME keep their own keys too.
+  if (!quickActionsShortcutMode(event)) return false;
+  // Terminals and other dialogs keep their own keys.
   const target = event.target as Element | null;
   return !target?.closest?.('.terminal-panel, [role="dialog"], dialog');
 }
 
 interface UseGlobalKeyboardShortcutsOptions {
-  onQuickActions?: () => void;
+  onQuickActions?: (mode: QuickActionsMode) => void;
   /** Called when Ctrl+Alt+N is pressed. Receives current cwd. */
   onNewSession?: (cwd: string) => void;
   /** The currently selected project directory (sidebar cwd). */
@@ -79,7 +85,7 @@ export function useGlobalKeyboardShortcuts(
     const handler = (e: KeyboardEvent): void => {
       if (isQuickActionsShortcut(e) && onQuickActions) {
         e.preventDefault();
-        onQuickActions();
+        onQuickActions(quickActionsShortcutMode(e)!);
         return;
       }
       // ---- Esc: stop agent ----

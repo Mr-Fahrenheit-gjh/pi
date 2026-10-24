@@ -8,6 +8,8 @@ export const enLocale: LocalePlugin = {
     "quickActions.title": "Search",
     "quickActions.search": "Search conversations and files…",
     "quickActions.results": "Results",
+    "quickActions.searchCommands": "Search commands…",
+    "quickActions.mode": "Search mode",
     "quickActions.command": "Action",
     "quickActions.conversation": "Conversation",
     "quickActions.file": "File",

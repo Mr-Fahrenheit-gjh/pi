@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { handleGlobalEscape, registerAbortHandler, isQuickActionsShortcut } from "./useKeyboardShortcuts.ts";
+import { handleGlobalEscape, registerAbortHandler, isQuickActionsShortcut, quickActionsShortcutMode } from "./useKeyboardShortcuts.ts";
 
 function keydown(key, { tagName = "BUTTON", defaultPrevented = false } = {}) {
   return {
@@ -60,8 +60,13 @@ test("Escape cancelling an IME composition does not stop the agent", (t) => {
 test("quick actions respect IME, terminal, dialog and already handled keys", () => {
   const event = { key: "k", metaKey: true, target: { closest: () => null } };
   assert.equal(isQuickActionsShortcut(event), true);
+  assert.equal(quickActionsShortcutMode(event), "command");
+  assert.equal(quickActionsShortcutMode({ ...event, key: "j" }), "chat");
+  assert.equal(isQuickActionsShortcut({ ...event, key: "j" }), true);
+  assert.equal(quickActionsShortcutMode({ ...event, key: "x" }), null);
   assert.equal(isQuickActionsShortcut({ ...event, metaKey: false, ctrlKey: true }), true);
   for (const guard of [{ isComposing: true }, { keyCode: 229 }, { defaultPrevented: true }, { repeat: true }, { altKey: true }, { shiftKey: true }, { metaKey: false }, { target: { closest: () => ({}) } }]) {
     assert.equal(isQuickActionsShortcut({ ...event, ...guard }), false);
+    assert.equal(isQuickActionsShortcut({ ...event, key: "j", ...guard }), false);
   }
 });

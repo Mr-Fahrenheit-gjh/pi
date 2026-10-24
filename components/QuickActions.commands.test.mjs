@@ -5,6 +5,7 @@ import { Script } from 'node:vm';
 import ts from 'typescript';
 import { createJiti } from 'jiti';
 import { quickActionMatches, quickActionShortcut, quickSessionMatches } from '../lib/quick-actions.ts';
+import { quickActionsShortcutMode } from '../hooks/useKeyboardShortcuts.ts';
 import { enLocale } from '../lib/i18n/messages/en.ts';
 const shell = readFileSync(new URL('./AppShell.tsx', import.meta.url), 'utf8');
 const sidebar = readFileSync(new URL('./SessionSidebar.tsx', import.meta.url), 'utf8');
@@ -23,17 +24,20 @@ function actionsFixture(selectedSession = { id: 'current', cwd: '/conversation' 
   return { actions: Array.from(context.result), calls };
 }
 
-function rows(search = '') {
+function rows(search = '', mode = 'command') {
   const { actions } = actionsFixture();
   const session = { id: 'other', name: 'File notes', firstMessage: '', modified: '2026-10-22', cwd: '/project' };
-  const context = { useMemo: fn => fn(), quickActionMatches, quickSessionMatches, actions, sessions: [session], search, contentResponse: undefined, currentSessionId: 'current', files: { key: 'key', paths: search === 'file' ? ['report.md'] : [] }, fileKey: 'key', t: key => key, onFile() {}, onSession() {} };
+  const context = { mode, useMemo: fn => fn(), quickActionMatches, quickSessionMatches, actions, sessions: [session], search, contentResponse: undefined, currentSessionId: 'current', files: { key: 'key', paths: search === 'file' ? ['report.md'] : [] }, fileKey: 'key', t: key => key, onFile() {}, onSession() {} };
   evaluate(section(menu, '  const rows = useMemo(', '  const selected =') + '\nglobalThis.result = rows;', context);
   return Array.from(context.result, row => row.key);
 }
 
-test('all six commands precede recent conversations and matching file results', () => {
-  assert.deepEqual(rows(), ['action:new', 'action:terminal', 'action:outputs', 'action:rename', 'action:fork', 'action:finder', 'session:other']);
-  assert.deepEqual(rows('file'), ['action:outputs', 'session:other', 'file:report.md']);
+test('command and chat modes never mix commands with conversation or file results', () => {
+  assert.deepEqual(rows(), ['action:new', 'action:terminal', 'action:outputs', 'action:rename', 'action:fork', 'action:finder']);
+  assert.deepEqual(rows('file'), ['action:outputs']);
+  assert.deepEqual(rows('', 'chat'), ['session:other']);
+  assert.deepEqual(rows('file', 'chat'), ['session:other', 'file:report.md']);
+  assert.deepEqual(rows('rename', 'chat'), []);
 });
 
 const jiti = createJiti(import.meta.url, { jsx: { runtime: 'automatic' }, tsconfigPaths: true });
@@ -42,15 +46,43 @@ const { renderToStaticMarkup } = await jiti.import('react-dom/server');
 const { I18nProvider } = await jiti.import('@/hooks/useI18n.tsx');
 const { QuickActions } = await jiti.import('./QuickActions.tsx');
 
-function renderActivity({ running = [], awaiting = [], unread = [], actions = [{ id: 'command', label: 'Command fixture', run() {} }] } = {}) {
+function renderActivity({ mode = 'chat', running = [], awaiting = [], unread = [], actions = [{ id: 'command', label: 'Command fixture', run() {} }] } = {}) {
   return renderToStaticMarkup(React.createElement(I18nProvider, null, React.createElement(QuickActions, {
-    actions,
+    actions, mode, onModeChange() {},
     sessions: ['active', 'idle'].map(id => ({ id, name: `${id} fixture`, cwd: '/project', firstMessage: '', modified: '2026-10-23' })),
     cwd: '/project', currentSessionId: null,
     runningSessionIds: new Set(running), awaitingInputSessionIds: new Set(awaiting), unreadSessionIds: new Set(unread),
     onSession() {}, onFile() {}, onClose() {},
   })));
 }
+
+test('segmented mode controls sit below search, expose shortcuts and select only the active mode', () => {
+  for (const mode of ['command', 'chat']) {
+    const html = renderActivity({ mode });
+    assert.ok(html.indexOf('quick-actions-search') < html.indexOf('quick-actions-modes'));
+    assert.ok(html.indexOf('quick-actions-modes') < html.indexOf('quick-actions-results'));
+    assert.match(html, /aria-keyshortcuts="Meta\+K Control\+K"/);
+    assert.match(html, /aria-keyshortcuts="Meta\+J Control\+J"/);
+    assert.equal((html.match(/aria-pressed="true"/g) ?? []).length, 1);
+    assert.equal(html.includes('placeholder="Search commands…"'), mode === 'command');
+    assert.equal(html.includes('active fixture'), mode === 'chat');
+    assert.equal(html.includes('Command fixture'), mode === 'command');
+  }
+});
+
+test('switching modes clears search and selection, and returns focus without closing the dialog', () => {
+  for (const mode of ['command', 'chat']) {
+    const calls = [];
+    const context = { mode, setQuery: value => calls.push(['query', value]), setIndex: value => calls.push(['index', value]), onModeChange: value => calls.push(['mode', value]), input: { current: { focus: () => calls.push(['focus']) } } };
+    evaluate(section(menu, '  const switchMode =', '  const search =') + '\nglobalThis.switchMode = switchMode;', context);
+    context.switchMode(mode);
+    assert.deepEqual(calls, [['focus']]);
+    calls.length = 0;
+    const next = mode === 'command' ? 'chat' : 'command';
+    context.switchMode(next);
+    assert.deepEqual(calls, [['query', ''], ['index', 0], ['mode', next], ['focus']]);
+  }
+});
 
 function optionWithLabel(html, label) {
   const option = html.match(/<button\b[^>]*role="option"[\s\S]*?<\/button>/g)?.find(row => row.includes(label));
@@ -71,7 +103,7 @@ test('conversation status icons match the sidebar and have accessible labels and
     assert.ok(row.includes(`aria-label="${enLocale.messages[labelKey]}"`));
     assert.ok(row.includes(`title="${enLocale.messages[labelKey]}"`));
     assert.doesNotMatch(optionWithLabel(html, 'idle fixture'), /quick-action-status/);
-    assert.doesNotMatch(optionWithLabel(html, 'Command fixture'), /quick-action-status/);
+    assert.doesNotMatch(optionWithLabel(renderActivity({ mode: 'command' }), 'Command fixture'), /quick-action-status/);
   }
 });
 
@@ -90,13 +122,13 @@ test('overlapping conversation states prefer input, then running, then unread; c
 
 test('each page has at most nine numbered rows with aligned slots and accessible positions', () => {
   const actions = Array.from({ length: 12 }, (_, i) => ({ id: `command-${i}`, label: `Command ${i + 1} fixture`, run() {} }));
-  const html = renderActivity({ actions });
+  const html = renderActivity({ actions, mode: 'command' });
   assert.equal((html.match(/role="option"/g) ?? []).length, 9);
   for (let i = 0; i < 9; i++) {
     const option = optionWithLabel(html, actions[i].label);
     assert.match(option, new RegExp(`aria-keyshortcuts="${i + 1}"`));
     assert.match(option, new RegExp(`aria-posinset="${i + 1}"`));
-    assert.match(option, /aria-setsize="14"/);
+    assert.match(option, /aria-setsize="12"/);
     assert.ok(option.indexOf('quick-action-shortcut') < option.indexOf('quick-action-copy'));
     assert.match(option, new RegExp(`<kbd[^>]*>${i + 1}</kbd>`));
   }
@@ -134,7 +166,7 @@ test('plain 1–9 executes the matching row once, without hijacking search, IME 
     let prevented = false;
     const target = {};
     const rows = Array.from({ length: count }, (_, index) => ({ run: () => calls.push(index) }));
-    const handler = script.runInNewContext({ query, rows, visibleRows: rows.slice(pageStart, pageStart + 9), quickActionShortcut, input: { current: target }, document: { activeElement: target }, choose: run => run() });
+    const handler = script.runInNewContext({ query, rows, quickActionsShortcutMode, visibleRows: rows.slice(pageStart, pageStart + 9), quickActionShortcut, input: { current: target }, document: { activeElement: target }, choose: run => run() });
     handler({ nativeEvent: {}, preventDefault() { prevented = true; }, ...flags });
     assert.deepEqual(calls, expected === null ? [] : [expected], label);
     assert.equal(prevented, expected !== null, label);
