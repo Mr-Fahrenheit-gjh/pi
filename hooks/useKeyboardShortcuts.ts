@@ -12,8 +12,12 @@ let globalAbortHandler: (() => void) | null = null;
  * Register (or clear) the abort handler for the global Esc shortcut.
  * Call this from ChatWindow whenever agentRunning or handleAbort changes.
  */
-export function registerAbortHandler(handler: (() => void) | null): void {
+export function registerAbortHandler(handler: (() => void) | null): () => void {
   globalAbortHandler = handler;
+  return () => {
+    // A stale pane's cleanup must never clear a newer pane's handler.
+    if (globalAbortHandler === handler) globalAbortHandler = null;
+  };
 }
 
 /**

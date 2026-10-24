@@ -43,6 +43,18 @@ test("an Escape something nearer already handled does not stop the agent too", (
   assert.equal(stopped, 0);
 });
 
+test("pane cleanup cannot remove a newer Escape owner", () => {
+  let primary = 0, secondary = 0;
+  const clearPrimary = registerAbortHandler(() => primary++);
+  const clearSecondary = registerAbortHandler(() => secondary++);
+  clearPrimary();
+  assert.equal(handleGlobalEscape(keydown("Escape")), true);
+  assert.equal(primary, 0);
+  assert.equal(secondary, 1);
+  clearSecondary();
+  assert.equal(handleGlobalEscape(keydown("Escape")), false);
+});
+
 test("with no run to stop, Escape is left alone", () => {
   registerAbortHandler(null);
   const event = keydown("Escape");
