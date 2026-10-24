@@ -213,8 +213,51 @@ try {
   await page.screenshot({ path: join(out, 'fetch-final-error-desktop.png'), fullPage: true });
   const focusChecks = process.env.PI_WEB_TEST_MOBILE === '1' ? [] : await checkComposerFocus(page, { base, sessionId: sid });
   const shortcutChecks = process.env.PI_WEB_TEST_MOBILE === '1' ? [] : await checkQuickActionShortcuts(page, { base, sessionId: sid, outputDir: out, recentSessions: shortcutSessions });
+  // Inspect a long synthetic prompt without initializing an agent or calling a model.
+  const promptFixture = Array.from({ length: 120 }, (_, index) => `Instruction ${index + 1}: preserve <literal> prompt text and wrap long lines consistently.`).join('\n');
+  let promptReads = 0;
+  await page.route(`**/api/agent/${sid}`, async route => {
+    const command = route.request().method() === 'POST' ? route.request().postDataJSON() : null;
+    if (command?.type === 'get_state') {
+      promptReads++;
+      return route.fulfill({ json: { success: true, data: { systemPrompt: promptFixture } } });
+    }
+    if (command?.type === 'get_tools') return route.fulfill({ json: { success: true, data: [] } });
+    return route.fallback();
+  });
+  if (!await page.locator('#session-sidebar.sidebar-open').count()) await page.locator('[data-sidebar-toggle]').click();
+  await page.locator('.workspace-settings-entry > button').first().click();
+  const settings = page.locator('.settings-dialog-surface');
+  await settings.waitFor();
+  const systemTab = settings.locator('.settings-section-tab').last();
+  await systemTab.click();
+  const promptPage = settings.locator('.settings-system-prompt');
+  const promptText = promptPage.locator('.system-prompt-text');
+  await promptText.waitFor();
+  assert.equal(await promptText.textContent(), promptFixture);
+  assert.equal(await settings.locator('.settings-mobile-section-picker option').last().getAttribute('value'), 'system');
+  assert.equal(await systemTab.getAttribute('aria-current'), 'page');
+  const promptGeometry = await promptPage.evaluate(node => {
+    const header = node.querySelector('.config-detail-header').getBoundingClientRect();
+    const panel = node.querySelector('.system-prompt-panel').getBoundingClientRect();
+    const scroll = node.querySelector('.system-prompt-scroll');
+    const host = node.parentElement;
+    return { aligned: Math.abs(header.x - panel.x) < 1 && Math.abs(header.width - panel.width) < 1,
+      fillsWidth: panel.width > node.clientWidth * 0.85,
+      outerScroll: node.scrollHeight > node.clientHeight + 1 || host.scrollHeight > host.clientHeight + 1,
+      innerScroll: scroll.scrollHeight > scroll.clientHeight,
+      contained: panel.bottom <= host.getBoundingClientRect().bottom + 1 };
+  });
+  assert.deepEqual(promptGeometry, { aligned: true, fillsWidth: true, outerScroll: false, innerScroll: true, contained: true });
+  const readsBeforeRefresh = promptReads;
+  await promptPage.getByRole('button').click();
+  await page.waitForFunction(() => !document.querySelector('.settings-system-prompt button')?.disabled);
+  assert.ok(promptReads > readsBeforeRefresh, 'Refresh reloads the current prompt');
+  await settings.screenshot({ path: join(out, 'settings-system-prompt.png') });
+  await page.keyboard.press('Escape');
+  await settings.waitFor({ state: 'hidden' });
   assert.deepEqual(errors, []);
-  const result = { passed: true, buildId: readFileSync(join(root, '.next/BUILD_ID'), 'utf8').trim(), packageRoot: root, isolatedAgentDir: agentDir, desktopAndMobile: process.env.PI_WEB_TEST_MOBILE === '1', tested: ['finished history process controls absent', 'live collapse', 'running expand and collapse', 'streaming reasoning hidden', 'streaming answer visible', 'tool failure summary absent; running details available when expanded', 'provider error visible', 'extension confirm visible', 'completion removes process controls', 'fetch failed history/no-content/final-error hidden; running details expandable', 'partial answer with fetch failure visible', 'retry success keeps fetch errors hidden', 'other model failures and truncation visible', 'quoted glued bracket display math renders boxed integral test without errors and preserves following prose', ...focusChecks, ...shortcutChecks], timestamp: new Date().toISOString() };
+  const result = { passed: true, buildId: readFileSync(join(root, '.next/BUILD_ID'), 'utf8').trim(), packageRoot: root, isolatedAgentDir: agentDir, desktopAndMobile: process.env.PI_WEB_TEST_MOBILE === '1', tested: ['finished history process controls absent', 'live collapse', 'running expand and collapse', 'streaming reasoning hidden', 'streaming answer visible', 'tool failure summary absent; running details available when expanded', 'provider error visible', 'extension confirm visible', 'completion removes process controls', 'fetch failed history/no-content/final-error hidden; running details expandable', 'partial answer with fetch failure visible', 'retry success keeps fetch errors hidden', 'other model failures and truncation visible', 'quoted glued bracket display math renders boxed integral test without errors and preserves following prose', ...focusChecks, ...shortcutChecks, 'system prompt: last settings tab, shared header, full-width aligned body, single inner scroll, exact text and refresh'], timestamp: new Date().toISOString() };
   writeFileSync(join(out, 'result.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
 } finally {

@@ -4,11 +4,12 @@ interface Props {
   loading: boolean;
   prompt: string | null;
   translate: Translate;
+  embedded?: boolean;
 }
 
-export function SystemPromptPanel({ loading, prompt, translate }: Props) {
+export function SystemPromptPanel({ loading, prompt, translate, embedded = false }: Props) {
   return (
-    <section className="system-prompt-panel" aria-label={translate("system.prompt")}>
+    <section className={`system-prompt-panel${embedded ? " is-embedded" : ""}`} aria-label={translate("system.prompt")}>
       <div className="system-prompt-scroll">
         {prompt ? (
           <div className="system-prompt-text">{prompt}</div>
@@ -31,6 +32,19 @@ export function SystemPromptPanel({ loading, prompt, translate }: Props) {
           flex-direction: column;
           background: var(--bg-panel);
           border-bottom: 1px solid var(--border);
+        }
+        .system-prompt-panel.is-embedded {
+          flex: 1;
+          width: 100%;
+          height: auto;
+          min-height: 0;
+          overflow: hidden;
+          border: 1px solid var(--border);
+          border-radius: 8px;
+        }
+        .system-prompt-panel.is-embedded .system-prompt-scroll {
+          padding: 18px 20px;
+          scrollbar-gutter: stable;
         }
         .system-prompt-scroll {
           min-height: 0;

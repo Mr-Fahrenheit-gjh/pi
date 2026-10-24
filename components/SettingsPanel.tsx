@@ -39,7 +39,7 @@ import { SkillsConfig } from "./SkillsConfig";
 import { AgentsConfig } from "./AgentsConfig";
 import { PluginsConfig } from "./PluginsConfig";
 import { McpConfig } from "./McpConfig";
-import { ConfigButton, ConfigSwitch } from "./SettingsUi";
+import { ConfigButton, ConfigSwitch, ConfigDetailHeader, ConfigDetailHeaderInfo, ConfigDetailTitle, ConfigDetailActions } from "./SettingsUi";
 import { FontSettings } from "./FontSettings";
 import { SystemPromptPanel } from "./SystemPromptPanel";
 
@@ -507,12 +507,12 @@ export function SettingsPanel({
   // Which sections need a project is decided once, in lib/settings-navigation.ts.
   const sections: { id: SettingsSection; label: string; requiresProject: boolean }[] = ([
     { id: "general", label: t("settings.general") },
-    { id: "system", label: t("system.prompt") },
     { id: "models", label: t("common.models") },
     { id: "skills", label: t("common.skills") },
     { id: "agents", label: t("common.agents") },
     { id: "plugins", label: t("common.plugins") },
     { id: "mcp", label: t("settings.mcp") },
+    { id: "system", label: t("system.prompt") },
   ] as const).map((item) => ({ ...item, requiresProject: settingsSectionRequiresProject(item.id) }));
   const sectionRequiresProject = settingsSectionRequiresProject(section);
 
@@ -605,15 +605,15 @@ export function SettingsPanel({
 
         <main className="settings-dialog-main">
           {sectionHost("general", <GeneralSettings sessionId={sessionId} onSessionReloaded={onSessionReloaded} quoteSelectionEnabled={quoteSelectionEnabled} onQuoteSelectionChange={onQuoteSelectionChange} />)}
-          {sectionHost("system", <div className="settings-general">
-            <section className="settings-general-section">
-              <div className="settings-shell-option">
-                <h3 className="settings-general-heading">{t("system.prompt")}</h3>
+          {sectionHost("system", <div className="settings-system-prompt">
+            <ConfigDetailHeader>
+              <ConfigDetailHeaderInfo><ConfigDetailTitle>{t("system.prompt")}</ConfigDetailTitle></ConfigDetailHeaderInfo>
+              <ConfigDetailActions>
                 <ConfigButton variant="secondary" size="small" disabled={promptLoading} onClick={() => setPromptRefresh((value) => value + 1)}>{t("i18n.refresh")}</ConfigButton>
-              </div>
-              {promptError && <p role="alert" className="settings-general-error">{promptError}</p>}
-              <SystemPromptPanel loading={promptLoading} prompt={systemPrompt} translate={t} />
-            </section>
+              </ConfigDetailActions>
+            </ConfigDetailHeader>
+            {promptError && <p role="alert" className="settings-general-error">{promptError}</p>}
+            <SystemPromptPanel embedded loading={promptLoading} prompt={systemPrompt} translate={t} />
           </div>)}
           {sectionHost("models", <ModelsConfig embedded cwd={cwd} onClose={onClose} />)}
           {/* Visited sections stay mounted, so the ones whose answer depends on trust take the page's

@@ -31,6 +31,14 @@ test("Settings offers System prompt on desktop and mobile without a project", ()
   assert.match(html, /aria-current="page"[^>]*>[\s\S]*?<span>System prompt<\/span>/);
   assert.match(html, /Exact runtime prompt &lt;instruction&gt;/);
   assert.match(html, />Refresh<\/button>/);
+  const options = [...html.matchAll(/<option value="([^"]+)"/g)].map(match => match[1]);
+  assert.deepEqual(options, ["general", "models", "skills", "agents", "plugins", "mcp", "system"]);
+  const tabs = html.slice(html.indexOf('<nav '), html.indexOf('</nav>'));
+  assert.ok(tabs.lastIndexOf('System prompt') > tabs.lastIndexOf('MCP'));
+  assert.match(html, /class="settings-system-prompt"/);
+  assert.match(html, /class="config-detail-header"/);
+  assert.match(html, /class="system-prompt-panel is-embedded"/);
+  assert.doesNotMatch(html, /class="settings-shell-option"/);
 });
 
 test("Settings preserves the unloaded and empty prompt states", () => {

@@ -1,11 +1,11 @@
 export const SETTINGS_SECTION_VALUES = [
   "general",
-  "system",
   "models",
   "skills",
   "agents",
   "plugins",
   "mcp",
+  "system",
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTION_VALUES)[number];
