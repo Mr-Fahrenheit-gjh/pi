@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useGlobalKeyboardShortcuts, type QuickActionsMode } from "@/hooks/useKeyboardShortcuts";
 import { SessionSidebar, type SelectSessionOptions, type SessionSidebarControl } from "./SessionSidebar";
 import { ChatWindow } from "./ChatWindow";
-import { SplitConversation } from "./SplitConversation";
+import { SplitConversation, type SharedConversationProps, type SplitConversationControl } from "./SplitConversation";
 import { ConversationTransition } from "./ConversationTransition";
 import { NewSessionContextBar, type NewSessionContextControl } from "./NewSessionContextBar";
 import type { ChatScrollPosition } from "@/lib/chat-scroll-position";
@@ -234,6 +234,12 @@ export function AppShell() {
   const [splitOpen, setSplitOpen] = useState(false);
   const [activeChatPane, setActiveChatPane] = useState<"primary" | "secondary">("primary");
   const splitInputRef = useRef<ChatInputHandle | null>(null);
+  const splitControlRef = useRef<SplitConversationControl | null>(null);
+  const [splitContext, setSplitContext] = useState<{ sessionId: string | null; cwd: string | null }>({ sessionId: null, cwd: null });
+  const secondaryActive = splitOpen && !isMobile && activeChatPane === "secondary";
+  const handleSplitContextChange = useCallback((sessionId: string | null, cwd: string | null) => {
+    setSplitContext(current => current.sessionId === sessionId && current.cwd === cwd ? current : { sessionId, cwd });
+  }, []);
   const [quickActionsMode, setQuickActionsMode] = useState<QuickActionsMode | null>(null);
   const closeQuickActions = useCallback(() => setQuickActionsMode(null), []);
   const pendingReleases = usePendingReleases(pendingReleaseOpen);
@@ -1076,11 +1082,25 @@ export function AppShell() {
     router.replace(`?cwd=${encodeURIComponent(cwd)}`, { scroll: false });
   }, [activeCwd, changeFileWorkspace, invalidateWorkspaceRestore, isMobile, newSessionCwd, router, selectedSession]);
 
+  // Both chat surfaces use the same navigation; the focused pane receives the pick.
+  const handleSelectInActivePane: typeof handleSelectSession = (session, isRestore, entryId, blockIndex, options) => {
+    if (secondaryActive && !isRestore && session.id !== selectedSession?.id) {
+      splitControlRef.current?.openSession(session, entryId, blockIndex);
+      return;
+    }
+    setActiveChatPane("primary");
+    handleSelectSession(session, isRestore, entryId, blockIndex, options);
+  };
+  const handleNewInActivePane: typeof handleNewSession = (id, cwd, projectKey, options) => {
+    if (secondaryActive) splitControlRef.current?.newConversation(cwd);
+    else handleNewSession(id, cwd, projectKey, options);
+  };
+
   // Global keyboard shortcuts (handles Esc, Ctrl+Alt+N etc.)
   useGlobalKeyboardShortcuts({
-    onNewSession: (cwd: string) => handleNewSession(`kb-${Date.now()}`, cwd),
+    onNewSession: (cwd: string) => handleNewInActivePane(`kb-${Date.now()}`, cwd),
     onQuickActions: setQuickActionsMode,
-    activeCwd,
+    activeCwd: secondaryActive ? splitContext.cwd : activeCwd,
   });
 
   // Client-built transient SessionInfo (new session / fork) lacks the
@@ -1405,6 +1425,28 @@ export function AppShell() {
       onCreateWorktree={handleCreateNewSessionWorktree}
     />
   ) : null;
+  const sharedConversationProps: SharedConversationProps = {
+    modelsRefreshKey, onOpenSettings: openSettingsSection, onToolEnd: handleToolEnd,
+    onOpenSubagent: handleOpenSubagentTab, onAskInNewChat: handleAskInNewChat,
+    quoteSelectionEnabled, soundEnabled, onSoundToggle, playDoneSound, unlockAudio, holdAudio,
+  };
+  const renderSplitNewSessionContextBar = (cwd: string, onPick: (cwd: string) => void) => (
+    <NewSessionContextBar
+      context={contextForCwd(sidebarNewSessionContext, cwd, null)}
+      mobile={isMobile}
+      initialFocus={null}
+      onInitialFocusDone={() => {}}
+      onPick={target => onPick(target.cwd)}
+      onUseDefaultDirectory={() => sidebarControlRef.current?.openDefaultDirectoryForNewSession(target => onPick(target.cwd))}
+      onOpenFolder={opener => sidebarControlRef.current?.openFolderForNewSession(target => onPick(target.cwd), opener)}
+      onRefreshWorktrees={handleRefreshNewSessionWorktrees}
+      onCreateWorktree={async (project, branch) => {
+        const control = sidebarControlRef.current;
+        if (!control) throw new Error("The session sidebar is not mounted");
+        return control.createWorktree(project, branch);
+      }}
+    />
+  );
   const showChat = selectedSession !== null || effectiveNewSessionCwd !== null;
   const projectTrustCwd = selectedSession?.cwd ?? effectiveNewSessionCwd;
   // While restoring initial session from URL, don't show the placeholder
@@ -1488,7 +1530,7 @@ export function AppShell() {
 
   const activePanelTabId = activeFileTabId ?? (selectedSession ? "todo:overview" : "");
   const activeFileTab = fileTabs.find((tab) => tab.id === activeFileTabId) ?? null;
-  const quickCwd = selectedSession?.cwd ?? newSessionCwd ?? activeCwd;
+  const quickCwd = secondaryActive ? splitContext.cwd : selectedSession?.cwd ?? newSessionCwd ?? activeCwd;
   const openWorkspace = (id: string) => {
     setActiveFileTabId(id);
     setRightPanelOpen(true);
@@ -1496,7 +1538,7 @@ export function AppShell() {
   };
   const quickActions: QuickAction[] = [
     ...(quickCwd ? [
-      { id: "new", label: translate("quickActions.newConversation"), keywords: ["new chat", "新对话", "新對話"], run: () => handleNewSession(`quick-${Date.now()}`, quickCwd) },
+      { id: "new", label: translate("quickActions.newConversation"), keywords: ["new chat", "新对话", "新對話"], run: () => handleNewInActivePane(`quick-${Date.now()}`, quickCwd) },
       { id: "terminal", label: translate("quickActions.terminal"), keywords: ["terminal", "shell", "终端", "終端"], run: () => handleOpenTerminal(quickCwd) },
     ] : []),
     ...(selectedSession ? [{ id: "outputs", label: translate("quickActions.conversationFiles"), keywords: ["outputs", "files", "成果", "文件"], run: () => openWorkspace("outputs:overview") }] : []),
@@ -1543,9 +1585,9 @@ export function AppShell() {
   const sidebarContent = (
     <>
       <SessionSidebar
-        selectedSessionId={selectedSession?.id ?? null}
-        onSelectSession={handleSelectSession}
-        onNewSession={handleNewSession}
+        selectedSessionId={secondaryActive ? splitContext.sessionId : selectedSession?.id ?? null}
+        onSelectSession={handleSelectInActivePane}
+        onNewSession={handleNewInActivePane}
         controlRef={sidebarControlRef}
         onNewSessionContextChange={handleSidebarNewSessionContext}
         initialSessionId={initialSessionId}
@@ -2225,6 +2267,7 @@ export function AppShell() {
           {showChat ? (
             <ConversationTransition transitionKey={sessionKey}>
             <ChatWindow
+              {...sharedConversationProps}
               key={sessionKey}
               globalEscapeEnabled={!splitOpen || isMobile || activeChatPane === "primary"}
               session={selectedSession}
@@ -2239,11 +2282,9 @@ export function AppShell() {
               initialNewSessionChoices={selectedSession === null ? carriedNewSessionChoices : null}
               onNewSessionChoicesChange={handleNewSessionChoicesChange}
               onAgentEnd={handleAgentEnd}
-              onToolEnd={handleToolEnd}
               onAttentionNeeded={handleAttentionNeeded}
               onSessionCreated={handleSessionCreated}
               onSessionForked={handleSessionForked}
-              modelsRefreshKey={modelsRefreshKey}
               chatInputRef={chatInputRef}
               onBranchDataChange={handleBranchDataChange}
               onSystemPromptChange={handleSystemPromptChange}
@@ -2251,20 +2292,11 @@ export function AppShell() {
               onSystemInfoLoaderChange={handleSystemInfoLoaderChange}
               onSessionStatsChange={handleSessionStatsChange}
               onSessionStatsPanelOpen={openSessionStatsPanel}
-              onOpenSettings={openSettingsSection}
               onContextUsageChange={handleContextUsageChange}
               onOpenFile={handleOpenLinkedFile}
               onFilesUploaded={handleExplorerRefresh}
-              onOpenSubagent={handleOpenSubagentTab}
-              onAskInNewChat={handleAskInNewChat}
-              quoteSelectionEnabled={quoteSelectionEnabled}
               initialPrompt={pendingQuotePrompt?.sessionId === selectedSession?.id ? pendingQuotePrompt?.text : undefined}
               onInitialPromptConsumed={() => setPendingQuotePrompt(null)}
-              soundEnabled={soundEnabled}
-              onSoundToggle={onSoundToggle}
-              playDoneSound={playDoneSound}
-              unlockAudio={unlockAudio}
-              holdAudio={holdAudio}
             />
             </ConversationTransition>
           ) : initialCwdStatus === "validating" ? (
@@ -2317,7 +2349,10 @@ export function AppShell() {
             runningSessionIds={runningSessionIds}
             active={!isMobile && activeChatPane === "secondary"}
             chatInputRef={splitInputRef}
-            onClose={() => { setSplitOpen(false); setActiveChatPane("primary"); }}
+            controlRef={splitControlRef}
+            onContextChange={handleSplitContextChange}
+            chatProps={sharedConversationProps}
+            renderNewSessionContextBar={renderSplitNewSessionContextBar}
             onRefresh={() => { setRefreshKey(k => k + 1); setExplorerRefreshKey(k => k + 1); }}
             onOpenFile={(path, page, sourceSessionId) => handleOpenFile(path, getFileName(path), { sourceSessionId: sourceSessionId ?? null, page })}
           />
@@ -2466,7 +2501,7 @@ export function AppShell() {
         </div>
       </div>
     </div>
-    {quickActionsMode && <QuickActions mode={quickActionsMode} onModeChange={setQuickActionsMode} key={quickCwd ?? "no-workspace"} cwd={quickCwd} currentSessionId={selectedSession?.id ?? null} sessions={sessionCatalog} actions={quickActions} runningSessionIds={runningSessionIds} awaitingInputSessionIds={awaitingInputSessionIds} unreadSessionIds={unreadSessionIds} onClose={closeQuickActions} onSession={(session, entryId, blockIndex) => handleSelectSession(session, false, entryId, blockIndex)} onFile={path => { if (quickCwd) handleOpenFile(`${quickCwd.replace(/\/$/, "")}/${path}`, getFileName(path), { sourceSessionId: selectedSession?.id ?? null }); }} />}
+    {quickActionsMode && <QuickActions mode={quickActionsMode} onModeChange={setQuickActionsMode} key={quickCwd ?? "no-workspace"} cwd={quickCwd} currentSessionId={secondaryActive ? splitContext.sessionId : selectedSession?.id ?? null} sessions={sessionCatalog} actions={quickActions} runningSessionIds={runningSessionIds} awaitingInputSessionIds={awaitingInputSessionIds} unreadSessionIds={unreadSessionIds} onClose={closeQuickActions} onSession={(session, entryId, blockIndex) => handleSelectInActivePane(session, false, entryId, blockIndex)} onFile={path => { if (quickCwd) handleOpenFile(`${quickCwd.replace(/\/$/, "")}/${path}`, getFileName(path), { sourceSessionId: selectedSession?.id ?? null }); }} />}
     {settingsSection && (
       <SettingsPanel
         cwd={projectTrustCwd}
