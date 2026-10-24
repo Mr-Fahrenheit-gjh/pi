@@ -84,8 +84,9 @@ export function useGlobalKeyboardShortcuts(
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
       if (isQuickActionsShortcut(e) && onQuickActions) {
+        const mode = quickActionsShortcutMode(e)!;
         e.preventDefault();
-        onQuickActions(quickActionsShortcutMode(e)!);
+        onQuickActions(mode);
         return;
       }
       // ---- Esc: stop agent ----

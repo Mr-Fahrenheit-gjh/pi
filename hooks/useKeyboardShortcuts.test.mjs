@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { Script } from "node:vm";
+import ts from "typescript";
 import { handleGlobalEscape, registerAbortHandler, isQuickActionsShortcut, quickActionsShortcutMode } from "./useKeyboardShortcuts.ts";
 
 function keydown(key, { tagName = "BUTTON", defaultPrevented = false } = {}) {
@@ -55,6 +58,25 @@ test("Escape cancelling an IME composition does not stop the agent", (t) => {
     assert.equal(handleGlobalEscape({ ...keydown("Escape"), ...composition }), false);
   }
   assert.equal(stopped, 0);
+});
+
+test("global shortcut preserves its mode before preventing the native browser key", () => {
+  let handler;
+  const exports = {};
+  const source = readFileSync(new URL('./useKeyboardShortcuts.ts', import.meta.url), 'utf8');
+  new Script(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText).runInNewContext({
+    exports, require: () => ({ useEffect: fn => fn() }),
+    window: { addEventListener: (_name, fn) => { handler = fn; }, removeEventListener() {} },
+  });
+  const modes = [];
+  exports.useGlobalKeyboardShortcuts({ onQuickActions: mode => modes.push(mode) });
+  for (const key of ['k', 'j']) {
+    const event = { key, metaKey: true, target: { closest: () => null }, defaultPrevented: false,
+      preventDefault() { this.defaultPrevented = true; } };
+    handler(event);
+    assert.equal(event.defaultPrevented, true);
+  }
+  assert.deepEqual(modes, ['command', 'chat']);
 });
 
 test("quick actions respect IME, terminal, dialog and already handled keys", () => {
