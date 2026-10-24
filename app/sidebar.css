@@ -212,10 +212,11 @@
 
 .session-tree-branch-connector {
   top: 0;
-  height: 50%;
-  width: 9px;
-  border-left: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
   pointer-events: none;
 }
 

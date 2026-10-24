@@ -653,7 +653,7 @@ const SessionRowView = memo(function SessionRowView({
         >
           <ChevronIcon size={12} className={`session-tree-chevron${row.expanded ? " is-open" : ""}`} />
         </button>
-      ) : row.depth > 0 ? <span className="session-tree-branch-connector" aria-hidden="true" /> : null}
+      ) : row.depth > 0 ? <span className="session-tree-branch-connector" aria-hidden="true"><BranchIcon size={12} /></span> : null}
       {status.transient ? (
         // No file yet: a link would open a session no other tab can load.
         <button type="button" className="session-tree-main" title={tooltip} aria-current={status.selected ? "true" : undefined}>

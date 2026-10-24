@@ -257,6 +257,16 @@ export function updateSessionUiState(request: SessionUiStateRequest, path?: stri
   return editState(target, (state) => applySessionUiStateRequest(state, request, Date.now()));
 }
 
+/** A new fork inherits only its source's pin, never its archive state. */
+export async function inheritSessionPin(sourceId: string, forkId: string, path?: string): Promise<void> {
+  const target = path ?? getSessionUiStatePath();
+  if (!loadState(target).sessions[sourceId]?.pinnedAt) return;
+  await editState(target, (state) => {
+    if (!state.sessions[sourceId]?.pinnedAt) return { state, changed: false };
+    return applySessionUiStateRequest(state, { action: "set", ids: [forkId], pinned: true }, Date.now());
+  });
+}
+
 /** Removes those session entries; no-op (no write) if none present. */
 export async function forgetSessionUiState(ids: Iterable<string>, path?: string): Promise<void> {
   const target = path ?? getSessionUiStatePath();

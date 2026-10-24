@@ -192,7 +192,7 @@ test("fork parents expose an independent expand button, and descendants show dep
   const childHtml = rowMarkup(html, child.key);
   assert.match(childHtml, /--session-branch-depth:1/);
   assert.match(childHtml, /data-branch-depth="1"/);
-  assert.match(childHtml, /session-tree-branch-connector/);
+  assert.match(childHtml, /session-tree-branch-connector" aria-hidden="true"><svg/);
   assert.doesNotMatch(childHtml, /session-tree-branch-toggle/);
   assert.match(rowMarkup(render({ rows: [{ ...parent, expanded: false }] }), parent.key), /aria-label="Expand first parent" aria-expanded="false"/);
 });

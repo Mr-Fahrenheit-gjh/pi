@@ -649,6 +649,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     apply: applyUiStateRequest,
     snapshot: snapshotUiState,
     noteRevision: noteUiRevision,
+    refresh: refreshUiState,
   } = useSessionUiState();
 
   // The explorer's scroll container is always mounted (empty without a cwd),
@@ -1936,8 +1937,13 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
       if (main) panelScrollTopsRef.current.delete(main);
       setArchiveView(false);
     }
+    const pinned = Boolean(uiState.sessions[forked.id]?.pinnedAt) || fromRowKey?.startsWith("session:pinned:") === true;
+    if (pinned) {
+      setPinnedCollapsed(false);
+      savePinnedCollapsed(false);
+    }
     const groupKey = workspaceKeyOf(forked);
-    if (Object.hasOwn(shownGroupExpansion, groupKey) && shownGroupExpansion[groupKey] === false) {
+    if (!pinned && Object.hasOwn(shownGroupExpansion, groupKey) && shownGroupExpansion[groupKey] === false) {
       const next = { ...groupExpansion };
       // Re-inserted, so the choice counts as the newest one kept.
       delete next[groupKey];
@@ -1952,7 +1958,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     setTreeReveal({
       id: treeRevealIdRef.current,
       at: Date.now(),
-      rowKey: `session:group:${forked.id}`,
+      rowKey: `session:${pinned ? "pinned" : "group"}:${forked.id}`,
       takeFocusFrom: (active) => (fromRow !== null && active.closest(fromRow) !== null) || active === archiveCloseFocusRef.current,
     });
   };
@@ -1981,6 +1987,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         return;
       }
       const forked = data.session;
+      await refreshUiState();
       // The copy's name ends in the suffix that tells it from its source: the
       // toast's ellipsis cuts the name before it, never the suffix. A copy
       // left unnamed (its source had no title) is cut as other toasts are.
@@ -2004,7 +2011,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     } finally {
       forkingIdsRef.current.delete(source.id);
     }
-  }, [loadSessions, showToast, t]);
+  }, [loadSessions, refreshUiState, showToast, t]);
   forkSessionRef.current = forkSession;
 
   // Open in new tab (the row menu's T): the row's session in a browser tab of

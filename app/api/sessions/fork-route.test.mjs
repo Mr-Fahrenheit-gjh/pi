@@ -21,6 +21,7 @@ const {
   listAllSessions,
 } = await jiti.import("../../../lib/session-reader.ts");
 const { buildSessionTree } = await jiti.import("../../../lib/session-tree.ts");
+const { readSessionUiState, updateSessionUiState } = await jiti.import("../../../lib/session-ui-state.ts");
 const { SessionManager } = await jiti.import("@earendil-works/pi-coding-agent");
 
 /** A scratch agent dir with one branched session: u1 → a1, then u1 → a2 (the file's leaf). */
@@ -122,6 +123,27 @@ test("forks an idle session on disk without starting it, and the copy is a row o
     rows.filter((row) => row.kind === "session").map((row) => row.key).sort(),
     [`session:group:${body.sessionId}`, `session:group:${source.id}`].sort(),
   );
+});
+
+test("forks inherit pins persistently, including nested forks, but remain independently unpinnable", async (t) => {
+  const source = await scratchSession(t);
+  await updateSessionUiState({ action: "set", ids: [source.id], pinned: true });
+  const first = await (await post(source.id)).json();
+  source.forked.push(first.sessionId);
+  const nested = await (await post(first.sessionId)).json();
+  source.forked.push(nested.sessionId);
+  const saved = JSON.parse(await readFile(join(source.dir, "pi-web-session-state.json"), "utf8"));
+  for (const id of [source.id, first.sessionId, nested.sessionId]) {
+    assert.equal(typeof saved.sessions[id].pinnedAt, "number");
+    assert.equal(saved.sessions[id].archivedAt, undefined);
+  }
+  await updateSessionUiState({ action: "set", ids: [first.sessionId], pinned: false });
+  const unpinned = await (await post(first.sessionId)).json();
+  source.forked.push(unpinned.sessionId);
+  const state = readSessionUiState();
+  assert.equal(state.sessions[unpinned.sessionId]?.pinnedAt, undefined);
+  assert.ok(state.sessions[source.id].pinnedAt);
+  assert.ok(state.sessions[nested.sessionId].pinnedAt);
 });
 
 test("an open wrapper's leaf is the branch forked, unless the file moved past an idle wrapper", async (t) => {
