@@ -1,5 +1,6 @@
 export const SETTINGS_SECTION_VALUES = [
   "general",
+  "system",
   "models",
   "skills",
   "agents",
@@ -8,7 +9,7 @@ export const SETTINGS_SECTION_VALUES = [
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTION_VALUES)[number];
-export type SettingsDetailSection = Exclude<SettingsSection, "general">;
+export type SettingsDetailSection = Exclude<SettingsSection, "general" | "system">;
 
 const STORAGE_KEY = "pi-web:settings-navigation";
 // Sections that need a project to show anything. Settings › MCP is not one: it

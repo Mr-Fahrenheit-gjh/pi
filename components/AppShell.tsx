@@ -447,6 +447,10 @@ export function AppShell() {
     setSystemTools(tools);
   }, []);
 
+  const loadSettingsSystemPrompt = useCallback(async () => {
+    await systemInfoLoaderRef.current?.();
+  }, []);
+
   const handleSystemInfoLoaderChange = useCallback((loader: (() => Promise<void>) | null) => {
     systemInfoLoadIdRef.current += 1;
     systemInfoLoaderRef.current = loader;
@@ -2443,6 +2447,8 @@ export function AppShell() {
         cwd={projectTrustCwd}
         sessionId={selectedSession?.id ?? null}
         initialSection={settingsSection}
+        systemPrompt={systemPrompt}
+        onLoadSystemPrompt={loadSettingsSystemPrompt}
         quoteSelectionEnabled={quoteSelectionEnabled}
         onQuoteSelectionChange={handleQuoteSelectionChange}
         onClose={() => {

@@ -41,6 +41,7 @@ import { PluginsConfig } from "./PluginsConfig";
 import { McpConfig } from "./McpConfig";
 import { ConfigButton, ConfigSwitch } from "./SettingsUi";
 import { FontSettings } from "./FontSettings";
+import { SystemPromptPanel } from "./SystemPromptPanel";
 
 interface Props {
   cwd: string | null;
@@ -48,6 +49,8 @@ interface Props {
   initialSection: SettingsSection;
   onClose: () => void;
   onSessionReloaded: () => void;
+  systemPrompt: string | null;
+  onLoadSystemPrompt: () => Promise<void>;
   quoteSelectionEnabled: boolean;
   onQuoteSelectionChange: (enabled: boolean) => void;
   /** The page's trust status for `cwd`; Settings › MCP reloads when it changes, as after trusting. */
@@ -73,6 +76,7 @@ export function SettingsSectionIcon({ section, size = 16, strokeWidth = 1.8 }: {
   };
 
   if (section === "general") return <svg {...common}><path d="M20 7h-9M14 17H5" /><circle cx="7" cy="7" r="3" /><circle cx="17" cy="17" r="3" /></svg>;
+  if (section === "system") return <svg {...common}><path d="M8 3h8l4 4v14H4V3h4ZM14 3v6h6M8 13h8M8 17h6" /></svg>;
   if (section === "models") return <svg {...common}><rect x="4" y="4" width="16" height="16" rx="2" /><rect x="9" y="9" width="6" height="6" /><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 15h3M1 9h3M1 15h3" /></svg>;
   if (section === "skills") return <svg {...common}><path d="m12 2-10 5 10 5 10-5-10-5Z" /><path d="m2 12 10 5 10-5M2 17l10 5 10-5" /></svg>;
   if (section === "agents") return <svg {...common} className="settings-section-icon is-agent"><rect x="5" y="7" width="14" height="11" rx="2" /><path d="M9 11h.01M15 11h.01M9 15h6M12 7V4M10 4h4" /></svg>;
@@ -476,15 +480,34 @@ export function SettingsPanel({
   projectTrust,
   onOpenTrustDialog,
   onProjectTrustChanged,
+  systemPrompt,
+  onLoadSystemPrompt,
 }: Props) {
   const { t } = useI18n();
   const [section, setSection] = useState<SettingsSection>(initialSection);
+  const [promptLoading, setPromptLoading] = useState(false);
+  const [promptError, setPromptError] = useState<string | null>(null);
+  const [promptRefresh, setPromptRefresh] = useState(0);
+
+  useEffect(() => {
+    if (section !== "system") return;
+    let cancelled = false;
+    setPromptLoading(true);
+    setPromptError(null);
+    void onLoadSystemPrompt()
+      .catch((cause: unknown) => {
+        if (!cancelled) setPromptError(cause instanceof Error ? cause.message : String(cause));
+      })
+      .finally(() => { if (!cancelled) setPromptLoading(false); });
+    return () => { cancelled = true; };
+  }, [section, sessionId, onLoadSystemPrompt, promptRefresh]);
   const [mountedSections, setMountedSections] = useState<ReadonlySet<SettingsSection>>(
     () => new Set([section]),
   );
   // Which sections need a project is decided once, in lib/settings-navigation.ts.
   const sections: { id: SettingsSection; label: string; requiresProject: boolean }[] = ([
     { id: "general", label: t("settings.general") },
+    { id: "system", label: t("system.prompt") },
     { id: "models", label: t("common.models") },
     { id: "skills", label: t("common.skills") },
     { id: "agents", label: t("common.agents") },
@@ -582,6 +605,16 @@ export function SettingsPanel({
 
         <main className="settings-dialog-main">
           {sectionHost("general", <GeneralSettings sessionId={sessionId} onSessionReloaded={onSessionReloaded} quoteSelectionEnabled={quoteSelectionEnabled} onQuoteSelectionChange={onQuoteSelectionChange} />)}
+          {sectionHost("system", <div className="settings-general">
+            <section className="settings-general-section">
+              <div className="settings-shell-option">
+                <h3 className="settings-general-heading">{t("system.prompt")}</h3>
+                <ConfigButton variant="secondary" size="small" disabled={promptLoading} onClick={() => setPromptRefresh((value) => value + 1)}>{t("i18n.refresh")}</ConfigButton>
+              </div>
+              {promptError && <p role="alert" className="settings-general-error">{promptError}</p>}
+              <SystemPromptPanel loading={promptLoading} prompt={systemPrompt} translate={t} />
+            </section>
+          </div>)}
           {sectionHost("models", <ModelsConfig embedded cwd={cwd} onClose={onClose} />)}
           {/* Visited sections stay mounted, so the ones whose answer depends on trust take the page's
               status and load again in place when trusting from Settings › MCP changes it. */}
