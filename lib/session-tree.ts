@@ -56,7 +56,7 @@ export interface SidebarFamilyStatus { running: boolean; awaiting: boolean; unre
 
 export type SidebarRow =
   | { kind: "pinned-header"; key: "pinned-header"; count: number; collapsed: boolean; running: number; unread: number }
-  | { kind: "session"; key: string; family: SessionFamily; context: "pinned" | "group" | "archive"; project: SidebarProject; status: SidebarFamilyStatus; archivedAt: number | null; depth: number; hasChildren: boolean; expanded: boolean; branchStatus?: SidebarFamilyStatus }
+  | { kind: "session"; key: string; family: SessionFamily; context: "pinned" | "group" | "archive"; project: SidebarProject; status: SidebarFamilyStatus; archivedAt: number | null; depth: number; hasChildren: boolean; expanded: boolean; branchStatus?: SidebarFamilyStatus; branchLast?: boolean; branchGuides?: number[] }
   | { kind: "pinned-more"; key: "pinned-more"; hidden: number; canShowLess: boolean; nextShown: number }
   | { kind: "group"; key: string; project: SidebarProject; expanded: boolean; running: number; unread: number }
   | { kind: "group-more"; key: string; projectKey: string; hidden: number; canShowLess: boolean; nextShown: number }
@@ -371,17 +371,20 @@ function branchSection(
   const ordered = [...roots.values()];
   const { visible, revealed, nextShown } = visibleFamilies(ordered, limit, shown, input, required);
   const rows: SidebarRow[] = [];
-  const stack = visible.toReversed().map((family) => ({ family, depth: 0 }));
+  const stack = visible.toReversed().map((family) => ({ family, depth: 0, branchLast: true, branchGuides: [] as number[] }));
   while (stack.length > 0) {
-    const { family, depth } = stack.pop()!;
+    const { family, depth, branchLast, branchGuides } = stack.pop()!;
     const descendants = children.get(family.root.id) ?? [];
     const expanded = descendants.length > 0 && input.branchExpansion?.[family.root.id] !== false;
     const row = makeRow(family);
-    if (row.kind === "session") rows.push({ ...row, depth, hasChildren: descendants.length > 0, expanded,
+    if (row.kind === "session") rows.push({ ...row, depth, branchLast, branchGuides, hasChildren: descendants.length > 0, expanded,
       ...(!expanded && descendants.length > 0 ? { branchStatus: activity.get(family.root.id) } : {}),
     });
     if (expanded) {
-      for (const child of descendants.toReversed()) stack.push({ family: child, depth: depth + 1 });
+      const guides = depth > 0 && !branchLast ? [...branchGuides, depth] : branchGuides;
+      for (let index = descendants.length - 1; index >= 0; index--) {
+        stack.push({ family: descendants[index], depth: depth + 1, branchLast: index === descendants.length - 1, branchGuides: guides });
+      }
     }
   }
   return { rows, hidden: ordered.length - visible.length, revealed, nextShown };

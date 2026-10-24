@@ -192,9 +192,19 @@ test("fork parents expose an independent expand button, and descendants show dep
   const childHtml = rowMarkup(html, child.key);
   assert.match(childHtml, /--session-branch-depth:1/);
   assert.match(childHtml, /data-branch-depth="1"/);
-  assert.match(childHtml, /session-tree-branch-connector" aria-hidden="true"><svg/);
+  assert.match(childHtml, /session-tree-branch-connector is-last" aria-hidden="true"><\/span>/);
+  assert.doesNotMatch(childHtml, /session-tree-branch-connector[^>]*><svg/);
   assert.doesNotMatch(childHtml, /session-tree-branch-toggle/);
   assert.match(rowMarkup(render({ rows: [{ ...parent, expanded: false }] }), parent.key), /aria-label="Expand first parent" aria-expanded="false"/);
+});
+
+test("branch trunks span sibling rows and continue behind nested branches", () => {
+  const row = { ...sessionRow(session("nested")), depth: 2, branchLast: false, branchGuides: [1] };
+  const html = rowMarkup(render({ rows: [row] }), row.key);
+  assert.match(html, /class="session-tree-branch-guide" style="--session-guide-depth:1" aria-hidden="true"/);
+  assert.match(html, /class="session-tree-branch-connector" aria-hidden="true"><\/span>/);
+  assert.match(cssRule(".session-tree-branch-connector,\n.session-tree-branch-guide"), /height: 100%/);
+  assert.match(cssRule(".session-tree-branch-connector.is-last"), /height: 50%/);
 });
 
 test("a collapsed tree shows descendant activity but keeps its own archive action", () => {
@@ -308,9 +318,10 @@ test("every saved row's title links to its session, encoded, in every context an
   assert.doesNotMatch(rowMarkup(render({ rows: [sessionRow(session("d"))], confirmDeleteRootId: "d" }), "session:group:d"), /<a /);
 });
 
-test("pinned rows name their project and archived rows offer restore with the archive time", () => {
+test("pinned rows show the same time as normal rows and archived rows offer restore with the archive time", () => {
   const pinned = rowMarkup(render({ rows: [sessionRow(session("pin"), { context: "pinned" })] }), "session:pinned:pin");
-  assert.match(pinned, /<span class="session-tree-meta"><span class="session-tree-project">app<\/span><\/span>/);
+  assert.match(pinned, /<span class="session-tree-meta">5m<\/span>/);
+  assert.doesNotMatch(pinned, /session-tree-project/);
   assert.match(pinned, /aria-label="Archive"/);
 
   const archived = rowMarkup(render({
@@ -475,7 +486,7 @@ test("renders the model built from a catalog with unique row keys", () => {
   const familyRow = rowMarkup(html, "session:group:a");
   assert.match(familyRow, /is-selected/);
   assert.match(familyRow, /aria-label="Agent running…"/);
-  assert.match(rowMarkup(html, "session:pinned:b"), /<span class="session-tree-project">other<\/span>/);
+  assert.match(rowMarkup(html, "session:pinned:b"), /<span class="session-tree-meta">5m<\/span>/);
 });
 
 test("row titles fall back from the name to the first message to the id", () => {

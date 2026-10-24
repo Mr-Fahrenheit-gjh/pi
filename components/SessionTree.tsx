@@ -577,8 +577,8 @@ const SessionRowView = memo(function SessionRowView({
   const tooltip = `${title}\n${details} · ${formatRelativeTime(root.modified, locale, nowDate)}${branch ? ` · ⑂ ${branch}` : ""}`;
 
   // The right column says the one thing worth knowing: awaiting input, else
-  // running, else unread, else when (a pinned row names its project instead, an
-  // archived row says when it was archived). Nothing sits before the title, so it
+  // running, else unread, else when (an archived row says when it was archived).
+  // Pinned rows use the same time as the project rows. Nothing sits before the title, so it
   // gets the room.
   let meta: ReactNode;
   let metaState = "";
@@ -599,8 +599,6 @@ const SessionRowView = memo(function SessionRowView({
     meta = <span className="session-tree-unread" role="img" aria-label={t("sidebar.newSessionActivity")} />;
     metaState = " is-unread";
     metaTitle = t("sidebar.newActivity");
-  } else if (context === "pinned") {
-    meta = <span className="session-tree-project">{row.project.name}</span>;
   } else if (context === "archive" && row.archivedAt !== null) {
     meta = formatShortRelativeTime(new Date(row.archivedAt), locale, nowDate);
   } else {
@@ -640,6 +638,10 @@ const SessionRowView = memo(function SessionRowView({
       onClick={() => handlers.current.onSelectFamily(family)}
       onContextMenu={(event) => handlers.current.onRowContextMenu(row, event)}
     >
+      {row.branchGuides?.map((depth) => (
+        <span key={depth} className="session-tree-branch-guide" style={{ "--session-guide-depth": depth } as CSSProperties} aria-hidden="true" />
+      ))}
+      {row.depth > 0 ? <span className={`session-tree-branch-connector${row.branchLast !== false ? " is-last" : ""}`} aria-hidden="true" /> : null}
       {row.hasChildren ? (
         <button
           type="button"
@@ -653,7 +655,7 @@ const SessionRowView = memo(function SessionRowView({
         >
           <ChevronIcon size={12} className={`session-tree-chevron${row.expanded ? " is-open" : ""}`} />
         </button>
-      ) : row.depth > 0 ? <span className="session-tree-branch-connector" aria-hidden="true"><BranchIcon size={12} /></span> : null}
+      ) : null}
       {status.transient ? (
         // No file yet: a link would open a session no other tab can load.
         <button type="button" className="session-tree-main" title={tooltip} aria-current={status.selected ? "true" : undefined}>

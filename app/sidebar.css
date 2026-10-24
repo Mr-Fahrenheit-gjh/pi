@@ -210,14 +210,37 @@
   background: var(--bg-hover);
 }
 
-.session-tree-branch-connector {
+/* Each virtual row owns its part of the trunk; siblings meet without gaps.
+   Ancestor guides continue through nested branches, but never into another tree. */
+.session-tree-branch-connector,
+.session-tree-branch-guide {
   top: 0;
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
+  width: 9px;
+  border-left: 1px solid var(--border);
   pointer-events: none;
+}
+
+.session-tree-branch-connector::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.session-tree-branch-connector.is-last {
+  height: 50%;
+}
+
+.session-tree-branch-connector.is-last::after {
+  top: 100%;
+}
+
+.session-tree-branch-guide {
+  position: absolute;
+  left: calc(3px + min(var(--session-guide-depth), 8) * 16px);
 }
 
 .session-tree-session:hover {
