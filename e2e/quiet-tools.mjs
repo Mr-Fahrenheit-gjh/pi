@@ -78,7 +78,7 @@ try {
   const context = await browser.newContext({ locale: 'zh-CN' });
   // Inject controllable SSE events; no model API or live user's session is used.
   await context.addInitScript(() => {
-    localStorage.setItem('pi-locale', 'zh-CN');
+    if (!localStorage.getItem('pi-locale')) localStorage.setItem('pi-locale', 'zh-CN');
     localStorage.setItem("pi-ui-language-version", "english-interface-v1"); // Explicit test locale after migration.
     window.__sources = [];
     window.EventSource = class {
@@ -234,6 +234,7 @@ try {
   await settings.waitFor();
   const systemTab = settings.locator('.settings-section-tab').last();
   await systemTab.click();
+  assert.equal(await systemTab.textContent(), 'System prompt');
   const promptPage = settings.locator('.settings-system-prompt');
   const promptText = promptPage.locator('.system-prompt-text');
   await promptText.waitFor();
