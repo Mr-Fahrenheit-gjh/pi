@@ -18,6 +18,8 @@ function actionsFixture(selectedSession = { id: 'current', cwd: '/conversation' 
   const context = {
     quickCwd: '/browser-folder', selectedSession, pageRuntime: () => runtime, translate: key => enLocale.messages[key],
     inlineVisualsEnabled, setInlineVisualsEnabled: value => calls.push(['inlineVisuals', value]),
+    isMobile: false, splitOpen: false, setSplitOpen: value => calls.push(['splitOpen', value]),
+    setActiveChatPane: value => calls.push(['activePane', value]), setRightPanelOpen: value => calls.push(['rightPanel', value]),
     setSidebarOpen: value => calls.push(['sidebar', value]), setRightPanelExpanded: value => calls.push(['expanded', value]),
     sidebarControlRef: { current: { renameSession: session => calls.push(['rename', session]) } },
   };
@@ -34,7 +36,7 @@ function rows(search = '', mode = 'command') {
 }
 
 test('command and chat modes never mix commands with conversation or file results', () => {
-  assert.deepEqual(rows(), ['action:new', 'action:terminal', 'action:outputs', 'action:rename', 'action:fork', 'action:finder', 'action:inline-visuals']);
+  assert.deepEqual(rows(), ['action:new', 'action:terminal', 'action:outputs', 'action:rename', 'action:fork', 'action:finder', 'action:inline-visuals', 'action:split']);
   assert.deepEqual(rows('file'), ['action:outputs']);
   assert.deepEqual(rows('', 'chat'), ['session:other']);
   assert.deepEqual(rows('file', 'chat'), ['session:other', 'file:report.md']);

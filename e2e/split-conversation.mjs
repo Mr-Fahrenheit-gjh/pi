@@ -10,7 +10,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
 import { checkQuickActionShortcuts } from './quick-actions-shortcuts.mjs';
 
-const root = dirname(dirname(fileURLToPath(import.meta.url)));
+const root = process.env.PI_WEB_CHAT_PACKAGE_ROOT || dirname(dirname(fileURLToPath(import.meta.url)));
+const production = Boolean(process.env.PI_WEB_CHAT_PACKAGE_ROOT);
 const out = join(root, 'test-results/split-conversation');
 mkdirSync(out, { recursive: true });
 const fixture = mkdtempSync(join(tmpdir(), 'pi-split-'));
@@ -34,15 +35,15 @@ const port = probe.address().port;
 await new Promise(resolve => probe.close(resolve));
 const base = `http://127.0.0.1:${port}`;
 const log = createWriteStream(join(out, 'server.log'));
-const server = spawn(process.execPath, [join(root, 'node_modules/next/dist/bin/next'), 'dev', '-H', '127.0.0.1', '-p', String(port)], {
-  cwd: root, env: { ...process.env, NODE_ENV: 'development', PI_CODING_AGENT_DIR: fixture, PI_WEB_PASSWORD: '', NEXT_TELEMETRY_DISABLED: '1' }, stdio: ['ignore', 'pipe', 'pipe'],
+const server = spawn(process.execPath, [join(root, 'node_modules/next/dist/bin/next'), production ? 'start' : 'dev', '-H', '127.0.0.1', '-p', String(port)], {
+  cwd: root, env: { ...process.env, NODE_ENV: production ? 'production' : 'development', PI_CODING_AGENT_DIR: fixture, PI_WEB_PASSWORD: '', NEXT_TELEMETRY_DISABLED: '1' }, stdio: ['ignore', 'pipe', 'pipe'],
 });
 server.stdout.pipe(log); server.stderr.pipe(log);
 let browser;
 try {
   for (let i = 0; ; i++) {
     if (await fetch(base).then(response => response.ok).catch(() => false)) break;
-    if (i >= 120 || server.exitCode !== null) throw new Error('Dev server unavailable; see server.log');
+    if (i >= 120 || server.exitCode !== null) throw new Error('Test server unavailable; see server.log');
     await delay(500);
   }
   browser = await chromium.launch({ headless: true, channel: 'chrome' });
