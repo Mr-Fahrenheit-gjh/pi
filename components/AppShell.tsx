@@ -33,6 +33,8 @@ import { newTerminalTab, restoreTerminalTabs, TERMINAL_TABS_KEY, type TerminalTa
 import { useTheme } from "@/hooks/useTheme";
 import { useFontPreferences } from "@/hooks/useFontPreferences";
 import { useI18n } from "@/hooks/useI18n";
+import { useInlineVisuals } from "@/hooks/useInlineVisuals";
+import { setInlineVisualsEnabled } from "@/lib/inline-visual-preference";
 import { useIsMobile, useIsNarrowMobile } from "@/hooks/useIsMobile";
 import { useViewportHeight } from "@/hooks/useViewportHeight";
 import { useResizablePanel } from "@/hooks/useResizablePanel";
@@ -111,6 +113,7 @@ export function AppShell() {
   // Restore fonts even when Settings and the chat composer have not been opened.
   useFontPreferences();
   const { locale, t: translate } = useI18n();
+  const inlineVisualsEnabled = useInlineVisuals();
   const isMobile = useIsMobile();
   const isNarrowMobile = useIsNarrowMobile();
   useViewportHeight();
@@ -1501,6 +1504,11 @@ export function AppShell() {
       id: "finder", label: translate("quickActions.openFinder"), keywords: ["finder", "folder", "directory", "工作目录", "工作目錄"],
       run: () => { void sidebarControlRef.current?.openDirectoryInFileManager(selectedSession.cwd).then(failed => { if (failed) setSidebarOpen(true); }); },
     }] : []),
+    {
+      id: "inline-visuals", label: translate(inlineVisualsEnabled ? "quickActions.disableInlineVisuals" : "quickActions.enableInlineVisuals"),
+      keywords: ["intelligence ui", "intellgence ui", "interactive", "inline visuals", "diagram", "交互图解", "互動圖解"],
+      run: () => setInlineVisualsEnabled(!inlineVisualsEnabled),
+    },
   ];
   // Subagent work tabs: like files, only the active one is mounted.
   const activeAgentTab = agentTabs.find((tab) => `agent:${tab.sessionId}` === activeFileTabId) ?? null;

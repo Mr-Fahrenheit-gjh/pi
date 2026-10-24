@@ -28,6 +28,8 @@ export const enLocale: LocalePlugin = {
     "quickActions.renameConversation": "Rename this conversation",
     "quickActions.forkConversation": "Fork this conversation",
     "quickActions.openFinder": "Open conversation folder in Finder",
+    "quickActions.enableInlineVisuals": "Enable Intelligence UI (interactive diagrams)",
+    "quickActions.disableInlineVisuals": "Disable Intelligence UI (interactive diagrams)",
     "outputs.title": "Outputs",
     "outputs.description": "Files from this conversation. Click to open.",
     "outputs.empty": "Files created here will appear automatically.",

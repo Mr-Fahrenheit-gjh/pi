@@ -13,10 +13,11 @@ const menu = readFileSync(new URL('./QuickActions.tsx', import.meta.url), 'utf8'
 const evaluate = (source, context) => new Script(ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS } }).outputText).runInNewContext(context);
 const section = (source, start, end) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
 
-function actionsFixture(selectedSession = { id: 'current', cwd: '/conversation' }, runtime = 'pi') {
+function actionsFixture(selectedSession = { id: 'current', cwd: '/conversation' }, runtime = 'pi', inlineVisualsEnabled = true) {
   const calls = [];
   const context = {
     quickCwd: '/browser-folder', selectedSession, pageRuntime: () => runtime, translate: key => enLocale.messages[key],
+    inlineVisualsEnabled, setInlineVisualsEnabled: value => calls.push(['inlineVisuals', value]),
     setSidebarOpen: value => calls.push(['sidebar', value]), setRightPanelExpanded: value => calls.push(['expanded', value]),
     sidebarControlRef: { current: { renameSession: session => calls.push(['rename', session]) } },
   };
@@ -33,11 +34,26 @@ function rows(search = '', mode = 'command') {
 }
 
 test('command and chat modes never mix commands with conversation or file results', () => {
-  assert.deepEqual(rows(), ['action:new', 'action:terminal', 'action:outputs', 'action:rename', 'action:fork', 'action:finder']);
+  assert.deepEqual(rows(), ['action:new', 'action:terminal', 'action:outputs', 'action:rename', 'action:fork', 'action:finder', 'action:inline-visuals']);
   assert.deepEqual(rows('file'), ['action:outputs']);
   assert.deepEqual(rows('', 'chat'), ['session:other']);
   assert.deepEqual(rows('file', 'chat'), ['session:other', 'file:report.md']);
   assert.deepEqual(rows('rename', 'chat'), []);
+});
+
+test('Intelligence UI command reflects the current preference and toggles the existing setting', () => {
+  assert.match(shell, /const inlineVisualsEnabled = useInlineVisuals\(\)/);
+  for (const enabled of [true, false]) {
+    const fixture = actionsFixture(null, 'pi', enabled);
+    const action = fixture.actions.find(action => action.id === 'inline-visuals');
+    assert.ok(action, 'available without a selected session');
+    assert.equal(action.label, enLocale.messages[enabled ? 'quickActions.disableInlineVisuals' : 'quickActions.enableInlineVisuals']);
+    action.run();
+    assert.deepEqual(fixture.calls, [['inlineVisuals', !enabled]]);
+    for (const query of ['intelligence ui', 'intellgence ui', 'interactive', '交互图解', '互動圖解']) {
+      assert.equal(quickActionMatches(action, query), true, query);
+    }
+  }
 });
 
 const jiti = createJiti(import.meta.url, { jsx: { runtime: 'automatic' }, tsconfigPaths: true });

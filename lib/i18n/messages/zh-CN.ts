@@ -28,6 +28,8 @@ export const zhCNLocale: LocalePlugin = {
     "quickActions.renameConversation": "重命名当前对话",
     "quickActions.forkConversation": "从当前对话创建 Fork",
     "quickActions.openFinder": "在 Finder 打开对话工作目录",
+    "quickActions.enableInlineVisuals": "开启 Intelligence UI（交互图解）",
+    "quickActions.disableInlineVisuals": "关闭 Intelligence UI（交互图解）",
     "outputs.title": "成果",
     "outputs.description": "本对话中的文件，点击即可打开。",
     "outputs.empty": "对话中生成的文件会自动出现在这里。",
