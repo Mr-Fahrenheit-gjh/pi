@@ -213,6 +213,9 @@ try {
   await page.screenshot({ path: join(out, 'fetch-final-error-desktop.png'), fullPage: true });
   const focusChecks = process.env.PI_WEB_TEST_MOBILE === '1' ? [] : await checkComposerFocus(page, { base, sessionId: sid });
   const shortcutChecks = process.env.PI_WEB_TEST_MOBILE === '1' ? [] : await checkQuickActionShortcuts(page, { base, sessionId: sid, outputDir: out, recentSessions: shortcutSessions });
+  // Use the longer English labels to catch uneven spacing around System prompt.
+  await page.evaluate(() => localStorage.setItem('pi-locale', 'en'));
+  await page.reload({ waitUntil: 'networkidle' });
   // Inspect a long synthetic prompt without initializing an agent or calling a model.
   const promptFixture = Array.from({ length: 120 }, (_, index) => `Instruction ${index + 1}: preserve <literal> prompt text and wrap long lines consistently.`).join('\n');
   let promptReads = 0;
@@ -237,6 +240,12 @@ try {
   assert.equal(await promptText.textContent(), promptFixture);
   assert.equal(await settings.locator('.settings-mobile-section-picker option').last().getAttribute('value'), 'system');
   assert.equal(await systemTab.getAttribute('aria-current'), 'page');
+  const labelGaps = await settings.locator('.settings-section-tab').evaluateAll(tabs => tabs.slice(1).map((tab, index) => {
+    const previousLabel = tabs[index].querySelector('span').getBoundingClientRect();
+    const style = getComputedStyle(tab);
+    return tab.getBoundingClientRect().left + parseFloat(style.paddingLeft) - previousLabel.right;
+  }));
+  for (const gap of labelGaps) assert.ok(Math.abs(gap - 32) < 1, `Settings labels keep the same 32px content gap, got ${gap}`);
   const promptGeometry = await promptPage.evaluate(node => {
     const header = node.querySelector('.config-detail-header').getBoundingClientRect();
     const panel = node.querySelector('.system-prompt-panel').getBoundingClientRect();
@@ -257,7 +266,7 @@ try {
   await page.keyboard.press('Escape');
   await settings.waitFor({ state: 'hidden' });
   assert.deepEqual(errors, []);
-  const result = { passed: true, buildId: readFileSync(join(root, '.next/BUILD_ID'), 'utf8').trim(), packageRoot: root, isolatedAgentDir: agentDir, desktopAndMobile: process.env.PI_WEB_TEST_MOBILE === '1', tested: ['finished history process controls absent', 'live collapse', 'running expand and collapse', 'streaming reasoning hidden', 'streaming answer visible', 'tool failure summary absent; running details available when expanded', 'provider error visible', 'extension confirm visible', 'completion removes process controls', 'fetch failed history/no-content/final-error hidden; running details expandable', 'partial answer with fetch failure visible', 'retry success keeps fetch errors hidden', 'other model failures and truncation visible', 'quoted glued bracket display math renders boxed integral test without errors and preserves following prose', ...focusChecks, ...shortcutChecks, 'system prompt: last settings tab, shared header, full-width aligned body, single inner scroll, exact text and refresh'], timestamp: new Date().toISOString() };
+  const result = { passed: true, buildId: readFileSync(join(root, '.next/BUILD_ID'), 'utf8').trim(), packageRoot: root, isolatedAgentDir: agentDir, desktopAndMobile: process.env.PI_WEB_TEST_MOBILE === '1', tested: ['finished history process controls absent', 'live collapse', 'running expand and collapse', 'streaming reasoning hidden', 'streaming answer visible', 'tool failure summary absent; running details available when expanded', 'provider error visible', 'extension confirm visible', 'completion removes process controls', 'fetch failed history/no-content/final-error hidden; running details expandable', 'partial answer with fetch failure visible', 'retry success keeps fetch errors hidden', 'other model failures and truncation visible', 'quoted glued bracket display math renders boxed integral test without errors and preserves following prose', ...focusChecks, ...shortcutChecks, 'system prompt: last settings tab, equal English navigation gaps, shared header, full-width aligned body, single inner scroll, exact text and refresh'], timestamp: new Date().toISOString() };
   writeFileSync(join(out, 'result.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
 } finally {

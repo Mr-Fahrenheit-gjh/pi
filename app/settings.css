@@ -1431,7 +1431,7 @@
 .settings-section-tabs {
   display: flex;
   align-items: stretch;
-  gap: 2px;
+  gap: 20px;
   min-width: 0;
   height: 50px;
   margin-left: 22px;
@@ -1442,13 +1442,13 @@
 .settings-section-tab {
   position: relative;
   display: flex;
-  flex: 0 0 96px;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   gap: 5px;
-  width: 96px;
+  width: auto;
   height: 100%;
-  padding: 0 2px;
+  padding: 0 6px;
   border: 0;
   outline: none;
   background: transparent;

@@ -11,6 +11,7 @@
 - ChatInput remeasures an existing draft when the interface font or weight changes. TerminalPanel follows the native Ghostty font family/size via `/api/terminal/preferences`, not these code-font preferences. It refreshes on window focus and refits without restarting its PTY/SSE; manual zoom is preserved. See [terminal.md](../terminal.md) for supported native options and the default white terminal palette.
 
 ## System prompt
+- Desktop navigation tabs size to their label content, with a shared 20px inter-tab gap and 6px horizontal padding. Do not restore fixed-width cells: long English labels such as System prompt would crowd the preceding tab. Mobile keeps the existing section picker.
 - Settings › System prompt is the last tab (desktop and mobile), a read-only inspector for the current chat, available without a project. Its full-height container uses the shared configuration header/title/actions, matching header/body widths, and an embedded prompt panel with one inner scrollbar; do not nest it inside General's narrow column or shell-option row. It reuses AppShell's live prompt and the registered `useAgentSession.loadSystemInfo` action (no new API or prompt storage). Entering the section or clicking Refresh requests the exact runtime prompt; dormant/new sessions may be initialized, but no model message is sent. Errors are shown with a refresh action; leaving the section cancels local loading/error updates. Do not turn this into an editor for global/project instructions.
 
 ## Plugins and skills
