@@ -281,7 +281,8 @@ function forkFixture() {
     forkFailureMessage: code => ({ key: `error:${code}`, params: {} }), sessionRowTitle: session => session.name ?? session.id,
     splitBeforeForkSuffix: () => null, shortTitle: value => value, TOAST_TITLE_MAX: 40, t: key => key,
     showToast: (...args) => toasts.push(args), openForkedRef: { current: (session, rowKey) => opens.push([session.id, rowKey]) },
-    allSessions: [], unread: new Set(), loads: 0,
+    allSessions: [], unread: new Set(), loads: 0, uiRefreshes: 0,
+    async refreshUiState() { context.uiRefreshes++; },
     setAllSessions(fn) { context.allSessions = fn(context.allSessions); }, setUnreadSessionIds(fn) { context.unread = fn(context.unread); },
     loadSessions() { context.loads++; },
   };
@@ -296,6 +297,7 @@ test('Fork targets the supplied conversation, shares in-flight deduplication and
   assert.equal(f.requests[0].options.method, 'POST'); assert.equal(f.requests[0].options.body, '{}');
   f.respond(0, { session: { id: 'copy', name: 'Copy' } }); await first;
   assert.deepEqual(f.opens, [['copy', null]]); assert.equal(f.context.forkingIdsRef.current.size, 0);
+  assert.equal(f.context.uiRefreshes, 1);
   assert.equal(f.context.forkSessionRef.current, f.context.invoke);
 });
 
