@@ -8,6 +8,8 @@ import { InlineVisualMessageState } from "./InlineVisual";
 import { ProviderIcon } from "./ProviderIcon";
 import { modelManufacturerIcon } from "@/lib/model-manufacturer";
 import { ImagePreview } from "./ImagePreview";
+import { AttachmentCards } from "./AttachmentCards";
+import { presentAttachmentMessage } from "@/lib/attachment-presentation";
 import { ThinkingIcon } from "./ThinkingIcon";
 import { copyText } from "@/lib/clipboard";
 import { useI18n } from "@/hooks/useI18n";
@@ -350,7 +352,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
   // Session files can hold `\r\n` or lone `\r` line endings (#680). Chrome renders
   // a lone `\r` as a space even in the pre-wrap command-args and raw-text views.
   // Copy uses this text too; the session file keeps the original endings.
-  const content = (
+  const rawContent = (
     typeof message.content === "string"
       ? message.content
       : message.content
@@ -358,6 +360,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
           .map((b) => b.text)
           .join("\n")
   ).replace(/\r\n?/g, "\n");
+  const { text: content, files: attachedFiles } = presentAttachmentMessage(rawContent);
 
   const imageBlocks: ImageContent[] =
     typeof message.content === "string"
@@ -375,7 +378,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
 
   const time = formatTime(message.timestamp);
   const canFork = !!entryId && !!onFork;
-  const copyTarget = commandText ?? content;
+  const copyTarget = commandText ?? rawContent;
   const editTarget = commandText ? replaceUserMessageText(message, commandText) : message;
 
   const imageBlocksNode = imageBlocks.length > 0 && (
@@ -397,7 +400,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
             <img
               src={src}
               alt=""
-              style={{ maxWidth: 240, maxHeight: 240, borderRadius: 6, objectFit: "contain", display: "block", border: "1px solid rgba(59,130,246,0.15)" }}
+              style={{ maxWidth: 240, maxHeight: 240, borderRadius: 6, objectFit: "contain", display: "block", border: "1px solid var(--border)" }}
             />
           </ImagePreview>
         );
@@ -441,6 +444,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
           {commandText ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
               {imageBlocksNode}
+              {attachedFiles.length > 0 && <AttachmentCards files={attachedFiles} onOpenFile={onOpenFile} />}
               <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
                 <button
                   onClick={() => setExpanded((prev) => !prev)}
@@ -500,6 +504,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
           ) : (
           <>
           {imageBlocksNode}
+          {attachedFiles.length > 0 && <AttachmentCards files={attachedFiles} onOpenFile={onOpenFile} />}
           {content && <SafeMarkdownBody className="markdown-user-message" keepLineBreaks cwd={cwd} onOpenFile={onOpenFile}>{content}</SafeMarkdownBody>}
           </>
           )}

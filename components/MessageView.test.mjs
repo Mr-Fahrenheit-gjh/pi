@@ -1,9 +1,17 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import test from "node:test";
 import { createJiti } from "jiti";
 import ts from "typescript";
 
+// Match the existing component-test CSS-module loader (ChatMinimap.test.mjs).
+registerHooks({
+  load(url, context, nextLoad) {
+    if (!url.endsWith(".module.css")) return nextLoad(url, context);
+    return { format: "module", shortCircuit: true, source: "export default new Proxy({}, { get: (_, key) => String(key) });" };
+  },
+});
 const jiti = createJiti(import.meta.url, {
   jsx: { runtime: "automatic" },
   tsconfigPaths: true,
@@ -33,6 +41,15 @@ function renderMessage(message, props = {}) {
     ),
   );
 }
+
+test("user attachments render as named cards without private storage paths", () => {
+  const path = `/tmp/agent/chat-attachments/${"a".repeat(64)}/report with spaces.pdf`;
+  const html = renderMessage({ role: "user", content: `Please read @"${path}"` });
+  assert.match(html, /class="attachment-card"/);
+  assert.match(html, /report with spaces.pdf/);
+  assert.match(html, /Please read/);
+  assert.doesNotMatch(html, /chat-attachments|@&quot;/);
+});
 
 test("per-message accounting stays absent from the content-first interface", () => {
   const message = { role: "assistant", content: [{ type: "text", text: "Answer" }], usage: { input: 123, output: 45, cacheRead: 67, cacheWrite: 0, cost: { total: .12 } } };
@@ -187,10 +204,11 @@ test("keys an assistant message's blocks by their place, not the entry id (#1184
   // A message of the running turn gets its entry id when the file is read again.
   // A block keyed by it remounted then: open thinking closed, a tool output's
   // scroll went back to the top. ThinkingBlock drops what it loaded for another id.
+  // The existing InlineVisualMessageState wrapper now owns that reconciliation key.
   const source = ts.createSourceFile("MessageView.tsx", readFileSync(new URL("./MessageView.tsx", import.meta.url), "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const keys = [];
   (function visit(node) {
-    if ((ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) && node.tagName.getText(source) === "BlockView") {
+    if ((ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) && node.tagName.getText(source) === "InlineVisualMessageState") {
       const key = node.attributes.properties.find((attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "key");
       keys.push(key?.initializer?.expression?.getText(source));
     }

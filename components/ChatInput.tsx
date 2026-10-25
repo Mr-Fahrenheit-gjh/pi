@@ -29,6 +29,8 @@ import { isBareMcpCommand, isBuiltinMcpCommand } from "@/lib/mcp-command";
 import { FolderIcon, getFileIcon } from "./FileIcons";
 import { ImagePreview } from "./ImagePreview";
 import { AttachmentDialog } from "./AttachmentDialog";
+import { AttachmentCards } from "./AttachmentCards";
+import { useAttachmentText } from "@/hooks/useAttachmentText";
 import { DismissButton } from "./DismissButton";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useEnterSendMode } from "@/hooks/useEnterSendMode";
@@ -685,7 +687,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
   const isMobile = useIsMobile();
   const enterSendMode = useEnterSendMode();
   const runningSendMode = useRunningSendMode();
-  const [value, setValue] = useState(() => (draftKey ? getDraft(draftKey)?.value ?? "" : ""));
+  const { value, setValue, files: attachedFiles, expand: expandAttachments } = useAttachmentText(() => (draftKey ? getDraft(draftKey)?.value ?? "" : ""));
   const [toolDropdownOpen, setToolDropdownOpen] = useState(false);
   const [thinkingDropdownOpen, setThinkingDropdownOpen] = useState(false);
   const [controlsMenuOpen, setControlsMenuOpen] = useState(false);
@@ -824,7 +826,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
       }
 
       const currentDraft = {
-        value: valueRef.current,
+        value: expandAttachments(valueRef.current),
         images: attachedImagesRef.current.map(imageToDraftImage),
       };
       const moved = rekeyStoredDraft(previousKey, nextKey, currentDraft) ?? { value: "", images: [] };
@@ -863,7 +865,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
       const restoredDraft = mergeRestoredSubmissionDraft(
         text,
         images,
-        targetsCurrentComposer ? valueRef.current : (storedDraft?.value ?? ""),
+        targetsCurrentComposer ? expandAttachments(valueRef.current) : (storedDraft?.value ?? ""),
         targetsCurrentComposer
           ? attachedImagesRef.current.map(imageToDraftImage)
           : (storedDraft?.images ?? []),
@@ -1005,15 +1007,15 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
-  }, [clearImages, draftKey]);
+  }, [clearImages, draftKey, setValue]);
 
   useEffect(() => {
     if (!draftKey || draftKeyRef.current !== draftKey) return;
     setDraft(draftKey, {
-      value,
+      value: expandAttachments(value),
       images: attachedImages.map(imageToDraftImage),
     });
-  }, [attachedImages, draftKey, value]);
+  }, [attachedImages, draftKey, value, expandAttachments]);
 
   useEffect(() => {
     const previousDraftKey = draftKeyRef.current;
@@ -1021,7 +1023,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
 
     if (previousDraftKey) {
       setDraft(previousDraftKey, {
-        value: valueRef.current,
+        value: expandAttachments(valueRef.current),
         images: attachedImagesRef.current.map(imageToDraftImage),
       });
     }
@@ -1039,7 +1041,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
       prev.forEach(revokeImagePreview);
       return nextImages;
     });
-  }, [draftKey]);
+  }, [draftKey, expandAttachments, setValue]);
 
   useEffect(function restoreComposerFocus() {
     if (compact) return;
@@ -1153,8 +1155,8 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
     if (builtinAllowed && await runBuiltinCommand(msg)) return;
     if (isStreaming) return;
     clearInput();
-    onSend(msg, attachedImages.length ? attachedImages : undefined);
-  }, [value, attachedImages, isStreaming, runBuiltinCommand, onSend, clearInput, onAudioUnlock]);
+    onSend(expandAttachments(msg), attachedImages.length ? attachedImages : undefined);
+  }, [value, attachedImages, isStreaming, runBuiltinCommand, onSend, clearInput, onAudioUnlock, expandAttachments]);
 
   const slashQuery = !compact && value.startsWith("/") && !/\s/.test(value.slice(1))
     ? value.slice(1).toLowerCase()
@@ -1349,11 +1351,11 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
       const ta = textareaRef.current;
       if (!ta) return;
       ta.focus();
-      ta.setSelectionRange(text.length, text.length);
+      ta.setSelectionRange(ta.value.length, ta.value.length);
       ta.style.height = "auto";
       ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
     });
-  }, []);
+  }, [setValue]);
 
   const applySlashCommand = useCallback((command: SlashCommandPaletteItem) => {
     const nextValue = `/${command.name} `;
@@ -1368,10 +1370,10 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
       ta.style.height = "auto";
       ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
     });
-  }, []);
+  }, [setValue]);
 
   const sendQueued = useCallback((mode: "steer" | "followup") => {
-    const msg = value.trim();
+    const msg = expandAttachments(value.trim());
     if (!msg && !attachedImages.length) return;
     onAudioUnlock?.();
     const images = attachedImages.length ? attachedImages : undefined;
@@ -1402,7 +1404,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
       return;
     }
     queue();
-  }, [value, attachedImages, onBuiltinCommand, onPromptWithStreamingBehavior, onSteer, onFollowUp, clearInput, onAudioUnlock, runBuiltinCommand]);
+  }, [value, attachedImages, onBuiltinCommand, onPromptWithStreamingBehavior, onSteer, onFollowUp, clearInput, onAudioUnlock, runBuiltinCommand, expandAttachments]);
 
   const getNextSlashIndex = useCallback((direction: "up" | "down" | "left" | "right") => {
     const lastIndex = displayedSlashCommands.length - 1;
@@ -1601,7 +1603,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
         }
       }
     },
-    [isMobile, enterSendMode, runningSendMode, isStreaming, onSteer, onFollowUp, onAbort, slashMenuOpen, slashQuery, displayedSlashCommands, slashActiveIndex, applySlashCommand, sendQueued, handleSend, getNextSlashIndex, atMenuOpen, atQuery, atMatches, atActiveIndex, applyAtCompletion, historyMenuOpen, inputHistory, historyActiveIndex, applyHistoryInput, value, visiblePromptSuggestion, dismissPromptSuggestion]
+    [isMobile, enterSendMode, runningSendMode, isStreaming, onSteer, onFollowUp, onAbort, slashMenuOpen, slashQuery, displayedSlashCommands, slashActiveIndex, applySlashCommand, sendQueued, handleSend, getNextSlashIndex, atMenuOpen, atQuery, atMatches, atActiveIndex, applyAtCompletion, historyMenuOpen, inputHistory, historyActiveIndex, applyHistoryInput, value, visiblePromptSuggestion, dismissPromptSuggestion, setValue]
   );
 
   const handleInput = useCallback(() => {
@@ -1613,6 +1615,12 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
 
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = Array.from(e.clipboardData?.items ?? []);
+    const pastedFiles = Array.from(e.clipboardData?.files ?? []);
+    if (!compact && onAttachFiles && pastedFiles.length) {
+      e.preventDefault();
+      onAttachFiles(pastedFiles);
+      return;
+    }
     const imageItems = items.filter((item) => item.type.startsWith("image/"));
     if (!compact && imageItems.length) {
       e.preventDefault();
@@ -1651,7 +1659,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
       ta.focus();
       ta.setSelectionRange(start + markdown.length, start + markdown.length);
     });
-  }, [compact, processImageFiles, updateAtQuery]);
+  }, [compact, processImageFiles, updateAtQuery, onAttachFiles, setValue]);
 
   useEffect(() => {
     if (slashQuery === null) {
@@ -2015,8 +2023,9 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
         <div className={compact ? undefined : "composer-card"}>
         <div className={compact ? undefined : "composer-surface"}>
         {/* Attachment previews share the text-entry surface, above the draft. */}
-        {attachedImages.length > 0 && (
+        {(attachedFiles.length > 0 || attachedImages.length > 0) && (
           <div className="composer-attachments">
+            {attachedFiles.length > 0 && <AttachmentCards files={attachedFiles} onRemove={(file) => setValue((current) => current.split(file.token).join("").trim())} />}
             {attachedImages.map((img, i) => (
               <div key={i} style={{ position: "relative", flexShrink: 0 }}>
                 <ImagePreview key={img.previewUrl} src={img.previewUrl}>

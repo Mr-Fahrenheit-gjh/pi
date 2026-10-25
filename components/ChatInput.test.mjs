@@ -671,7 +671,7 @@ function chatInputCallback(name, context) {
   }
   return new Script(ts.transpileModule(findCallback(source).getText(source), {
     compilerOptions: { target: ts.ScriptTarget.ES2020 },
-  }).outputText).runInNewContext(context);
+  }).outputText).runInNewContext({ expandAttachments: (text) => text, ...context });
 }
 
 test("while a run streams, a bare /mcp opens Settings or is queued as before", async () => {
@@ -728,6 +728,25 @@ test("handleSend lets a handled /mcp through while streaming and sends an unowne
   assert.deepEqual(await run("/mcp", { isStreaming: false, handled: false }), { builtin: ["/mcp"], sent: ["/mcp"] });
   // Streaming without steer handlers keeps any other message in the composer, as before.
   assert.deepEqual(await run("/mcp login", { isStreaming: true, handled: false }), { builtin: [], sent: [] });
+});
+
+test("idle and queued requests expand attachment tokens before sending", async () => {
+  const { AttachmentPresentation } = await jiti.import("../lib/attachment-presentation.ts");
+  const presentation = new AttachmentPresentation();
+  const path = `/tmp/agent/chat-attachments/${"a".repeat(64)}/report.pdf`;
+  const value = presentation.compact(`Read @${path}`);
+  const sent = [];
+  const context = {
+    value, attachedImages: [], isStreaming: false, onBuiltinCommand: undefined,
+    expandAttachments: (text) => presentation.expand(text),
+    onAudioUnlock() {}, clearInput() {}, onSend: (text) => sent.push(text),
+    runBuiltinCommand: async () => false, offersBuiltinSlashCommandWhileStreaming,
+    onSteer: (text) => sent.push(text), onFollowUp: (text) => sent.push(text),
+  };
+  await chatInputCallback("handleSend", context)();
+  chatInputCallback("sendQueued", context)("steer");
+  chatInputCallback("sendQueued", context)("followup");
+  assert.deepEqual(sent, Array(3).fill(`Read @${path}`));
 });
 
 test("restores text and base64 images when editing a user message", () => {
