@@ -90,7 +90,9 @@ function fixturePdf() {
 
 async function main() {
   const root = dirname(dirname(fileURLToPath(import.meta.url)));
-  assert.ok(!existsSync(join(root, ".next/dev/lock")), "An active source dev server must not be replaced");
+  const mode = process.env.E2E_SERVER_MODE || "dev";
+  assert.ok(mode === "dev" || mode === "start", "E2E_SERVER_MODE must be dev or start");
+  assert.ok(mode !== "dev" || !existsSync(join(root, ".next/dev/lock")), "An active source dev server must not be replaced");
   const agentDir = mkdtempSync("/tmp/pi-chat-attachment-e2e-");
   const project = join(agentDir, "project"), sessions = join(agentDir, "sessions", "attachments");
   mkdirSync(project); mkdirSync(sessions, { recursive: true });
@@ -104,7 +106,7 @@ async function main() {
   const artifacts = join(root, "test-results", "chat-attachments");
   mkdirSync(artifacts, { recursive: true });
   const log = createWriteStream(join(artifacts, "server.log"));
-  const server = spawn(process.execPath, [join(root, "node_modules/next/dist/bin/next"), "dev", "-H", "127.0.0.1", "-p", "30157"], {
+  const server = spawn(process.execPath, [join(root, "node_modules/next/dist/bin/next"), mode, "-H", "127.0.0.1", "-p", "30157"], {
     cwd: root, env: { ...process.env, PI_CODING_AGENT_DIR: agentDir, PI_WEB_PASSWORD: "", NEXT_TELEMETRY_DISABLED: "1" }, stdio: ["ignore", "pipe", "pipe"],
   });
   server.stdout.pipe(log); server.stderr.pipe(log);
