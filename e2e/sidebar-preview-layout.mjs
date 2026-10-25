@@ -8,7 +8,7 @@ export async function runSidebarPreviewLayoutChecks(page, { baseURL }) {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   for (const width of [1440, 820]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.goto(`${baseURL}/?session=workspace-design-fixture`, { waitUntil: "networkidle" });
+    await page.goto(`${baseURL}/?session=workspace-design-fixture`, { waitUntil: "domcontentloaded" });
     await page.locator(".workspace-topbar").waitFor({ state: "attached" });
     const sides = [
       { id: "session-sidebar", prefix: "sidebar", toggle: "[data-sidebar-toggle]" },
