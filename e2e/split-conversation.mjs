@@ -125,6 +125,42 @@ try {
   }
   assert.deepEqual(await left.locator('.new-session-context button').allTextContents(), await right.locator('.new-session-context button').allTextContents());
   await page.screenshot({ path: join(out, 'split-matching-welcome.png') });
+  const divider = page.getByRole('separator', { name: 'Resize conversation split' });
+  await left.locator('textarea.chat-input-textarea').fill('left resize draft');
+  await right.locator('textarea.chat-input-textarea').fill('right resize draft');
+  const panelWidth = pane => pane.evaluate(node => node.getBoundingClientRect().width);
+  const dragDivider = async delta => {
+    const box = await divider.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + 200);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + delta, box.y + 200, { steps: 8 });
+    await page.mouse.up();
+  };
+  const initialWidth = await panelWidth(left);
+  await dragDivider(160);
+  assert.ok(Math.abs(await panelWidth(left) - initialWidth - 160) <= 2, 'Dragging moves the divider instead of keeping fixed halves');
+  assert.equal(await left.locator('textarea.chat-input-textarea').inputValue(), 'left resize draft');
+  assert.equal(await right.locator('textarea.chat-input-textarea').inputValue(), 'right resize draft');
+  const savedWidth = await page.evaluate(() => localStorage.getItem('pi-conversation-split-width'));
+  assert.ok(Math.abs(Number(savedWidth) - await panelWidth(left)) <= 1, 'The chosen width is remembered');
+  await divider.press('ArrowLeft');
+  assert.ok(Math.abs(await panelWidth(left) - initialWidth - 148) <= 2, 'Keyboard adjusts the same divider');
+  await page.screenshot({ path: join(out, 'split-resized.png') });
+  await dragDivider(1800);
+  assert.ok(await panelWidth(right) >= 279, 'The other pane retains its minimum width');
+  const widePreference = await panelWidth(left);
+  await page.setViewportSize({ width: 1000, height: 1000 });
+  await page.waitForFunction(() => {
+    const container = document.querySelector('.conversation-layout');
+    const pane = document.querySelector('.primary-conversation');
+    return pane.getBoundingClientRect().width <= container.clientWidth - Math.min(280, container.clientWidth / 2) + 1;
+  });
+  assert.ok(await panelWidth(right) >= 279);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.waitForFunction(expected => Math.abs(document.querySelector('.primary-conversation').getBoundingClientRect().width - expected) <= 2, widePreference);
+  await divider.dblclick();
+  assert.ok(Math.abs(await panelWidth(left) - await panelWidth(right)) <= 2, 'Double-click restores equal halves at the current container size');
+  assert.equal(await page.locator('[data-panel-drag-shield]').count(), 0, 'Drag capture is fully cleaned up');
   // The same sidebar selects a history conversation in whichever pane was focused.
   await right.locator('textarea.chat-input-textarea').click();
   await page.locator('.session-tree-main').filter({ hasText: 'Numbered conversation 4' }).first().click();
@@ -147,7 +183,7 @@ try {
   assert.equal(await right.count(), 0);
   assert.equal(sends, 0, 'Navigation and new composers never send or start a model');
   assert.deepEqual(errors, []);
-  const result = { passed: true, shortcutChecks, checks: ['equal halves', 'no secondary-only header', 'independent drafts', 'shared palette preserves draft on cancel', 'history search targets focused pane', 'new conversation targets focused pane', 'identical welcome geometry and styles', 'identical project/worktree controls', 'sidebar targets focused pane', 'primary URL unchanged', 'duplicate session guard', 'mobile fallback', 'close split via palette', 'zero model requests'] };
+  const result = { passed: true, shortcutChecks, checks: ['equal halves', 'no secondary-only header', 'independent drafts', 'shared palette preserves draft on cancel', 'history search targets focused pane', 'new conversation targets focused pane', 'identical welcome geometry and styles', 'identical project/worktree controls', 'pointer resizing', 'keyboard resizing', 'remembered width', 'minimum widths', 'container resize clamp and restore', 'double-click equal halves', 'drafts survive resizing', 'sidebar targets focused pane', 'primary URL unchanged', 'duplicate session guard', 'mobile fallback', 'close split via palette', 'zero model requests'] };
   writeFileSync(join(out, 'result.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
 } finally {

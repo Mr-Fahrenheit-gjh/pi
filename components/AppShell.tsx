@@ -404,6 +404,38 @@ export function AppShell() {
     storageKey: "pi-right-panel-width",
     widthRef: rightPanelWidthRef,
   });
+  const conversationLayoutRef = useRef<HTMLDivElement>(null);
+  const conversationWidthRef = useRef(400);
+  const [conversationAvailableWidth, setConversationAvailableWidth] = useState(0);
+  const conversationMinWidth = Math.min(280, conversationAvailableWidth / 2);
+  const getConversationDefaultWidth = useCallback(
+    () => (conversationLayoutRef.current?.clientWidth ?? 800) / 2,
+    [],
+  );
+  const getConversationMaxWidth = useCallback(
+    () => Math.max(conversationMinWidth, (conversationLayoutRef.current?.clientWidth ?? 800) - conversationMinWidth),
+    [conversationMinWidth],
+  );
+  const conversationResizer = useResizablePanel({
+    ariaLabel: translate("split.resize"),
+    cssVariable: "--conversation-split-width",
+    defaultWidth: 400,
+    getDefaultWidth: getConversationDefaultWidth,
+    getMaxWidth: getConversationMaxWidth,
+    growthDirection: "right",
+    maxWidth: 10000,
+    minWidth: conversationMinWidth,
+    persistClamp: false,
+    storageKey: "pi-conversation-split-width",
+    widthRef: conversationWidthRef,
+  });
+  useEffect(() => {
+    const layout = conversationLayoutRef.current;
+    if (!layout) return;
+    const observer = new ResizeObserver(([entry]) => setConversationAvailableWidth(entry.contentRect.width));
+    observer.observe(layout);
+    return () => observer.disconnect();
+  }, []);
   const reclampSidebarWidth = sidebarResizer.reclampWidth;
   const reclampRightPanelWidth = rightPanelResizer.reclampWidth;
   // On mobile the sidebar is an overlay drawer; hide it by default so the chat
@@ -2262,8 +2294,8 @@ export function AppShell() {
         </div>
 
         {/* Chat content: both panes retain their own session and composer. */}
-        <div className={`conversation-layout${splitOpen ? " is-split" : ""}`}>
-        <div className="primary-conversation" onPointerDownCapture={() => setActiveChatPane("primary")} onFocusCapture={() => setActiveChatPane("primary")}>
+        <div ref={conversationLayoutRef} className={`conversation-layout${splitOpen ? " is-split" : ""}`}>
+        <div id="primary-conversation" ref={conversationResizer.panelRef} className="primary-conversation" onPointerDownCapture={() => setActiveChatPane("primary")} onFocusCapture={() => setActiveChatPane("primary")}>
           {showChat ? (
             <ConversationTransition transitionKey={sessionKey}>
             <ChatWindow
@@ -2341,7 +2373,15 @@ export function AppShell() {
             )
           ) : null}
         </div>
-        {splitOpen && <div className="secondary-conversation" onPointerDownCapture={() => setActiveChatPane("secondary")} onFocusCapture={() => setActiveChatPane("secondary")}>
+        {splitOpen && <>
+        <div
+          {...conversationResizer.separatorProps}
+          aria-controls="primary-conversation secondary-conversation"
+          className={`panel-resize-handle conversation-resize-handle${conversationResizer.isResizing ? " is-resizing" : ""}`}
+          data-resize-handle="conversation"
+          title={translate("split.resizeHint")}
+        />
+        <div id="secondary-conversation" className="secondary-conversation" onPointerDownCapture={() => setActiveChatPane("secondary")} onFocusCapture={() => setActiveChatPane("secondary")}>
           <SplitConversation
             cwd={quickCwd}
             sessions={sessionCatalog}
@@ -2356,7 +2396,7 @@ export function AppShell() {
             onRefresh={() => { setRefreshKey(k => k + 1); setExplorerRefreshKey(k => k + 1); }}
             onOpenFile={(path, page, sourceSessionId) => handleOpenFile(path, getFileName(path), { sourceSessionId: sourceSessionId ?? null, page })}
           />
-        </div>}
+        </div></>}
         </div>
       </div>
 

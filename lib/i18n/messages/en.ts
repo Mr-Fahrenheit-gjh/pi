@@ -5,6 +5,8 @@ export const enLocale: LocalePlugin = {
   id: "en",
   label: "English",
   messages: {
+    "split.resize": "Resize conversation split",
+    "split.resizeHint": "Drag to resize; double-click to split evenly; use arrow keys to adjust",
     "split.command": "Split conversation",
     "split.close": "Close split",
     "split.title": "Open a conversation alongside",

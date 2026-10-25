@@ -5,6 +5,8 @@ export const zhTWLocale: LocalePlugin = {
   id: "zh-TW",
   label: "繁體中文",
   messages: {
+    "split.resize": "調整對話分割寬度",
+    "split.resizeHint": "拖曳調整寬度；按兩下恢復均分；方向鍵微調",
     "split.command": "左右分割",
     "split.close": "關閉分割",
     "split.title": "在右側開啟對話",

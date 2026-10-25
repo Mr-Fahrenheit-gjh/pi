@@ -5,6 +5,8 @@ export const zhCNLocale: LocalePlugin = {
   id: "zh-CN",
   label: "简体中文",
   messages: {
+    "split.resize": "调整对话分屏宽度",
+    "split.resizeHint": "拖动调整宽度；双击恢复均分；方向键微调",
     "split.command": "左右分屏",
     "split.close": "关闭分屏",
     "split.title": "在右侧打开对话",
