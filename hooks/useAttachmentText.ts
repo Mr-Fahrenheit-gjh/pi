@@ -1,16 +1,38 @@
 "use client";
 import { useCallback, useRef, useState, type SetStateAction } from "react";
-import { AttachmentPresentation } from "@/lib/attachment-presentation";
+import {
+  mergeComposerAttachments, serializeComposerAttachments, splitComposerAttachments,
+  type AttachmentReference,
+} from "@/lib/attachment-presentation";
 
-/** Drafts and requests retain canonical @paths; only the editor uses tokens. */
+/** Only prose is editable. Files remain independent, including an attachment-only draft. */
 export function useAttachmentText(initialText: () => string) {
-  const registry = useRef<AttachmentPresentation | null>(null);
-  if (!registry.current) registry.current = new AttachmentPresentation();
-  const presentation = registry.current;
-  const [value, update] = useState(() => presentation.compact(initialText()));
+  const [draft, update] = useState(() => splitComposerAttachments(initialText()));
+  const current = useRef(draft);
+  const replace = useCallback((next: typeof draft) => {
+    current.current = next;
+    update(next);
+  }, []);
+  // Programmatic restore/switch/clear replaces the whole canonical draft.
   const setValue = useCallback((action: SetStateAction<string>) => {
-    update((previous) => presentation.compact(typeof action === "function" ? action(previous) : action));
-  }, [presentation]);
-  const expand = useCallback((text: string) => presentation.expand(text), [presentation]);
-  return { value, setValue, files: presentation.files(value), expand };
+    const previous = current.current;
+    const raw = typeof action === "function" ? action(serializeComposerAttachments(previous.text, previous.files)) : action;
+    replace(splitComposerAttachments(raw));
+  }, [replace]);
+  // Native typing, undo and completion change prose, never silently discard files.
+  const setText = useCallback((text: string) => {
+    const incoming = splitComposerAttachments(text);
+    replace({ text: incoming.text, files: mergeComposerAttachments(current.current.files, incoming.files) });
+  }, [replace]);
+  const addFiles = useCallback((files: AttachmentReference[]) => {
+    replace({ ...current.current, files: mergeComposerAttachments(current.current.files, files) });
+  }, [replace]);
+  const removeFile = useCallback((file: AttachmentReference) => {
+    replace({ ...current.current, files: current.current.files.filter((entry) => entry.path !== file.path) });
+  }, [replace]);
+  const expand = useCallback((text: string) => {
+    const incoming = splitComposerAttachments(text);
+    return serializeComposerAttachments(incoming.text, mergeComposerAttachments(current.current.files, incoming.files));
+  }, []);
+  return { value: draft.text, setValue, setText, files: draft.files, addFiles, removeFile, expand };
 }

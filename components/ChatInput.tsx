@@ -31,6 +31,7 @@ import { ImagePreview } from "./ImagePreview";
 import { AttachmentDialog } from "./AttachmentDialog";
 import { AttachmentCards } from "./AttachmentCards";
 import { useAttachmentText } from "@/hooks/useAttachmentText";
+import type { AttachmentReference } from "@/lib/attachment-presentation";
 import { DismissButton } from "./DismissButton";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useEnterSendMode } from "@/hooks/useEnterSendMode";
@@ -121,6 +122,7 @@ export interface ChatInputHandle {
   replaceMessage: (message: UserMessage) => void;
   prependText: (text: string) => void;
   addImages: (files: File[]) => void;
+  addFiles: (files: AttachmentReference[]) => void;
   rekeyDraft: (previousKey: string, nextKey: string) => void;
   restoreSubmission: (text: string, images?: ChatDraftImage[], targetDraftKey?: string) => void;
 }
@@ -687,7 +689,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
   const isMobile = useIsMobile();
   const enterSendMode = useEnterSendMode();
   const runningSendMode = useRunningSendMode();
-  const { value, setValue, files: attachedFiles, expand: expandAttachments } = useAttachmentText(() => (draftKey ? getDraft(draftKey)?.value ?? "" : ""));
+  const { value, setValue, setText, files: attachedFiles, addFiles, removeFile, expand: expandAttachments } = useAttachmentText(() => (draftKey ? getDraft(draftKey)?.value ?? "" : ""));
   const [toolDropdownOpen, setToolDropdownOpen] = useState(false);
   const [thinkingDropdownOpen, setThinkingDropdownOpen] = useState(false);
   const [controlsMenuOpen, setControlsMenuOpen] = useState(false);
@@ -695,7 +697,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
     draftKey ? draftImagesToAttachedImages(getDraft(draftKey)?.images) : []
   ));
   const trimmedValue = value.trimStart();
-  const bashMode = attachedImages.length === 0 && trimmedValue.startsWith("!");
+  const bashMode = attachedImages.length === 0 && attachedFiles.length === 0 && trimmedValue.startsWith("!");
   const bashExcluded = bashMode && trimmedValue.startsWith("!!");
   const [slashMenuOpen, setSlashMenuOpen] = useState(false);
   const [slashActiveIndex, setSlashActiveIndex] = useState(0);
@@ -717,7 +719,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
   const visiblePromptSuggestion = !compact && shouldShowPromptSuggestion({
     suggestion: promptSuggestion, draftKey, value,
     busy: isStreaming || Boolean(isCompacting) || Boolean(modelSwitching),
-    attachments: attachedImages.length,
+    attachments: attachedImages.length + attachedFiles.length,
     menuOpen: slashMenuOpen || atMenuOpen || historyMenuOpen,
     dismissedId: promptSuggestion && dismissedSuggestionIds.includes(promptSuggestion.id) ? promptSuggestion.id : undefined,
   }) ? promptSuggestion : undefined;
@@ -726,8 +728,8 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
     : "";
   const suggestionMeasureRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (value.length > 0 || attachedImages.length > 0) dismissPromptSuggestion();
-  }, [value, attachedImages.length, dismissPromptSuggestion]);
+    if (value.length > 0 || attachedImages.length > 0 || attachedFiles.length > 0) dismissPromptSuggestion();
+  }, [value, attachedImages.length, attachedFiles.length, dismissPromptSuggestion]);
   const [fileIndex, setFileIndex] = useState<{ cwd: string; entries: FileIndexEntry[]; truncated: boolean } | null>(null);
   const [fileIndexLoading, setFileIndexLoading] = useState(false);
   const [atServerResult, setAtServerResult] = useState<{ cwd: string; query: string; matches: FileIndexEntry[] } | null>(null);
@@ -766,7 +768,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
     insertIfEmpty(text: string) {
       const ta = textareaRef.current;
       const current = ta ? ta.value : value;
-      if (current.trim()) return;
+      if (current.trim() || attachedFiles.length) return;
       valueRef.current = text;
       setValue(text);
       setAtQuery(null);
@@ -780,7 +782,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
     replaceMessage(message: UserMessage) {
       const ta = textareaRef.current;
       const current = ta ? ta.value : value;
-      if (!canRestoreUserMessage(current, attachedImagesRef.current.length, pendingImageCountRef.current)) return;
+      if (!canRestoreUserMessage(current, attachedImagesRef.current.length + attachedFiles.length, pendingImageCountRef.current)) return;
 
       const restoredText = getUserMessageText(message);
       const restoredImages = draftImagesToAttachedImages(getUserMessageDraftImages(message));
@@ -808,7 +810,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
       // the user already typed, separated by a blank line.
       const combined = [text, current].filter((t) => t.trim()).join("\n\n");
       valueRef.current = combined;
-      setValue(combined);
+      setText(combined);
       setAtQuery(null);
       requestAnimationFrame(() => {
         if (!ta) return;
@@ -930,6 +932,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
     addImages(files: File[]) {
       processImageFiles(files);
     },
+    addFiles,
   }));
 
   const processImageFiles = useCallback(async (files: File[]) => {
@@ -1015,7 +1018,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
       value: expandAttachments(value),
       images: attachedImages.map(imageToDraftImage),
     });
-  }, [attachedImages, draftKey, value, expandAttachments]);
+  }, [attachedImages, attachedFiles, draftKey, value, expandAttachments]);
 
   useEffect(() => {
     const previousDraftKey = draftKeyRef.current;
@@ -1132,7 +1135,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
   }, []);
 
   const runBuiltinCommand = useCallback(async (msg: string): Promise<boolean> => {
-    if (attachedImages.length || !msg.startsWith("/") || !onBuiltinCommand) return false;
+    if (attachedImages.length || attachedFiles.length || !msg.startsWith("/") || !onBuiltinCommand) return false;
     if (builtinCommandPendingRef.current) return true;
     builtinCommandPendingRef.current = true;
     setBuiltinCommandPending(true);
@@ -1145,17 +1148,17 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
       builtinCommandPendingRef.current = false;
       setBuiltinCommandPending(false);
     }
-  }, [attachedImages.length, clearInput, onBuiltinCommand]);
+  }, [attachedImages.length, attachedFiles.length, clearInput, onBuiltinCommand]);
 
   const handleSend = useCallback(async () => {
-    const msg = value.trim();
+    const msg = expandAttachments(value.trim());
     if (!msg && !attachedImages.length) return;
     onAudioUnlock?.();
     const builtinAllowed = !isStreaming || offersBuiltinSlashCommandWhileStreaming(msg);
     if (builtinAllowed && await runBuiltinCommand(msg)) return;
     if (isStreaming) return;
     clearInput();
-    onSend(expandAttachments(msg), attachedImages.length ? attachedImages : undefined);
+    onSend(msg, attachedImages.length ? attachedImages : undefined);
   }, [value, attachedImages, isStreaming, runBuiltinCommand, onSend, clearInput, onAudioUnlock, expandAttachments]);
 
   const slashQuery = !compact && value.startsWith("/") && !/\s/.test(value.slice(1))
@@ -1191,7 +1194,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
     ? t(slashQuery ? "chat.match" : "chat.command")
     : t(slashQuery ? "chat.matches" : "chat.commands", { count: filteredSlashCommands.length });
   const hasInputText = Boolean(value.trim());
-  const canQueueStreamingMessage = hasInputText || attachedImages.length > 0;
+  const canQueueStreamingMessage = hasInputText || attachedImages.length > 0 || attachedFiles.length > 0;
   const runningSendAction = onFollowUp && (runningSendMode === "followup" || !onSteer) ? "followup" : "steer";
   // Warn when images are attached but the selected model is known not to accept
   // image input (#584), including a resolved default. Unknown models stay silent.
@@ -1343,7 +1346,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
   }, [historyActiveIndex, historyMenuOpen]);
 
   const applyHistoryInput = useCallback((text: string) => {
-    setValue(text);
+    setText(text);
     setHistoryMenuOpen(false);
     setHistoryActiveIndex(0);
     setAtQuery(null);
@@ -1355,11 +1358,11 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
       ta.style.height = "auto";
       ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
     });
-  }, [setValue]);
+  }, [setText]);
 
   const applySlashCommand = useCallback((command: SlashCommandPaletteItem) => {
     const nextValue = `/${command.name} `;
-    setValue(nextValue);
+    setText(nextValue);
     setSlashMenuOpen(false);
     setSlashActiveIndex(0);
     requestAnimationFrame(() => {
@@ -1370,7 +1373,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
       ta.style.height = "auto";
       ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
     });
-  }, [setValue]);
+  }, [setText]);
 
   const sendQueued = useCallback((mode: "steer" | "followup") => {
     const msg = expandAttachments(value.trim());
@@ -1391,11 +1394,11 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
         onFollowUp(msg, images);
       }
     };
-    if (!attachedImages.length && onBuiltinCommand && canRunBuiltinSlashCommandWhileStreaming(msg)) {
+    if (!attachedImages.length && !attachedFiles.length && onBuiltinCommand && canRunBuiltinSlashCommandWhileStreaming(msg)) {
       void runBuiltinCommand(msg);
       return;
     }
-    if (!attachedImages.length && onBuiltinCommand && isBareMcpCommand(msg)) {
+    if (!attachedImages.length && !attachedFiles.length && onBuiltinCommand && isBareMcpCommand(msg)) {
       // Settings › MCP opens when pi's built-in MCP extension owns /mcp; another
       // extension's /mcp is queued as before. The composer is disabled meanwhile.
       void runBuiltinCommand(msg).then((handled) => {
@@ -1404,7 +1407,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
       return;
     }
     queue();
-  }, [value, attachedImages, onBuiltinCommand, onPromptWithStreamingBehavior, onSteer, onFollowUp, clearInput, onAudioUnlock, runBuiltinCommand, expandAttachments]);
+  }, [value, attachedImages, attachedFiles.length, onBuiltinCommand, onPromptWithStreamingBehavior, onSteer, onFollowUp, clearInput, onAudioUnlock, runBuiltinCommand, expandAttachments]);
 
   const getNextSlashIndex = useCallback((direction: "up" | "down" | "left" | "right") => {
     const lastIndex = displayedSlashCommands.length - 1;
@@ -1578,7 +1581,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
         }
       }
 
-      if (e.key === "ArrowUp" && !isComposing && !isStreaming && inputHistory.length > 0 && value.trim().length === 0) {
+      if (e.key === "ArrowUp" && !isComposing && !isStreaming && inputHistory.length > 0 && value.trim().length === 0 && attachedFiles.length === 0) {
         e.preventDefault();
         setSlashMenuOpen(false);
         setAtMenuOpen(false);
@@ -1603,7 +1606,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
         }
       }
     },
-    [isMobile, enterSendMode, runningSendMode, isStreaming, onSteer, onFollowUp, onAbort, slashMenuOpen, slashQuery, displayedSlashCommands, slashActiveIndex, applySlashCommand, sendQueued, handleSend, getNextSlashIndex, atMenuOpen, atQuery, atMatches, atActiveIndex, applyAtCompletion, historyMenuOpen, inputHistory, historyActiveIndex, applyHistoryInput, value, visiblePromptSuggestion, dismissPromptSuggestion, setValue]
+    [isMobile, enterSendMode, runningSendMode, isStreaming, onSteer, onFollowUp, onAbort, slashMenuOpen, slashQuery, displayedSlashCommands, slashActiveIndex, applySlashCommand, sendQueued, handleSend, getNextSlashIndex, atMenuOpen, atQuery, atMatches, atActiveIndex, applyAtCompletion, historyMenuOpen, inputHistory, historyActiveIndex, applyHistoryInput, value, attachedFiles.length, visiblePromptSuggestion, dismissPromptSuggestion, setValue]
   );
 
   const handleInput = useCallback(() => {
@@ -1652,14 +1655,14 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
     const nextValue = ta.value.slice(0, start) + markdown + ta.value.slice(ta.selectionEnd);
     e.preventDefault();
     valueRef.current = nextValue;
-    setValue(nextValue);
+    setText(nextValue);
     setHistoryMenuOpen(false);
     updateAtQuery(nextValue, start + markdown.length);
     requestAnimationFrame(() => {
       ta.focus();
       ta.setSelectionRange(start + markdown.length, start + markdown.length);
     });
-  }, [compact, processImageFiles, updateAtQuery, onAttachFiles, setValue]);
+  }, [compact, processImageFiles, updateAtQuery, onAttachFiles, setText]);
 
   useEffect(() => {
     if (slashQuery === null) {
@@ -1849,7 +1852,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
               className="composer-send-button"
               data-composer-send
               onClick={() => isStreaming ? sendQueued(runningSendAction) : handleSend()}
-              disabled={isStreaming ? !canQueueStreamingMessage : !value.trim() && !attachedImages.length}
+              disabled={isStreaming ? !canQueueStreamingMessage : !value.trim() && !attachedImages.length && !attachedFiles.length}
               title={isStreaming ? runningSendAction === "steer" ? t("chat.steerHint") : `${t("chat.followUpHint")} (${isMobile ? "Ctrl/Cmd+" : ""}Alt/Option+Enter)` : t("chat.send")}
               aria-label={isStreaming ? t(runningSendAction === "steer" ? "chat.steer" : "chat.followUp") : t("chat.send")}
               aria-keyshortcuts={isStreaming && runningSendAction === "followup" ? isMobile ? "Control+Alt+Enter Meta+Alt+Enter" : "Alt+Enter" : undefined}
@@ -2025,7 +2028,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
         {/* Attachment previews share the text-entry surface, above the draft. */}
         {(attachedFiles.length > 0 || attachedImages.length > 0) && (
           <div className="composer-attachments">
-            {attachedFiles.length > 0 && <AttachmentCards files={attachedFiles} onRemove={(file) => setValue((current) => current.split(file.token).join("").trim())} />}
+            {attachedFiles.length > 0 && <AttachmentCards files={attachedFiles} onRemove={removeFile} />}
             {attachedImages.map((img, i) => (
               <div key={i} style={{ position: "relative", flexShrink: 0 }}>
                 <ImagePreview key={img.previewUrl} src={img.previewUrl}>
@@ -2427,7 +2430,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
             onChange={(e) => {
               dismissPromptSuggestion();
               valueRef.current = e.target.value;
-              setValue(e.target.value);
+              setText(e.target.value);
               setHistoryMenuOpen(false);
               updateAtQuery(e.target.value, e.target.selectionStart);
             }}
@@ -2449,7 +2452,8 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
             onInput={handleInput}
             onPaste={handlePaste}
             placeholder={
-              visiblePromptSuggestion ? promptSuggestionPlaceholder
+              attachedFiles.length > 0 || attachedImages.length > 0 ? ""
+              : visiblePromptSuggestion ? promptSuggestionPlaceholder
               : isStreaming && (onSteer || onFollowUp)
                 ? t(runningSendAction === "steer" ? "chat.steerOnlyPlaceholder" : "chat.followUpOnlyPlaceholder")
                 : isStreaming ? t("chat.agentPlaceholder")

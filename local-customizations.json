@@ -27,7 +27,7 @@
     "app/workflow-polish.css": ["prefers-reduced-motion", "quick-actions-surface", "outputs-workspace"],
     "components/AttachmentDialog.tsx": ["showModal", "listenForStackedDialogEscape", "attachment-dropzone"],
     "components/AttachmentCards.tsx": ["attachment-card", "FileViewer", "listenForStackedDialogEscape"],
-    "hooks/useAttachmentText.ts": ["AttachmentPresentation", "presentation.expand"],
+    "hooks/useAttachmentText.ts": ["splitComposerAttachments", "serializeComposerAttachments", "removeFile"],
     "lib/attachment-presentation.ts": ["AttachmentPresentation", "presentAttachmentMessage"],
     "components/ChatInput.tsx": ["composer-card", "composer-surface", "AttachmentDialog", "data-composer-send", "ContextUsageRing", "useRunningSendMode", "data-prompt-suggestion", "dismissPromptSuggestion", "useAttachmentText", "expandAttachments"],
     "lib/prompt-suggestions.ts": ["next-prompt-suggestion", "getPromptSuggestion", "shouldShowPromptSuggestion"],

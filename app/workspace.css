@@ -369,9 +369,10 @@
 [data-composer-layout="welcome"] .chat-input-controls > div:first-child { max-width: 45%; }
 .attachment-cards { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; min-width: 0; }
 .composer-attachments > .attachment-cards { display: contents; }
-.composer-attachments .attachment-card { height: 80px; box-sizing: border-box; }
+.composer-attachments .attachment-card { width: 184px; max-width: 100%; height: 56px; box-sizing: border-box; }
+.composer-attachments .attachment-card-open { flex: 1; padding: 8px 10px; gap: 8px; }
 .composer-attachments .attachment-card-open { align-self: stretch; }
-.attachment-card { display: flex; align-items: center; min-width: 0; max-width: min(280px, 100%); border: 1px solid var(--border); border-radius: 12px; background: var(--bg-panel); overflow: hidden; }
+.attachment-card { display: flex; align-items: center; min-width: 0; max-width: min(224px, 100%); border: 1px solid var(--border); border-radius: 10px; background: var(--bg-panel); overflow: hidden; }
 .attachment-card-open { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; background: none; border: 0; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .attachment-card-open:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
 .attachment-card-icon { display: flex; color: var(--text-muted); flex-shrink: 0; }
@@ -394,14 +395,14 @@
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 12px;
-  padding: 18px 20px 0;
-  max-height: 240px;
+  gap: 8px;
+  padding: 12px 16px 0;
+  max-height: 180px;
   overflow: auto;
 }
 .composer-attachment-image {
-  width: 80px;
-  height: 80px;
+  width: 56px;
+  height: 56px;
   object-fit: contain;
   display: block;
   border: 1px solid var(--border);
@@ -606,8 +607,8 @@
     width: auto !important;
     flex: 1 1 0 !important;
   }
-  .composer-attachments { padding: 14px 16px 0; gap: 10px; }
-  .composer-attachment-image { width: 80px; height: 80px; }
+  .composer-attachments { padding: 12px 16px 0; gap: 8px; }
+  .composer-attachment-image { width: 56px; height: 56px; }
   .attachment-dialog { width: calc(100vw - 24px); border-radius: 22px; }
   .attachment-dialog-header { padding: 18px 20px; }
   .attachment-dropzone { margin: 16px; gap: 14px; }

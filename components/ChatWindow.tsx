@@ -14,7 +14,7 @@ import { countToolCallBlocks, getAssistantErrorMessage, hasAssistantAnswer,  isA
 import { extractTurnWrittenFiles, type WrittenFile } from "@/lib/turn-written-files";
 import { getFinalAnswerViews, keepWrittenFiles, type FinalAnswerViews } from "@/lib/turn-views";
 import { buildQuotedSelection } from "@/lib/quoted-selection";
-import { chatAttachmentMentionText, splitDroppedItems, uploadChatAttachments, type DroppedItem } from "@/lib/file-upload-client";
+import { splitDroppedItems, uploadChatAttachments, type DroppedItem } from "@/lib/file-upload-client";
 import { MessageView } from "./MessageView";
 import { InlineVisualSessionState } from "./InlineVisual";
 import { MarkdownBody } from "./MarkdownBody";
@@ -773,8 +773,7 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
       const { status, data } = await uploadChatAttachments(files);
       if (status !== 200) throw new Error(data.error ?? `HTTP ${status}`);
       const attachments = data.attachments ?? [];
-      const mentions = chatAttachmentMentionText(attachments);
-      if (mentions) chatInputRef?.current?.insertText(mentions);
+      if (attachments.length) chatInputRef?.current?.addFiles(attachments);
       if (attachments.length > 0) addNotice({ type: "success", message: t("chat.dropUploaded", { count: attachments.length }) });
     } catch (uploadError) {
       addNotice({ type: "error", message: t("chat.dropFailed", { message: uploadError instanceof Error ? uploadError.message : String(uploadError) }) });

@@ -26,10 +26,14 @@ export async function runChatAttachmentChecks(page, { baseURL, project }) {
     await input.setInputFiles({ name: "attachment check.md", mimeType: "text/markdown", buffer: Buffer.from("# Referenced attachment\n") });
     const first = await (await response).json();
     if (!first.attachments?.[0]?.path?.includes("/chat-attachments/")) throw new Error("Chat attachment was not stored outside the project");
-    await page.waitForFunction(() => document.querySelector(".chat-input-textarea").value.includes("[file."));
-    assert.doesNotMatch(await textarea.inputValue(), /chat-attachments|\/Users\//);
-    const path = first.attachments[0].path;
     const card = page.locator(".chat-input-shell .attachment-card");
+    await card.waitFor();
+    assert.equal(await textarea.inputValue(), "", "file labels must not appear in editable prose");
+    assert.equal(await textarea.getAttribute("placeholder"), "", "attachments must not leave redundant text below the card");
+    assert.doesNotMatch(await page.locator(".chat-input-shell").innerText(), /\[file\.\d+\]|chat-attachments/);
+    const bounds = await card.boundingBox();
+    assert.ok(bounds && bounds.width <= 184 && bounds.height <= 56, "attachment card stays compact");
+    const path = first.attachments[0].path;
     await card.getByRole("button", { name: "attachment check.md", exact: true }).click();
     const dialog = page.locator(".attachment-preview-dialog");
     await dialog.waitFor({ state: "visible" });
@@ -41,6 +45,15 @@ export async function runChatAttachmentChecks(page, { baseURL, project }) {
     const second = await (await repeated).json();
     if (second.attachments[0].path !== path) throw new Error("Identical attachment was not deduplicated");
     assert.equal(await card.count(), 1);
+    await textarea.pressSequentially("Read this");
+    await textarea.press("ControlOrMeta+z");
+    assert.equal(await card.count(), 1, "native text undo must not discard files");
+    await textarea.fill("");
+    await page.locator(".sidebar-quick-new:visible, .sidebar-new-button:visible").first().click();
+    await page.waitForFunction(() => !document.querySelector(".chat-input-shell .attachment-card"));
+    await page.locator('[data-row-key$=":workspace-design-fixture"] a.session-tree-main').first().click();
+    await card.waitFor();
+    assert.equal(await textarea.inputValue(), "", "switching drafts restores files without editor labels");
     const after = await (await page.request.get(listUrl)).json();
     assert.deepEqual(after, before);
     assert.equal(uploads.length, 0);
@@ -58,8 +71,11 @@ export async function runChatAttachmentChecks(page, { baseURL, project }) {
       await route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ error: "Attachment recovery fixture", code: "prompt_rejected", accepted: false }) });
     };
     await page.route("**/api/agent/**", rejectSend);
+    const rejection = page.waitForResponse((response) => response.request().method() === "POST" && response.request().postDataJSON()?.type === "prompt");
     await textarea.press("Enter");
-    await page.waitForFunction(() => document.querySelector(".chat-input-textarea")?.value.includes("[file."));
+    await rejection;
+    await card.waitFor();
+    assert.equal(await textarea.inputValue(), "", "rejection restores the attachment, not a duplicate label");
     assert.ok(submitted, "send was intercepted");
     assert.ok(JSON.stringify(submitted).includes(path), "agent receives the original path");
     assert.doesNotMatch(JSON.stringify(submitted), /\[file\.\d+\]/);
@@ -67,7 +83,7 @@ export async function runChatAttachmentChecks(page, { baseURL, project }) {
     await card.locator(".attachment-card-remove").click();
     assert.equal(await card.count(), 0);
     assert.doesNotMatch(await textarea.inputValue(), /\[file\./);
-    return { passed: true, projectUnchanged: true, deduplicated: true, preview: true, canonicalSubmission: true, rejectedDraftRestored: true };
+    return { passed: true, projectUnchanged: true, deduplicated: true, preview: true, canonicalSubmission: true, rejectedDraftRestored: true, noDuplicateEditorText: true, compactCards: true, nativeUndoKeepsFiles: true, draftSwitchKeepsFiles: true };
   } finally { page.off("request", record); }
 }
 
@@ -136,13 +152,13 @@ async function main() {
       return canvas.toDataURL("image/png").split(",")[1];
     });
     await input.setInputFiles([
-      { name: "report.pdf", mimeType: "application/pdf", buffer: fixturePdf() },
+      { name: "2统计语言模型2026.pdf", mimeType: "application/pdf", buffer: fixturePdf() },
       { name: "sample.png", mimeType: "image/png", buffer: Buffer.from(picture, "base64") },
     ]);
-    await page.locator(".chat-input-shell .attachment-card-open").filter({ hasText: "report.pdf" }).waitFor();
+    await page.locator(".chat-input-shell .attachment-card-open").filter({ hasText: "2统计语言模型2026.pdf" }).waitFor();
     await page.locator(".composer-attachment-image").waitFor();
     await page.screenshot({ path: join(artifacts, "composer.png"), fullPage: true });
-    await page.locator(".attachment-card-open").filter({ hasText: "report.pdf" }).click();
+    await page.locator(".attachment-card-open").filter({ hasText: "2统计语言模型2026.pdf" }).click();
     const frame = page.locator(".attachment-preview-dialog iframe");
     await frame.waitFor();
     const pdfUrl = await frame.getAttribute("src");

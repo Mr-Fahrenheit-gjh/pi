@@ -2,13 +2,13 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { PresentedAttachment } from "@/lib/attachment-presentation";
+import type { AttachmentReference } from "@/lib/attachment-presentation";
 import { listenForStackedDialogEscape } from "@/lib/stacked-dialog";
 import { getFileIcon } from "./FileIcons";
 import { FileViewer } from "./FileViewer";
 import { useI18n } from "@/hooks/useI18n";
 
-function AttachmentPreview({ file, onClose }: { file: PresentedAttachment; onClose: () => void }) {
+function AttachmentPreview({ file, onClose }: { file: AttachmentReference; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const { t } = useI18n();
   useLayoutEffect(() => {
@@ -29,18 +29,18 @@ function AttachmentPreview({ file, onClose }: { file: PresentedAttachment; onClo
 }
 
 export function AttachmentCards({ files, onRemove, onOpenFile }: {
-  files: PresentedAttachment[];
-  onRemove?: (file: PresentedAttachment) => void;
+  files: AttachmentReference[];
+  onRemove?: (file: AttachmentReference) => void;
   onOpenFile?: (path: string) => void;
 }) {
-  const [preview, setPreview] = useState<PresentedAttachment | null>(null);
+  const [preview, setPreview] = useState<AttachmentReference | null>(null);
   const { t } = useI18n();
   return <>
     <div className="attachment-cards">
       {files.map((file) => <div className="attachment-card" key={file.path}>
-        <button type="button" className="attachment-card-open" onClick={() => onOpenFile ? onOpenFile(file.path) : setPreview(file)} aria-label={file.name}>
-          <span className="attachment-card-icon" aria-hidden="true">{getFileIcon(file.name, 22)}</span>
-          <span className="attachment-card-label"><strong>{file.name}</strong><span>{file.name.includes(".") ? file.name.split(".").pop()?.toUpperCase() : "FILE"} · {file.token}</span></span>
+        <button type="button" className="attachment-card-open" onClick={() => onOpenFile ? onOpenFile(file.path) : setPreview(file)} aria-label={file.name} title={file.name}>
+          <span className="attachment-card-icon" aria-hidden="true">{getFileIcon(file.name, 20)}</span>
+          <span className="attachment-card-label"><strong>{file.name}</strong><span>{file.name.includes(".") ? file.name.split(".").pop()?.toUpperCase() : "FILE"}</span></span>
         </button>
         {onRemove && <button type="button" className="attachment-card-remove" aria-label={`${t("i18n.remove")} ${file.name}`} onClick={() => onRemove(file)}>×</button>}
       </div>)}

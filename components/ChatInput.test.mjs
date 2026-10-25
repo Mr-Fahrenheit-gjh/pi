@@ -604,6 +604,7 @@ test("locks built-in command submission until it settles", async () => {
     compilerOptions: { target: ts.ScriptTarget.ES2020 },
   }).outputText).runInNewContext({
     attachedImages: [],
+    attachedFiles: [],
     attachedImagesRef: { current: [] },
     builtinCommandPendingRef: { current: false },
     canClearBuiltinCommandInput,
@@ -671,7 +672,7 @@ function chatInputCallback(name, context) {
   }
   return new Script(ts.transpileModule(findCallback(source).getText(source), {
     compilerOptions: { target: ts.ScriptTarget.ES2020 },
-  }).outputText).runInNewContext({ expandAttachments: (text) => text, ...context });
+  }).outputText).runInNewContext({ attachedFiles: [], expandAttachments: (text) => text, ...context });
 }
 
 test("while a run streams, a bare /mcp opens Settings or is queued as before", async () => {
@@ -730,23 +731,43 @@ test("handleSend lets a handled /mcp through while streaming and sends an unowne
   assert.deepEqual(await run("/mcp login", { isStreaming: true, handled: false }), { builtin: [], sent: [] });
 });
 
-test("idle and queued requests expand attachment tokens before sending", async () => {
-  const { AttachmentPresentation } = await jiti.import("../lib/attachment-presentation.ts");
-  const presentation = new AttachmentPresentation();
+test("attachment-only drafts show a compact card, no duplicate label, and allow sending", () => {
+  const key = "attachment-only-render";
+  const path = `/tmp/agent/chat-attachments/${"a".repeat(64)}/2统计语言模型2026.pdf`;
+  setDraft(key, { value: `@${path}`, images: [] });
+  try {
+    const html = renderToStaticMarkup(React.createElement(I18nProvider, null,
+      React.createElement(ChatInput, { draftKey: key, isStreaming: false, onSend() {}, onAbort() {} })));
+    assert.match(html, /class="attachment-card"/);
+    assert.match(html, /title="2统计语言模型2026.pdf"/);
+    assert.doesNotMatch(html, /\[file\.\d+\]|chat-attachments/);
+    assert.match(html, /<textarea[^>]*placeholder=""[^>]*><\/textarea>/);
+    const send = html.match(/<button[^>]*data-composer-send[^>]*>/)?.[0];
+    assert.ok(send);
+    assert.doesNotMatch(send, /disabled/);
+  } finally { clearDraft(key); }
+});
+
+test("idle and queued requests serialize hidden attachments before clearing", async () => {
+  const { serializeComposerAttachments } = await jiti.import("../lib/attachment-presentation.ts");
   const path = `/tmp/agent/chat-attachments/${"a".repeat(64)}/report.pdf`;
-  const value = presentation.compact(`Read @${path}`);
+  const files = [{ name: "report.pdf", path }];
+  let activeFiles = files;
+  const value = "Read";
   const sent = [];
   const context = {
-    value, attachedImages: [], isStreaming: false, onBuiltinCommand: undefined,
-    expandAttachments: (text) => presentation.expand(text),
-    onAudioUnlock() {}, clearInput() {}, onSend: (text) => sent.push(text),
+    value, attachedImages: [], attachedFiles: files, isStreaming: false, onBuiltinCommand: undefined,
+    expandAttachments: (text) => serializeComposerAttachments(text, activeFiles),
+    onAudioUnlock() {}, clearInput() { activeFiles = []; }, onSend: (text) => sent.push(text),
     runBuiltinCommand: async () => false, offersBuiltinSlashCommandWhileStreaming,
     onSteer: (text) => sent.push(text), onFollowUp: (text) => sent.push(text),
   };
   await chatInputCallback("handleSend", context)();
+  activeFiles = files;
   chatInputCallback("sendQueued", context)("steer");
+  activeFiles = files;
   chatInputCallback("sendQueued", context)("followup");
-  assert.deepEqual(sent, Array(3).fill(`Read @${path}`));
+  assert.deepEqual(sent, Array(3).fill(`Read\n\n@${path}`));
 });
 
 test("restores text and base64 images when editing a user message", () => {
