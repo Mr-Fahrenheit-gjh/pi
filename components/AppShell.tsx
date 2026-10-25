@@ -412,9 +412,10 @@ export function AppShell() {
     () => (conversationLayoutRef.current?.clientWidth ?? 800) / 2,
     [],
   );
+  // Observed width invalidates the clamp on sibling-panel resizes and avoids layout reads during a drag.
   const getConversationMaxWidth = useCallback(
-    () => Math.max(conversationMinWidth, (conversationLayoutRef.current?.clientWidth ?? 800) - conversationMinWidth),
-    [conversationMinWidth],
+    () => Math.max(conversationMinWidth, conversationAvailableWidth - conversationMinWidth),
+    [conversationAvailableWidth, conversationMinWidth],
   );
   const conversationResizer = useResizablePanel({
     ariaLabel: translate("split.resize"),

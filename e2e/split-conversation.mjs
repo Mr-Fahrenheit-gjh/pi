@@ -146,6 +146,22 @@ try {
   await divider.press('ArrowLeft');
   assert.ok(Math.abs(await panelWidth(left) - initialWidth - 148) <= 2, 'Keyboard adjusts the same divider');
   await page.screenshot({ path: join(out, 'split-resized.png') });
+  // A sibling panel changes the available width without a window resize event.
+  await page.locator('[data-right-panel-toggle]').click();
+  await page.locator('[data-resize-handle="right-panel"]').press('Home');
+  await page.locator('.right-panel-container').evaluate(node => Promise.all(node.getAnimations().map(animation => animation.finished.catch(() => {}))));
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const before = { left: await panelWidth(left), right: await panelWidth(right) };
+  await dragDivider(-8);
+  const after = { left: await panelWidth(left), right: await panelWidth(right) };
+  const continuity = { before, after, pointerDelta: -8, widthDelta: after.left - before.left, minimum: Number(await divider.getAttribute('aria-valuemin')) };
+  writeFileSync(join(out, 'continuity-result.json'), JSON.stringify(continuity, null, 2));
+  console.log('[split] Continuity:', JSON.stringify(continuity));
+  assert.ok(before.right >= continuity.minimum - 1, 'The split must reclamp before the next drag begins');
+  assert.ok(Math.abs(continuity.widthDelta - continuity.pointerDelta) <= 2, 'Opening an adjacent panel must not make the next tiny drag jump');
+  await page.locator('[data-right-panel-toggle]').click();
+  await page.locator('.right-panel-container').evaluate(node => Promise.all(node.getAnimations().map(animation => animation.finished.catch(() => {}))));
+  await divider.dblclick();
   await dragDivider(1800);
   assert.ok(await panelWidth(right) >= 279, 'The other pane retains its minimum width');
   const widePreference = await panelWidth(left);
@@ -183,7 +199,7 @@ try {
   assert.equal(await right.count(), 0);
   assert.equal(sends, 0, 'Navigation and new composers never send or start a model');
   assert.deepEqual(errors, []);
-  const result = { passed: true, shortcutChecks, checks: ['equal halves', 'no secondary-only header', 'independent drafts', 'shared palette preserves draft on cancel', 'history search targets focused pane', 'new conversation targets focused pane', 'identical welcome geometry and styles', 'identical project/worktree controls', 'pointer resizing', 'keyboard resizing', 'remembered width', 'minimum widths', 'container resize clamp and restore', 'double-click equal halves', 'drafts survive resizing', 'sidebar targets focused pane', 'primary URL unchanged', 'duplicate session guard', 'mobile fallback', 'close split via palette', 'zero model requests'] };
+  const result = { passed: true, shortcutChecks, checks: ['equal halves', 'no secondary-only header', 'independent drafts', 'shared palette preserves draft on cancel', 'history search targets focused pane', 'new conversation targets focused pane', 'identical welcome geometry and styles', 'identical project/worktree controls', 'pointer resizing', 'keyboard resizing', 'remembered width', 'minimum widths', 'container resize clamp and restore', 'adjacent-panel reclamp', 'small-drag continuity after panel resize', 'double-click equal halves', 'drafts survive resizing', 'sidebar targets focused pane', 'primary URL unchanged', 'duplicate session guard', 'mobile fallback', 'close split via palette', 'zero model requests'] };
   writeFileSync(join(out, 'result.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
 } finally {
