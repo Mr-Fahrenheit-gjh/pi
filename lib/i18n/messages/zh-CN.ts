@@ -46,7 +46,7 @@ export const zhCNLocale: LocalePlugin = {
     "quickActions.enableInlineVisuals": "开启 Intelligence UI（交互图解）",
     "quickActions.disableInlineVisuals": "关闭 Intelligence UI（交互图解）",
     "outputs.title": "成果",
-    "outputs.description": "本对话中的文件，点击即可打开。",
+    "outputs.description": "阅读成果在前，工程代码在后，点击即可打开。",
     "outputs.empty": "对话中生成的文件会自动出现在这里。",
     "outputs.loading": "正在加载对话文件…",
     "outputs.failed": "暂时无法加载对话文件。",

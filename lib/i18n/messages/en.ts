@@ -46,7 +46,7 @@ export const enLocale: LocalePlugin = {
     "quickActions.enableInlineVisuals": "Enable Intelligence UI (interactive diagrams)",
     "quickActions.disableInlineVisuals": "Disable Intelligence UI (interactive diagrams)",
     "outputs.title": "Outputs",
-    "outputs.description": "Files from this conversation. Click to open.",
+    "outputs.description": "Reading material first, code below. Click to open.",
     "outputs.empty": "Files created here will appear automatically.",
     "outputs.loading": "Loading conversation files…",
     "outputs.failed": "Couldn’t load conversation files.",

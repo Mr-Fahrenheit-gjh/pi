@@ -46,7 +46,7 @@ export const zhTWLocale: LocalePlugin = {
     "quickActions.enableInlineVisuals": "開啟 Intelligence UI（互動圖解）",
     "quickActions.disableInlineVisuals": "關閉 Intelligence UI（互動圖解）",
     "outputs.title": "成果",
-    "outputs.description": "本對話中的檔案，點擊即可開啟。",
+    "outputs.description": "閱讀成果在前，工程程式碼在後，點擊即可開啟。",
     "outputs.empty": "對話中產生的檔案會自動顯示在這裡。",
     "outputs.loading": "正在載入對話檔案…",
     "outputs.failed": "暫時無法載入對話檔案。",

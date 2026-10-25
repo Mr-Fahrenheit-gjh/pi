@@ -4,6 +4,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useTaskOutputs } from "@/hooks/useTaskOutputs";
 import { getFileName, getRelativeFilePath } from "@/lib/file-paths";
 import { MAX_TASK_OUTPUTS } from "@/lib/task-outputs";
+import { sortOutputPaths } from "@/lib/output-order";
 
 export function OutputsWorkspace({ sessionId, cwd, leafId, refreshKey, onOpen }: {
   sessionId: string; cwd: string; leafId: string | null; refreshKey: number; onOpen: (path: string) => void;
@@ -18,7 +19,7 @@ export function OutputsWorkspace({ sessionId, cwd, leafId, refreshKey, onOpen }:
     {loading && !paths.length && <p role="status" className="outputs-empty">{t("outputs.loading")}</p>}
     {!loading && !failed && !paths.length && <p className="outputs-empty">{t("outputs.empty")}</p>}
     {truncated && <p className="outputs-note">{t("outputs.limit", { count: MAX_TASK_OUTPUTS })}</p>}
-    <ul>{paths.map(path => <li key={path}>
+    <ul>{sortOutputPaths(paths).map(path => <li key={path}>
       <button type="button" className="output-file" onClick={() => onOpen(path)} title={path}>
         <svg aria-hidden="true" width="18" height="20" viewBox="0 0 18 20" fill="none"><path d="M3 1.5h7l5 5v12H3zM10 1.5v5h5" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" /></svg>
         <span><strong>{getFileName(path)}</strong><span>{getRelativeFilePath(path, cwd)}</span></span>
