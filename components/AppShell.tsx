@@ -272,7 +272,7 @@ export function AppShell() {
     sidebarHoverTimer.current = setTimeout(() => {
       setSidebarPreviewExiting(false);
       setSidebarPreviewOpen(true);
-    }, 160);
+    }, 40);
   }, [isMobile, sidebarOpen, clearSidebarHoverTimer]);
   const keepSidebarPreview = useCallback(() => {
     clearSidebarHoverTimer();

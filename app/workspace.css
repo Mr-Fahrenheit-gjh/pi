@@ -679,6 +679,7 @@
     transition: width 0.2s var(--workspace-ease), min-width 0.2s var(--workspace-ease);
   }
   .sidebar-container.sidebar-preview {
+    transition-duration: 160ms;
     width: var(--sidebar-width, 260px);
     min-width: var(--sidebar-width, 260px);
     border-right: 1px solid var(--border) !important;
