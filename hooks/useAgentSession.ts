@@ -28,6 +28,7 @@ import { CONFIGURED_TOOL_PRESET, getPresetFromToolNames, getToolNamesForPreset, 
 import type { SessionStatsInfo } from "@/lib/pi-types";
 import { mergeSessionStats, type SessionFileStats } from "@/lib/session-stats";
 import { userMessageKey } from "@/lib/prompt-recovery";
+import { canContinueTask } from "@/lib/task-continuation";
 import { carryMessageKeys, messageRenderKeys } from "@/lib/message-keys";
 import { AgentEventConnection } from "@/lib/agent-event-connection";
 import { isNestedToolExecutionEvent, isSystemMessageEvent } from "@/lib/agent-event-wire";
@@ -456,6 +457,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const thinkingLevelPinsRef = useRef<Record<string, string>>({});
   const defaultThinkingLevelRef = useRef<ConcreteThinkingLevel | null>(null);
   const promptRunIdRef = useRef(0);
+  const continuationIntentRef = useRef(0);
   const optimisticUserMessageKeyRef = useRef<string | null>(null);
   const modelSwitchPendingRef = useRef(false);
   const draftKeyAliasesRef = useRef(new Map<string, string>());
@@ -1765,6 +1767,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         return;
       }
     }
+    continuationIntentRef.current += 1;
     const isSlashCommandPrompt = !images?.length && trimmedMessage.startsWith("/");
 
     const isBashCommand = !images?.length && trimmedMessage.startsWith("!");
@@ -1912,7 +1915,55 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   }, [addNotice, composerDraftKey, ensureNewSession, loadSession, promoteNewSession, restoreSubmission, session]);
   executeBashRef.current = executeBash;
 
+  const taskCanContinue = pageRuntime() === "pi" && !isNew && !editEntryId && !!activeLeafId
+    && !agentRunning && !bashRunning && !isCompacting
+    && queuedMessages.steering.length === 0 && queuedMessages.followUp.length === 0
+    && canContinueTask(messages);
+
+  const handleContinueTask = useCallback(async () => {
+    const sid = sessionIdRef.current;
+    const leafId = activeLeafIdRef.current;
+    if (!taskCanContinue || !sid || !leafId || agentRunningRef.current || bashRunningRef.current) return;
+    const intent = ++continuationIntentRef.current;
+    const runId = ++promptRunIdRef.current;
+    cancelEventStreamGrace();
+    rpcPromptPendingRef.current = true;
+    optimisticUserMessageKeyRef.current = null;
+    agentRunningRef.current = true;
+    setAgentRunning(true);
+    setAgentPhase({ kind: "waiting_model" });
+    dispatch({ type: "start" });
+    let requestStarted = false;
+    try {
+      await ensureEventsConnected(sid);
+      // A stop, new message, branch change or navigation before dispatch cancels this click.
+      if (!sessionHookMountedRef.current || sessionIdRef.current !== sid
+        || activeLeafIdRef.current !== leafId || continuationIntentRef.current !== intent) {
+        if (sessionIdRef.current === sid) void reconcileAgentState(sid);
+        return;
+      }
+      requestStarted = true;
+      await sendAgentCommand(sid, { type: "continue_task", expectedLeafId: leafId });
+      if (sessionIdRef.current === sid) void waitForPromptSettlement(sid, runId);
+    } catch (error) {
+      if (sessionIdRef.current !== sid || promptRunIdRef.current !== runId) return;
+      if (requestStarted && !isPromptRejectedError(error)) {
+        // Acceptance is unknown. Reconcile; never resend this request automatically.
+        void waitForPromptSettlement(sid, runId);
+        return;
+      }
+      rpcPromptPendingRef.current = false;
+      if (continuationIntentRef.current === intent) {
+        addNotice({ type: "error", message: error instanceof Error ? error.message : String(error) });
+      }
+      // No generated recovery text is put into the user's draft on rejection.
+      void reconcileAgentState(sid);
+      void loadSession(sid);
+    }
+  }, [taskCanContinue, addNotice, cancelEventStreamGrace, dispatch, ensureEventsConnected, loadSession, reconcileAgentState, waitForPromptSettlement]);
+
   const handleAbort = useCallback(async () => {
+    continuationIntentRef.current += 1;
     const sid = sessionIdRef.current;
     if (!sid) return;
     if (bashRunningRef.current) {
@@ -2314,6 +2365,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   ) => {
     const sid = sessionIdRef.current;
     const restore = () => restoreSubmission(message, images, composerDraftKey);
+    continuationIntentRef.current += 1;
     // A pending history edit must branch when sent, never join the current run.
     if (editEntryId) {
       restore();
@@ -2864,7 +2916,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     sessionIdRef, scrollContainerRef,
     lastUserMsgRef, pendingScrollToUserRef, initialScrollDoneRef,
     // Actions
-    handleSend, handleAbort, handleFork, handleNavigate, handleModelChange,
+    handleSend, handleAbort, handleContinueTask, taskCanContinue, handleFork, handleNavigate, handleModelChange,
     handleCompact, handleSteer, handleFollowUp, handlePromptWithStreamingBehavior, handleAbortCompaction,
     dismissCompactError,
     handleRecallQueue,

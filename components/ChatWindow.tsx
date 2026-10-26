@@ -302,7 +302,7 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
     showScrollToBottom,
     sessionIdRef, scrollContainerRef,
     lastUserMsgRef, promptAnchorActive,
-    handleSend, handleAbort, handleFork, handleEditContent, cancelEdit, handleModelChange,
+    handleSend, handleAbort, handleContinueTask, taskCanContinue, handleFork, handleEditContent, cancelEdit, handleModelChange,
     handleCompact, handleSteer, handleFollowUp, handlePromptWithStreamingBehavior, handleAbortCompaction,
     dismissCompactError,
     handleRecallQueue,
@@ -940,6 +940,19 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
     : null;
 
   const chatInputElement = (
+    <>
+      {taskCanContinue && (
+        <div className="mb-2 flex justify-center">
+          <button
+            type="button"
+            className="rounded-lg border border-border px-3 py-1.5 text-sm text-text-muted hover:bg-hover hover:text-text"
+            title={t("chat.continueTaskHint")}
+            onClick={() => { void handleContinueTask(); }}
+          >
+            {t("chat.continueTask")}
+          </button>
+        </div>
+      )}
     <ChatInput
       welcome={isEmptyNew}
       welcomeToolbar={newSessionContextBar}
@@ -993,6 +1006,7 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
       cwd={session?.cwd ?? newSessionCwd}
       onAttachFiles={onAttachFiles}
     />
+    </>
   );
 
   if (loading) {

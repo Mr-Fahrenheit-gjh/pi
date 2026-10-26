@@ -51,6 +51,8 @@ export type AssistantContentBlock = TextContent | ImageContent | ThinkingContent
 
 export interface UserMessage {
   role: "user";
+  /** Display-only provenance; a branch summary is not a new user request. */
+  sourceEntryType?: "branch_summary";
   content: string | (TextContent | ImageContent)[];
   timestamp?: number;
 }

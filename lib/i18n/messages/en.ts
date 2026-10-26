@@ -669,6 +669,8 @@ export const enLocale: LocalePlugin = {
     "files.cancel": "Cancel",
     "files.checking": "Checking files",
     "files.uploading": "Uploading, {progress}%",
+    "chat.continueTask": "Continue task",
+    "chat.continueTaskHint": "Check existing progress and continue the unfinished work.",
     "chat.loadingSession": "Loading session...",
     "chat.runningTool": "Running tool...",
     "chat.generatingToolInput": "Generating parameters...",

@@ -964,6 +964,7 @@ function entryToUiMessage(
       if (!entry.summary) return null;
       return {
         role: "user",
+        sourceEntryType: "branch_summary",
         content: `*The conversation briefly explored another branch and returned with this summary:*\n\n${entry.summary}`,
         timestamp: parseEntryTimestamp(entry.timestamp),
       };

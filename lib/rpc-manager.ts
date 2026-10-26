@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import { existsSync, realpathSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { validateAgentImages } from "./image-attachments";
+import { buildTaskContinuationPrompt } from "./task-continuation";
 import { invalidateModelsCache } from "./models-cache";
 import { dispatchHistoryPromptSuggestion } from "./prompt-suggestion-request";
 import { invalidateModelRuntimeWithExtensions } from "./model-runtime";
@@ -325,6 +326,7 @@ export class AgentSessionWrapper {
   private extensionWidgetsResetting = false;
   private pendingPromptCount = 0;
   private interruptAdmissionEpoch = 0;
+  private taskContinuationEpoch = 0;
   private activeMutatingCommands = 0;
   private sessionReplacement: "fork" | "clone" | null = null;
   private agentRunNeedsCompletion = false;
@@ -626,6 +628,7 @@ export class AgentSessionWrapper {
 
   private shouldWaitForExtensions(type: string): boolean {
     return type === "prompt"
+      || type === "continue_task"
       || type === "steer"
       || type === "follow_up"
       || type === "get_commands"
@@ -806,6 +809,11 @@ export class AgentSessionWrapper {
   async send(command: Record<string, unknown>): Promise<unknown> {
     const type = command.type as string;
     const admissionEpoch = this.interruptAdmissionEpoch;
+    // A newer user action owns the conversation, even before it writes a message.
+    if (["prompt", "steer", "follow_up", "abort", "navigate_tree", "fork", "clone", "set_model", "compact", "bash", "clear_queue"].includes(type)) {
+      this.taskContinuationEpoch += 1;
+    }
+    const continuationEpoch = this.taskContinuationEpoch;
     const allowedDuringReplacement = COMMANDS_ALLOWED_DURING_SESSION_REPLACEMENT.has(type);
     if (this.sessionReplacement && !allowedDuringReplacement) {
       throw new Error("Session is being copied to a new session");
@@ -836,7 +844,7 @@ export class AgentSessionWrapper {
       // run there would reach the model only for its tools to fail (and `write`
       // to recreate the folder). The pi CLI does not resume such a session
       // either; refuse as /api/agent/new does. (A `!` command already refuses.)
-      if ((type === "prompt" || type === "steer") && !existsSync(this.cwd)) {
+      if ((type === "prompt" || type === "steer" || type === "continue_task") && !existsSync(this.cwd)) {
         throw new Error(`Directory does not exist: ${this.cwd}`);
       }
 
@@ -851,13 +859,14 @@ export class AgentSessionWrapper {
         }
       }
 
-      if ((type === "prompt" || type === "steer") && admissionEpoch !== this.interruptAdmissionEpoch) {
+      if ((type === "prompt" || type === "steer" || type === "continue_task") && admissionEpoch !== this.interruptAdmissionEpoch) {
         throw new Error("Prompt admission cancelled by Stop");
       }
 
       updateInlineVisualPreference(this.inlineVisualPreference, type, command.inlineVisuals);
       switch (type) {
       case "prompt":
+      case "continue_task":
       case "steer": {
         // Serialize only admission. Once the preceding prompt has either
         // passed or failed preflight, the SDK can atomically decide whether
@@ -871,6 +880,26 @@ export class AgentSessionWrapper {
           if (this.inner.isBashRunning) {
             throw new Error("Cannot send a prompt while a shell command is running");
           }
+          const isContinuation = type === "continue_task";
+          const assertContinuationCurrent = () => {
+            if (!isContinuation) return;
+            if (continuationEpoch !== this.taskContinuationEpoch || !this.isAlive()
+              || typeof command.expectedLeafId !== "string"
+              || command.expectedLeafId !== this.inner.sessionManager.getLeafId()) {
+              throw new Error("The conversation changed. Refresh it before continuing the task.");
+            }
+            if (this.inner.isStreaming || this.inner.isCompacting || this.inner.isBashRunning
+              || isInterruptSteerBusy(this.inner) || this.inner.pendingMessageCount > 0) {
+              throw new Error("Wait for the current work and queued messages before continuing the task.");
+            }
+          };
+          assertContinuationCurrent();
+          if (isContinuation && this.pendingPromptCount > 0) {
+            throw new Error("A task is already starting or running.");
+          }
+          const promptText = isContinuation
+            ? buildTaskContinuationPrompt(this.inner.sessionManager.getBranch(), command.expectedLeafId as string)
+            : command.message as string;
           const model = this.inner.model;
           if (this.chatOnlyExtensionModel && !(model && this.inner.modelRuntime.getModel(model.provider, model.id))) {
             throw chatOnlyExtensionModelError(this.chatOnlyExtensionModel.provider, this.chatOnlyExtensionModel.id);
@@ -878,8 +907,8 @@ export class AgentSessionWrapper {
           if (this.extensionUiAbortController.signal.aborted) {
             this.extensionUiAbortController = new AbortController();
           }
-          const promptImages = command.images as Array<{ type: "image"; data: string; mimeType: string }> | undefined;
-          const streamingBehavior = type === "steer" ? "steer" : command.streamingBehavior as "steer" | "followUp" | undefined;
+          const promptImages = isContinuation ? undefined : command.images as Array<{ type: "image"; data: string; mimeType: string }> | undefined;
+          const streamingBehavior = isContinuation ? undefined : type === "steer" ? "steer" : command.streamingBehavior as "steer" | "followUp" | undefined;
           let preflightAccepted = false;
           let preflightSettled = false;
           let promptSettled = false;
@@ -918,7 +947,7 @@ export class AgentSessionWrapper {
           // extension's command skips this, and the built-in `/mcp`, which acts on the
           // registered servers, registers them without waiting (`mcpPromptPreparation()`).
           const mcpPreparation = this.mcpHost && !this.inner.isStreaming
-            ? mcpPromptPreparation(typeof command.message === "string" ? command.message : "", this.extensionCommandCandidates())
+            ? mcpPromptPreparation(typeof promptText === "string" ? promptText : "", this.extensionCommandCandidates())
             : "none";
           if (this.mcpHost && mcpPreparation !== "none") {
             const controller = new AbortController();
@@ -941,10 +970,12 @@ export class AgentSessionWrapper {
           }
           let prompt: Promise<void>;
           try {
+            // MCP preparation is async: Stop/new input may have superseded this click.
+            assertContinuationCurrent();
             prompt = type === "steer"
-              ? this.inner.steer(command.message as string, promptImages?.length ? promptImages : undefined)
+              ? this.inner.steer(promptText, promptImages?.length ? promptImages : undefined)
                 .then(() => { acceptPreflight(); })
-              : this.inner.prompt(command.message as string, {
+              : this.inner.prompt(promptText, {
                 ...(promptImages?.length ? { images: promptImages } : {}),
                 ...(streamingBehavior ? { streamingBehavior } : {}),
                 source: "rpc",

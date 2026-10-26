@@ -38,7 +38,7 @@ export async function POST(
     }
     if (existing?.isAlive()) {
       const result = await existing.send(body);
-      promptAccepted = body.type === "prompt";
+      promptAccepted = body.type === "prompt" || body.type === "continue_task";
       return NextResponse.json({ success: true, data: result });
     }
 
@@ -46,7 +46,7 @@ export async function POST(
     if (!filePath) {
       return NextResponse.json({
         error: "Session not found",
-        ...(body.type === "prompt"
+        ...((body.type === "prompt" || body.type === "continue_task")
           ? { code: "prompt_rejected", accepted: false }
           : {}),
       }, { status: 404 });
@@ -56,13 +56,13 @@ export async function POST(
       ...(toolNames !== undefined ? { toolNames } : {}),
     });
     const result = await session.send(body);
-    promptAccepted = body.type === "prompt";
+    promptAccepted = body.type === "prompt" || body.type === "continue_task";
 
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
     return NextResponse.json({
       error: error instanceof Error ? error.message : String(error),
-      ...(commandType === "prompt" && !promptAccepted
+      ...((commandType === "prompt" || commandType === "continue_task") && !promptAccepted
         ? { code: "prompt_rejected", accepted: false }
         : {}),
     }, { status: 500 });
