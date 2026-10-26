@@ -4,6 +4,7 @@ import { pageRuntime, runtimeFetch as fetch, runtimeStorageKey } from "@/lib/run
 import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useGlobalKeyboardShortcuts, type QuickActionsMode } from "@/hooks/useKeyboardShortcuts";
+import { useMenuNavigation } from "@/hooks/useMenuNavigation";
 import { SessionSidebar, type SelectSessionOptions, type SessionSidebarControl } from "./SessionSidebar";
 import { ChatWindow } from "./ChatWindow";
 import { SplitConversation, type SharedConversationProps, type SplitConversationControl } from "./SplitConversation";
@@ -824,8 +825,11 @@ export function AppShell() {
   // Guards the async workspace restore so a slow response from an earlier
   // switch cannot resurrect a session into a project the user already left.
   const workspaceRestoreTokenRef = useRef(0);
+  const menuNavigationRef = useRef<{ invalidate: () => void; cancelForNavigation: () => void } | null>(null);
 
-  const invalidateWorkspaceRestore = useCallback(() => {
+  const invalidateWorkspaceRestore = useCallback((cancelMenuRequest = true) => {
+    if (cancelMenuRequest) menuNavigationRef.current?.cancelForNavigation();
+    else menuNavigationRef.current?.invalidate();
     workspaceRestoreTokenRef.current += 1;
   }, []);
 
@@ -923,6 +927,7 @@ export function AppShell() {
       // present: useAgentSession loads content in a mount-only effect, so
       // the null-session welcome mount from the switch would never load
       // the restored session's messages.
+      menuNavigationRef.current?.cancelForNavigation();
       setSelectedSession(s);
       setSessionKey((k) => k + 1);
       if (new URLSearchParams(window.location.search).get("session") !== s.id) {
@@ -1015,9 +1020,9 @@ export function AppShell() {
     router.replace(typeof window !== "undefined" ? window.location.pathname : "/", { scroll: false });
   }, [activeCwd, changeFileWorkspace, invalidateWorkspaceRestore, newSessionCwd, router, selectedSession, restoreWorkspaceContext]);
 
-  const handleSelectSession = useCallback((session: SessionInfo, isRestore = false, entryId?: string, blockIndex?: number, options?: SelectSessionOptions) => {
+  const handleSelectSession = useCallback((session: SessionInfo, isRestore = false, entryId?: string, blockIndex?: number, options?: SelectSessionOptions & { skipRouterReplace?: boolean }) => {
     setSearchTarget(entryId ? { sessionId: session.id, entryId, blockIndex } : null);
-    invalidateWorkspaceRestore();
+    invalidateWorkspaceRestore(!options?.skipRouterReplace);
     const activeDraftKey = activeNewSessionDraftKeyRef.current;
     const activeDraftCwd = newSessionCwd ?? (selectedSession === null ? activeCwd : null);
     if (activeDraftKey && activeDraftCwd) {
@@ -1066,10 +1071,15 @@ export function AppShell() {
     // replace in production Next.js triggers a Suspense remount loop.
     // Tab-memory restore lands on `/` and must write `?session=` so reload
     // and copy-link keep this session.
-    if (!isRestore || new URLSearchParams(window.location.search).get("session") !== session.id) {
+    if (!options?.skipRouterReplace && (!isRestore || new URLSearchParams(window.location.search).get("session") !== session.id)) {
       router.replace(`?session=${encodeURIComponent(session.id)}`, { scroll: false });
     }
   }, [activeCwd, changeFileWorkspace, invalidateWorkspaceRestore, router, isMobile, newSessionCwd, selectedSession]);
+
+  useMenuNavigation(sessionsWithSelection, (session) => {
+    setActiveChatPane("primary");
+    handleSelectSession(session, false, undefined, undefined, { skipRouterReplace: true });
+  }, searchParams.toString(), initialSessionRestored && initialCwdStatus !== "validating", menuNavigationRef);
 
   const handleNewSession = useCallback((sessionId: string, cwd: string, projectKey?: string | null, options?: NewSessionOptions) => {
     invalidateWorkspaceRestore();
@@ -1117,6 +1127,7 @@ export function AppShell() {
 
   // Both chat surfaces use the same navigation; the focused pane receives the pick.
   const handleSelectInActivePane: typeof handleSelectSession = (session, isRestore, entryId, blockIndex, options) => {
+    menuNavigationRef.current?.cancelForNavigation();
     if (secondaryActive && !isRestore && session.id !== selectedSession?.id) {
       splitControlRef.current?.openSession(session, entryId, blockIndex);
       return;
@@ -1125,6 +1136,7 @@ export function AppShell() {
     handleSelectSession(session, isRestore, entryId, blockIndex, options);
   };
   const handleNewInActivePane: typeof handleNewSession = (id, cwd, projectKey, options) => {
+    menuNavigationRef.current?.cancelForNavigation();
     if (secondaryActive) splitControlRef.current?.newConversation(cwd);
     else handleNewSession(id, cwd, projectKey, options);
   };

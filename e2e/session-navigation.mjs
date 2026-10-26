@@ -93,6 +93,178 @@ export async function checkSessionNavigation({ browser, base, artifacts, a, b, a
     assert.equal(context.pages().length, 1);
     console.log("PASS: plain click and Enter select a session in the same tab without a page load");
 
+    // The native menu only writes a fragment; replay that wire operation here,
+    // never a test-only application control channel or injected navigation API.
+    const readyPage = async (target) => {
+      await target.waitForFunction(() => {
+        const hash = new URLSearchParams(location.hash.slice(1));
+        return hash.get("pi-menu") === "1" && !!hash.get("page") && !hash.has("request");
+      });
+      return new URLSearchParams(new URL(target.url()).hash.slice(1)).get("page");
+    };
+    const sendMenu = (target, pageId, session) => target.evaluate(({ pageId, session }) => {
+      const request = crypto.randomUUID();
+      location.hash = new URLSearchParams({ "pi-menu": "1", page: pageId, request, session }).toString();
+      return request;
+    }, { pageId, session });
+    const expectAck = (target, pageId, request, session) => target.waitForFunction((expected) => {
+      const hash = new URLSearchParams(location.hash.slice(1));
+      return hash.get("page") === expected.pageId && hash.get("ack") === expected.request
+        && new URLSearchParams(location.search).get("session") === expected.session;
+    }, { pageId, request, session });
+    const pageId = await readyPage(page);
+    const timeOrigin = await page.evaluate(() => performance.timeOrigin);
+    const navigationCount = await page.evaluate(() => performance.getEntriesByType("navigation").length);
+    const independent = await context.newPage();
+    watch(independent);
+    await independent.goto(`${base}/?session=${a.id}`, { waitUntil: "domcontentloaded" });
+    await expectShows(independent, a.id);
+    const independentPageId = await readyPage(independent);
+    assert.notEqual(independentPageId, pageId, "each document owns its UUID");
+    const independentUrl = independent.url();
+    const composer = page.locator(".chat-input-textarea").first();
+    await composer.fill("MENU_KEEP_A_DRAFT");
+    await page.evaluate(() => {
+      const url = new URL(location.href);
+      url.searchParams.append("session", "stale-duplicate");
+      url.searchParams.set("cwd", "/stale-menu-cwd");
+      url.searchParams.set("menu-test", "preserved");
+      history.replaceState(history.state, "", url);
+    });
+    await readyPage(page);
+    const menuReads = [];
+    const trackMenuRead = (request) => {
+      const url = new URL(request.url());
+      if (url.pathname === "/api/sessions" && url.searchParams.get("summary") === "1") menuReads.push(url.href);
+    };
+    page.on("request", trackMenuRead);
+    const requestB = await sendMenu(page, pageId, b.id);
+    await expectAck(page, pageId, requestB, b.id);
+    await expectShows(page, b.id);
+    assert.equal(new URL(page.url()).searchParams.get("cwd"), null);
+    assert.deepEqual(new URL(page.url()).searchParams.getAll("session"), [b.id]);
+    assert.equal(new URL(page.url()).searchParams.get("menu-test"), "preserved");
+    await composer.fill("MENU_KEEP_B_DRAFT");
+    await composer.evaluate((node) => { node.dataset.menuMount = "kept"; });
+    const sameRequest = await sendMenu(page, pageId, b.id);
+    await expectAck(page, pageId, sameRequest, b.id);
+    assert.equal(await composer.getAttribute("data-menu-mount"), "kept", "same-session request must not remount the composer");
+    assert.equal(await composer.inputValue(), "MENU_KEEP_B_DRAFT");
+    const requestA = await sendMenu(page, pageId, a.id);
+    await expectAck(page, pageId, requestA, a.id);
+    await expectShows(page, a.id);
+    assert.equal(await composer.inputValue(), "MENU_KEEP_A_DRAFT");
+    assert.deepEqual(menuReads, [], "known sessions reuse the page catalogue");
+    page.off("request", trackMenuRead);
+    assert.equal(independent.url(), independentUrl, "menu navigation leaves another tab untouched");
+    await expectShows(independent, a.id);
+    await independent.close();
+    assert.ok(await documentKept(page));
+    assert.equal(await page.evaluate(() => performance.timeOrigin), timeOrigin);
+    assert.equal(await page.evaluate(() => performance.getEntriesByType("navigation").length), navigationCount);
+    assert.equal(await readyPage(page), pageId);
+    await composer.fill("");
+    await link(page, b.id).click();
+    await expectShows(page, b.id);
+    await page.waitForFunction(() => {
+      const hash = new URLSearchParams(location.hash.slice(1));
+      return hash.get("pi-menu") === "1" && !hash.has("ack") && !hash.has("request");
+    });
+    assert.equal(await readyPage(page), pageId, "ordinary selection reannounces the same page UUID");
+    await composer.fill("");
+    await link(page, a.id).click();
+    await expectShows(page, a.id);
+    console.log("PASS: menu fragment/ack binding, query normalization, cached metadata, drafts, same-session dedup and document/tab isolation");
+
+    // An uncached real session forces the authenticated metadata path. Hold that
+    // GET while a newer menu request or an ordinary same-session click wins.
+    const race = await context.newPage();
+    watch(race);
+    race.setDefaultTimeout(30_000);
+    await race.route("**/api/sessions?*", async (route) => {
+      const response = await route.fetch();
+      const data = await response.json();
+      await route.fulfill({ response, json: { ...data, sessions: data.sessions.filter((session) => session.id !== b.id) } });
+    });
+    await race.route("**/api/sessions", async (route) => {
+      const response = await route.fetch();
+      const data = await response.json();
+      await route.fulfill({ response, json: { ...data, sessions: data.sessions.filter((session) => session.id !== b.id) } });
+    });
+    try {
+      await race.goto(`${base}/?session=${a.id}`, { waitUntil: "domcontentloaded" });
+      await expectShows(race, a.id);
+      const racePageId = await readyPage(race);
+      const rows = (await api("/api/sessions")).sessions;
+      const internalTarget = rows.find((session) => session.id !== a.id && session.id !== b.id && !session.relation);
+      assert.ok(internalTarget, "navigation fixtures include another cached session for an ordinary internal pick");
+      for (const winner of ["menu", "other-click", "click"]) {
+        let arrived;
+        const started = new Promise((resolve) => { arrived = resolve; });
+        let release;
+        const held = new Promise((resolve) => { release = resolve; });
+        const delayed = async (route) => {
+          arrived();
+          await held;
+          await route.fulfill({ json: { sessions: rows } }).catch(() => {}); // abort is expected
+        };
+        await race.route("**/api/sessions?summary=1", delayed);
+        let staleRequest;
+        try {
+          staleRequest = await sendMenu(race, racePageId, b.id);
+          await started;
+          if (winner === "menu") {
+            const latest = await sendMenu(race, racePageId, a.id);
+            await expectAck(race, racePageId, latest, a.id);
+          } else {
+            await link(race, winner === "click" ? a.id : internalTarget.id).click();
+            await race.waitForFunction((pageId) => {
+              const hash = new URLSearchParams(location.hash.slice(1));
+              return hash.get("page") === pageId && !hash.has("request") && !hash.has("ack");
+            }, racePageId);
+          }
+        } finally {
+          release();
+          await race.unroute("**/api/sessions?summary=1", delayed);
+        }
+        await race.waitForTimeout(250);
+        if (winner === "other-click") {
+          assert.equal(new URL(race.url()).searchParams.get("session"), internalTarget.id, "late metadata must not overwrite ordinary navigation");
+          assert.equal(await link(race, internalTarget.id).getAttribute("aria-current"), "true");
+          await link(race, a.id).click();
+        }
+        await expectShows(race, a.id);
+        assert.notEqual(new URLSearchParams(new URL(race.url()).hash.slice(1)).get("ack"), staleRequest);
+        if (winner === "click") {
+          assert.equal(await readyPage(race), racePageId, "same-session cancellation keeps the menu usable");
+          const retry = (route) => route.fulfill({ json: { sessions: rows } });
+          await race.route("**/api/sessions?summary=1", retry);
+          try {
+            const next = await sendMenu(race, racePageId, b.id);
+            await expectAck(race, racePageId, next, b.id);
+            await content[b.id](race).waitFor({ state: "visible" });
+            await link(race, a.id).click();
+            await expectShows(race, a.id);
+          } finally {
+            await race.unroute("**/api/sessions?summary=1", retry);
+          }
+        }
+      }
+      await race.route("**/api/sessions?summary=1", (route) => route.fulfill({ json: { sessions: [] } }));
+      const missingResponse = race.waitForResponse((response) => response.url().endsWith("/api/sessions?summary=1"));
+      const missingRequest = await sendMenu(race, racePageId, "menu-session-does-not-exist");
+      await missingResponse;
+      await race.waitForTimeout(100);
+      await expectShows(race, a.id);
+      assert.notEqual(new URLSearchParams(new URL(race.url()).hash.slice(1)).get("ack"), missingRequest);
+      await race.evaluate(() => { location.hash = "unrelated-section"; });
+      await race.waitForTimeout(100);
+      assert.equal(new URL(race.url()).hash, "#unrelated-section");
+      console.log("PASS: delayed metadata cannot override a later request or internal pick; missing sessions and unrelated fragments stay untouched");
+    } finally {
+      await race.close();
+    }
+
     // Ctrl/Cmd-click and middle-click open B in another tab; this one stays on A.
     // ControlOrMeta: on macOS Ctrl-click is a secondary click (the row menu), Cmd opens tabs.
     for (const [label, open] of [
@@ -137,6 +309,7 @@ export async function checkSessionNavigation({ browser, base, artifacts, a, b, a
     await expectShows(tab, b.id);
     await page.reload({ waitUntil: "domcontentloaded" });
     await expectShows(page, a.id);
+    assert.notEqual(await readyPage(page), pageId, "a new document gets a new page UUID");
     await tab.goto(`${base}/`, { waitUntil: "domcontentloaded" });
     await expectShows(tab, b.id);
     await expectShows(page, a.id);

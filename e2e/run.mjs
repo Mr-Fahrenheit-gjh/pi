@@ -19,6 +19,8 @@ import { checkSessionNavigation } from "./session-navigation.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const mode = process.env.E2E_SERVER_MODE || "dev";
+const focus = process.env.E2E_FOCUS || "all";
+assert.ok(focus === "all" || focus === "session-navigation", "E2E_FOCUS must be all or session-navigation");
 assert.ok(mode === "dev" || mode === "start", "E2E_SERVER_MODE must be dev or start");
 assert.ok(mode !== "dev" || !existsSync(join(root, ".next/dev/lock")), "Use a checkout without an active dev server");
 const artifacts = join(root, "test-results/e2e");
@@ -192,6 +194,9 @@ try {
     await delay(250);
   }
 
+  // Keep the existing full suite intact; a navigation-only run shares its isolated
+  // fixtures/server and cleanup without unrelated mobile/API/rendering checks.
+  if (focus === "all") {
   const detail = await api(`/api/sessions/${LONG}?deferThinking=1&deferMedia=1`);
   assert.deepEqual(detail.context.entryIds, ids(4950, 5000));
   assert.equal(detail.context.messages.length, 50);
@@ -507,6 +512,8 @@ try {
     context = undefined;
     page = undefined;
   }
+  }
+  browser ??= await chromium.launch();
   // Last, in its own context and tabs, so the checks above run as before. It
   // restores the sidebar state (pins, archive) and deletes the fork it makes.
   await checkSessionNavigation({

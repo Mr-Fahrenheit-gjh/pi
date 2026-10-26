@@ -14,7 +14,10 @@ function callbackBody(name, nextName) {
   const end = source.indexOf(`\n  const ${nextName}`, start);
   assert.notEqual(start, -1, `${name} callback not found`);
   assert.notEqual(end, -1, `${nextName} callback not found after ${name}`);
-  return source.slice(start, end);
+  const dependencies = source.indexOf("\n  }, [", start);
+  assert.ok(dependencies > start && dependencies < end, `${name} callback end not found`);
+  // Extract the callback itself, not hooks registered between adjacent callbacks.
+  return source.slice(start, source.indexOf("]);", dependencies) + 3);
 }
 
 test("a linked session that is gone gets no other session in its place (#1168)", async (t) => {
@@ -35,6 +38,7 @@ test("a linked session that is gone gets no other session in its place (#1168)",
         crypto: globalThis.crypto,
         URLSearchParams,
         window: { location: { pathname: "/", search: linkedId ? `?session=${linkedId}` : "" } },
+        menuNavigationRef: { current: null },
         router: { replace: (url) => urls.push(url) },
         getLastOpenSession: (key) => ({ "/p1": lastOpen.id, "/p2": otherLastOpen.id })[key] ?? null,
         clearLastOpen() {},
@@ -110,6 +114,7 @@ test("New restores the draft after session navigation and workspace auto-restore
         crypto: globalThis.crypto,
         queueMicrotask,
         URLSearchParams,
+        menuNavigationRef: { current: null },
         window: { location: { pathname: "/", search: "" } },
         router: { replace() {} },
         fetch: () => response.promise,
@@ -214,6 +219,7 @@ test("New in another project adopts it up front and parks the composer's draft",
   const parkedKeyHelper = source.slice(source.indexOf("function parkedNewSessionDraftKey"), source.indexOf("export function AppShell"));
   const fileTab = { id: "file:/p1/notes.md", filePath: "/p1/notes.md" };
   const context = vm.createContext({
+    menuNavigationRef: { current: null },
     ...draftStore,
     crypto: globalThis.crypto,
     URLSearchParams,
@@ -298,6 +304,7 @@ test("the composer's bar moves the fresh composer's draft and model picks instea
   const fileTab = { id: "file:/p1/notes.md", filePath: "/p1/notes.md" };
   const choices = { model: { provider: "custom", modelId: "fast" }, thinkingLevel: "high" };
   const context = vm.createContext({
+    menuNavigationRef: { current: null },
     ...draftStore,
     crypto: globalThis.crypto,
     URLSearchParams,
