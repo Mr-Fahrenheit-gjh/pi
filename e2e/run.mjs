@@ -20,6 +20,7 @@ import { checkSessionNavigation } from "./session-navigation.mjs";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const mode = process.env.E2E_SERVER_MODE || "dev";
 const focus = process.env.E2E_FOCUS || "all";
+const browserOptions = { headless: true, ...(process.env.E2E_BROWSER_CHANNEL ? { channel: process.env.E2E_BROWSER_CHANNEL } : {}) };
 assert.ok(focus === "all" || focus === "session-navigation", "E2E_FOCUS must be all or session-navigation");
 assert.ok(mode === "dev" || mode === "start", "E2E_SERVER_MODE must be dev or start");
 assert.ok(mode !== "dev" || !existsSync(join(root, ".next/dev/lock")), "Use a checkout without an active dev server");
@@ -242,7 +243,7 @@ try {
     console.log("PASS: external session-file appends are visible on force/mount reads");
   }
 
-  browser = await chromium.launch();
+  browser = await chromium.launch(browserOptions);
   for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
     context = await browser.newContext({ viewport, locale: "en-US" });
     await context.tracing.start({ screenshots: true, snapshots: true });
@@ -513,7 +514,7 @@ try {
     page = undefined;
   }
   }
-  browser ??= await chromium.launch();
+  browser ??= await chromium.launch(browserOptions);
   // Last, in its own context and tabs, so the checks above run as before. It
   // restores the sidebar state (pins, archive) and deletes the fork it makes.
   await checkSessionNavigation({

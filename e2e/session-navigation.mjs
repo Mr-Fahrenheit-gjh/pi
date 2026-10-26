@@ -316,6 +316,11 @@ export async function checkSessionNavigation({ browser, base, artifacts, a, b, a
     await tab.close();
     console.log("PASS: two tabs keep their own sessions through reloads; tab memory and ?session= are not crossed");
 
+    // Archive entry is intentionally hidden by default in the local workspace.
+    await page.locator(".workspace-settings-entry button").first().click();
+    await page.getByRole("switch", { name: "Show archived conversations in sidebar", exact: true }).check();
+    await page.keyboard.press("Escape");
+
     // Pinned and archived rows link the same way; pin, archive and restore never navigate.
     // (The reload above replaced the document: mark the new one.)
     await markDocument(page);
