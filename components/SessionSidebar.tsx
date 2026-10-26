@@ -1,4 +1,5 @@
 "use client";
+import { useSessionReadState } from "@/hooks/useSessionReadState";
 import { runtimeFetch as fetch, runtimeStorageKey } from "@/lib/runtime-client.mjs";
 
 import { useEffect, useImperativeHandle, useLayoutEffect, useState, useCallback, useMemo, useRef, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type Ref, type RefObject, type UIEvent as ReactUIEvent } from "react";
@@ -228,6 +229,7 @@ interface Props {
   onRunningSessionIdsChange?: (ids: Set<string>) => void;
   onAwaitingInputSessionIdsChange?: (ids: Set<string>) => void;
   onUnreadSessionIdsChange?: (ids: Set<string>) => void;
+  conversationVisible?: boolean;
   onDesignDecksChange?: (decks: import("@/lib/design-deck").DesignDeckPresentation[]) => void;
   onSessionsChange?: (sessions: SessionInfo[]) => void;
 }
@@ -488,7 +490,7 @@ function buttonAnchor(element: HTMLElement, align: "start" | "end"): SidebarMenu
   return { kind: "rect", rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }, align };
 }
 
-export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSession, controlRef, onNewSessionContextChange, initialSessionId, initialSessionLinked, skipInitialProjectSelection, onInitialRestoreDone, refreshKey, onSessionDeleted, selectedCwd: selectedCwdProp, onCwdChange, onOpenFile, onOpenTerminal, explorerRefreshKey, onExplorerRefresh, onAtMention, onAtMentions, onBackgroundTaskDone, onRunningSessionIdsChange, onAwaitingInputSessionIdsChange, onUnreadSessionIdsChange, onDesignDecksChange, onSessionsChange }: Props) {
+export function SessionSidebar({ conversationVisible = true, selectedSessionId, onSelectSession, onNewSession, controlRef, onNewSessionContextChange, initialSessionId, initialSessionLinked, skipInitialProjectSelection, onInitialRestoreDone, refreshKey, onSessionDeleted, selectedCwd: selectedCwdProp, onCwdChange, onOpenFile, onOpenTerminal, explorerRefreshKey, onExplorerRefresh, onAtMention, onAtMentions, onBackgroundTaskDone, onRunningSessionIdsChange, onAwaitingInputSessionIdsChange, onUnreadSessionIdsChange, onDesignDecksChange, onSessionsChange }: Props) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const [allSessions, setAllSessions] = useState<SessionInfo[]>([]);
@@ -533,7 +535,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   const [fileManagerError, setFileManagerError] = useState<string | null>(null);
   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
   const [awaitingInputSessionIds, setAwaitingInputSessionIds] = useState<Set<string>>(() => new Set());
-  const [unreadSessionIds, setUnreadSessionIds] = useState<Set<string>>(() => loadUnreadSessionIds());
+  const { unreadSessionIds, setLegacyOnly: setUnreadSessionIds, mark: markReadState, noteRunning: noteReadState, noteEligible: noteReadEligible, transportFailed: readStateFailed, syncFailures: readStateFailures } = useSessionReadState(conversationVisible ? selectedSessionId : null, loadUnreadSessionIds, saveUnreadSessionIds);
   const previousRunningSessionIdsRef = useRef<Set<string>>(new Set());
   const currentSuppressedCompletionSessionIdsRef = useRef<Set<string>>(new Set());
   const previousSuppressedCompletionSessionIdsRef = useRef<Set<string>>(new Set());
@@ -604,6 +606,8 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   }, []);
   const selectedSessionIdRef = useRef(selectedSessionId);
   selectedSessionIdRef.current = selectedSessionId;
+  const conversationVisibleRef = useRef(conversationVisible);
+  conversationVisibleRef.current = conversationVisible;
   const [toast, setToast] = useState<SidebarToastData | null>(null);
   const toastIdRef = useRef(0);
   const showToast = useCallback((message: string, actions: SidebarToastAction[] = [], tail?: string) => {
@@ -755,25 +759,18 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         setRunningSessionIds((previous) => sameIdsOr(previous, data.runningSessionIds ?? []));
         setAwaitingInputSessionIds((previous) => sameIdsOr(previous, data.awaitingInputSessionIds ?? []));
       }
-      // Drop markers for deleted sessions and for subagents, whose completion
-      // is intentionally silent even if an older client marked them unread.
-      const unreadEligibleIds = new Set(
-        data.sessions
-          .filter((session) => session.relation?.kind !== "subagent")
-          .map((session) => session.id),
-      );
-      setUnreadSessionIds((prev) => {
-        if (prev.size === 0) return prev;
-        const next = new Set([...prev].filter((id) => unreadEligibleIds.has(id)));
-        return next.size === prev.size ? prev : next;
-      });
+      // Summary rows may not know child relations yet. Only a full catalogue
+      // can authorize migration/pruning of legacy markers; shared state is untouched.
+      if (!summary) noteReadEligible(data.sessions
+        .filter((session) => session.relation?.kind !== "subagent")
+        .map((session) => session.id));
       setError(null);
     } catch (e) {
       if (loadId === sessionLoadIdRef.current) setError(String(e));
     } finally {
       if (loadId === sessionLoadIdRef.current) setLoading(false);
     }
-  }, []);
+  }, [noteReadEligible]);
 
   const initialLoadDone = useRef(false);
   useEffect(() => {
@@ -862,11 +859,9 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     ? t(FILE_MANAGER_ERROR_KEYS[fileManagerError] ?? fileManagerError)
     : null;
 
-  // Persist unread markers so they survive a browser refresh before the user
-  // has actually opened the completed session.
   useEffect(() => {
-    saveUnreadSessionIds(unreadSessionIds);
-  }, [unreadSessionIds]);
+    if (readStateFailures) showToast(t("sidebar.readStateFailed"));
+  }, [readStateFailures, showToast, t]);
 
   useEffect(() => {
     let stopped = false;
@@ -894,8 +889,9 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
           cache: "no-store",
           signal: current.signal,
         });
-        if (!res.ok) return;
+        if (!res.ok) { readStateFailed(); return; }
         const data = await res.json() as {
+          sessionReadState?: unknown;
           sessionListVersion: number;
           runningSessionIds?: string[];
           awaitingInputSessionIds?: string[];
@@ -904,6 +900,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
           designDecks?: import("@/lib/design-deck").DesignDeckPresentation[];
         };
         if (stopped || controller !== current) return;
+        noteReadState(data);
         onDesignDecksChange?.(data.designDecks ?? []);
         runningPollAuthoritativeRef.current = true;
         currentSuppressedCompletionSessionIdsRef.current = new Set(
@@ -918,6 +915,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
           await loadSessions();
         }
       } catch {
+        if (!current.signal.aborted) readStateFailed();
         // Keep the last known state; the next visible-tab poll retries.
       } finally {
         if (controller === current) controller = null;
@@ -943,7 +941,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
       controller?.abort();
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [loadSessions, noteUiRevision, onDesignDecksChange]);
+  }, [loadSessions, noteUiRevision, noteReadState, readStateFailed, onDesignDecksChange]);
 
   useEffect(() => {
     onRunningSessionIdsChange?.(runningSessionIds);
@@ -963,7 +961,8 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
 
   useEffect(() => {
     const previous = previousRunningSessionIdsRef.current;
-    const completedInBackground = [...previous].filter((id) => !runningSessionIds.has(id) && id !== selectedSessionId);
+    const readingSelected = conversationVisible && document.visibilityState === "visible" && document.hasFocus();
+    const completedInBackground = [...previous].filter((id) => !runningSessionIds.has(id) && (id !== selectedSessionId || !readingSelected));
     const knownSubagentIds = new Set(
       allSessions
         .filter((session) => session.relation?.kind === "subagent")
@@ -1001,17 +1000,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         (id) => currentSuppressedCompletionSessionIdsRef.current.has(id) || knownSubagentIds.has(id),
       ),
     );
-  }, [runningSessionIds, selectedSessionId, allSessions, loadSessions, onBackgroundTaskDone]);
-
-  useEffect(() => {
-    if (!selectedSessionId) return;
-    setUnreadSessionIds((prev) => {
-      if (!prev.has(selectedSessionId)) return prev;
-      const next = new Set(prev);
-      next.delete(selectedSessionId);
-      return next;
-    });
-  }, [selectedSessionId]);
+  }, [runningSessionIds, selectedSessionId, conversationVisible, allSessions, loadSessions, onBackgroundTaskDone, setUnreadSessionIds]);
 
   useEffect(() => {
     if (explorerRefreshKey !== undefined) setExplorerKey((k) => k + 1);
@@ -1722,30 +1711,16 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   }, [applyUiState]);
 
   const markFamilyRead = useCallback((family: SessionFamily, read: boolean) => {
-    setUnreadSessionIds((prev) => {
-      const next = new Set(prev);
-      if (read) {
-        for (const id of familyIds(family)) next.delete(id);
-      } else {
-        // Subagents never carry the marker (loadSessions prunes them).
-        next.add(family.root.id);
-      }
-      return next;
-    });
-  }, []);
+    markReadState(read ? familyIds(family) : [family.root.id], read);
+  }, [markReadState]);
 
   // Unread markers coming back (Undo, a refused archive), except on the
   // session that is open by now: it has been read.
   const restoreUnread = useCallback((ids: readonly string[]) => {
     if (ids.length === 0) return;
-    setUnreadSessionIds((prev) => {
-      const next = new Set(prev);
-      for (const id of ids) {
-        if (id !== selectedSessionIdRef.current) next.add(id);
-      }
-      return next.size === prev.size ? prev : next;
-    });
-  }, []);
+    const restored = ids.filter(id => id !== selectedSessionIdRef.current || !conversationVisibleRef.current || document.visibilityState !== "visible" || !document.hasFocus());
+    if (restored.length) markReadState(restored, false);
+  }, [markReadState]);
 
   const archiveFamilies = useCallback((families: readonly SessionFamily[]) => {
     const archivable = families.filter((family) => !family.root.transient);
@@ -1766,13 +1741,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         restoreUnread(unreadBefore.filter((id) => partIds.has(id)));
       });
     }
-    if (unreadBefore.length > 0) {
-      setUnreadSessionIds((prev) => {
-        const next = new Set(prev);
-        for (const id of memberIds) next.delete(id);
-        return next;
-      });
-    }
+    if (unreadBefore.length > 0) markReadState(memberIds, true);
     const message = archivable.length === 1
       ? t("sidebar.archivedToast", { title: shortTitle(sessionRowTitle(archivable[0].root), TOAST_TITLE_MAX) })
       : t("sidebar.archivedManyToast", { count: archivable.length });
@@ -1791,7 +1760,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
       },
       { id: "view", label: t("sidebar.viewArchive"), onClick: openArchiveView },
     ]);
-  }, [applyUiState, focusAfterCommit, familyRowButton, openArchiveView, restoreUnread, showToast, snapshotUiState, t, unreadSessionIds]);
+  }, [applyUiState, focusAfterCommit, familyRowButton, openArchiveView, restoreUnread, markReadState, showToast, snapshotUiState, t, unreadSessionIds]);
 
   // The row's archive button. A running family would come straight back, so
   // it is not archived (the row offers no button for it either).
@@ -1999,7 +1968,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         // copy waits in its group, unread (so it shows beyond the group's
         // limit), and the toast offers to open it.
         setAllSessions((current) => (current.some((session) => session.id === forked.id) ? current : [forked, ...current]));
-        setUnreadSessionIds((prev) => new Set(prev).add(forked.id));
+        markReadState([forked.id], false);
         void loadSessions();
         showToast(message, [{ id: "open", label: t("sidebar.open"), onClick: () => openForkedRef.current(forked, null) }], tail);
         return;
@@ -2011,7 +1980,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     } finally {
       forkingIdsRef.current.delete(source.id);
     }
-  }, [loadSessions, refreshUiState, showToast, t]);
+  }, [loadSessions, refreshUiState, markReadState, showToast, t]);
   forkSessionRef.current = forkSession;
 
   // Open in new tab (the row menu's T): the row's session in a browser tab of

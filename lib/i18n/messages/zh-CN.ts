@@ -600,6 +600,7 @@ export const zhCNLocale: LocalePlugin = {
     "sidebar.dismiss": "关闭",
     "sidebar.markRead": "标为已读",
     "sidebar.markUnread": "标为未读",
+    "sidebar.readStateFailed": "未能同步已读状态，请重新标为已读。",
     "sidebar.moreActions": "更多操作",
     "sidebar.sessionActions": "会话操作",
     "sidebar.showMore": "显示更多 · {count}",

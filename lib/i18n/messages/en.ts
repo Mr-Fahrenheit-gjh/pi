@@ -600,6 +600,7 @@ export const enLocale: LocalePlugin = {
     "sidebar.dismiss": "Dismiss",
     "sidebar.markRead": "Mark as read",
     "sidebar.markUnread": "Mark as unread",
+    "sidebar.readStateFailed": "Could not sync read status. Try marking read again.",
     "sidebar.moreActions": "More actions",
     "sidebar.sessionActions": "Session actions",
     "sidebar.showMore": "Show more · {count}",

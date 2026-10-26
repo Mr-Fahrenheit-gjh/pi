@@ -6,6 +6,7 @@ import {
   getCompletionNotificationSuppressedRpcSessionIds,
   getRunningRpcSessionIds,
 } from "@/lib/rpc-manager";
+import { readSessionReadState } from "@/lib/session-read-state";
 import { getSessionUiStateRevision } from "@/lib/session-ui-state";
 import { feynmanRestartBlockingIds } from "@/lib/feynman-rpc";
 
@@ -15,6 +16,9 @@ export const dynamic = "force-dynamic";
 // sessionUiStateRevision (null when unreadable) tells the sidebar its pins and
 // archive changed elsewhere; it costs one stat while the file is unchanged.
 export async function GET() {
+  let sessionReadState;
+  try { sessionReadState = readSessionReadState(); }
+  catch { return NextResponse.json({ error: "Session read state is unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } }); }
   return NextResponse.json(
     {
       sessionListVersion: getSessionListVersion(),
@@ -24,6 +28,7 @@ export async function GET() {
       awaitingInputSessionIds: getAwaitingInputRpcSessionIds(),
       completionNotificationSuppressedSessionIds: getCompletionNotificationSuppressedRpcSessionIds(),
       sessionUiStateRevision: getSessionUiStateRevision(),
+      sessionReadState,
     },
     { headers: { "Cache-Control": "no-store" } },
   );

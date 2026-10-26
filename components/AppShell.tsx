@@ -1630,6 +1630,7 @@ export function AppShell() {
   const sidebarContent = (
     <>
       <SessionSidebar
+        conversationVisible={!rightPanelFullWidth && !(isMobile && rightPanelOpen)}
         selectedSessionId={secondaryActive ? splitContext.sessionId : selectedSession?.id ?? null}
         onSelectSession={handleSelectInActivePane}
         onNewSession={handleNewInActivePane}

@@ -27,6 +27,7 @@ import {
 } from "./session-reader";
 import { sessionPathKey } from "./session-path";
 import { forgetSessionUiState } from "./session-ui-state";
+import { forgetSessionReadState } from "./session-read-state";
 import { readSubagentRun, SUBAGENT_META_TYPE } from "./subagents";
 import type { SessionEntry } from "./types";
 
@@ -237,6 +238,11 @@ export async function deleteSessions(
     }
     invalidateSessionPathCache(deletedId);
     invalidateSessionManagerCache(deletedPath);
+  }
+  try {
+    await forgetSessionReadState([...deletedSessionIds]);
+  } catch (error) {
+    console.warn(`[pi-web] could not clear read state of deleted sessions: ${error instanceof Error ? error.message : String(error)}`);
   }
   // Drop their pins and archive times; best effort, the files are already gone.
   try {

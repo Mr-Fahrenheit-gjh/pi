@@ -20,6 +20,7 @@ import {
 import { cacheSessionPath, catalogFirstMessage, getLatestModelChange, invalidateSessionListCache, readLatestSessionEntryId, resolveSessionPath } from "./session-reader";
 import { getProjectTrustStatus, projectTrustReloadOptions } from "./project-trust";
 import { notifySessionComplete } from "./web-push";
+import { recordSessionReadLifecycle } from "./session-read-state";
 import { hasActiveSessionLivenessProvider } from "./session-liveness";
 import { assertServiceNotRestarting } from "./service-restart-state";
 import { createPackageSubagentExtension } from "./package-subagent-bridge";
@@ -142,11 +143,18 @@ type AgentSessionWrapperOptions = {
   chatOnly?: boolean;
   onAgentRunComplete?: AgentRunCompleteListener;
   suppressCompletionNotifications?: boolean;
+  onAgentRunStart?: (sessionId: string) => void;
   /** Connects the session's MCP servers before a prompt starts a run, and lets go of them when it closes (lib/mcp-host.ts). */
   mcpHost?: Pick<McpHost, "prepareForPrompt" | "dispose">;
   /** Chat only: the extension-provided model the session wanted, named when a prompt finds no model. */
   chatOnlyExtensionModel?: { provider: string; id: string };
 };
+
+function persistReadLifecycle(id: string, phase: "start" | "complete"): void {
+  void recordSessionReadLifecycle(id, phase).catch((error) => {
+    console.error("[pi-web] failed to persist session read state:", error instanceof Error ? error.message : error);
+  });
+}
 
 /**
  * Chat only loads no extensions, so a provider one registers is missing from its runtime (#804).
@@ -341,6 +349,7 @@ export class AgentSessionWrapper {
   private readonly chatOnly: boolean;
   private readonly onAgentRunComplete?: AgentRunCompleteListener;
   private readonly suppressCompletionNotifications: boolean;
+  private readonly onAgentRunStart?: (sessionId: string) => void;
   private readonly mcpHost?: Pick<McpHost, "prepareForPrompt" | "dispose">;
   private readonly chatOnlyExtensionModel?: { provider: string; id: string };
   private mcpHostDisposed = false;
@@ -370,6 +379,7 @@ export class AgentSessionWrapper {
     this.chatOnly = options.chatOnly ?? false;
     this.onAgentRunComplete = options.onAgentRunComplete;
     this.suppressCompletionNotifications = options.suppressCompletionNotifications ?? false;
+    this.onAgentRunStart = options.onAgentRunStart;
     this.mcpHost = options.mcpHost;
     this.chatOnlyExtensionModel = options.chatOnlyExtensionModel;
   }
@@ -455,6 +465,7 @@ export class AgentSessionWrapper {
       if (event.type === "agent_start") {
         this.agentRunNeedsCompletion = true;
         this.lastRunAborted = false;
+        if (!this.suppressCompletionNotifications) this.onAgentRunStart?.(this.sessionId);
       }
       if (event.type === "agent_settled" || event.type === "interrupt_steer_end") this.lastRunAborted = event.aborted === true;
       if (event.type === "agent_end") {
@@ -2785,7 +2796,9 @@ export async function startRpcSession(
       exactSystemPrompt,
       ...(!subagentResources ? { inlineVisualPreference } : {}),
       chatOnly,
+      onAgentRunStart: (id) => persistReadLifecycle(id, "start"),
       onAgentRunComplete: (completedSessionId, sessionName) => {
+        persistReadLifecycle(completedSessionId, "complete");
         void notifySessionComplete(completedSessionId, sessionName).catch((error) => {
           console.error("[pi-web] failed to send completion push:", error instanceof Error ? error.message : error);
         });

@@ -600,6 +600,7 @@ export const zhTWLocale: LocalePlugin = {
     "sidebar.dismiss": "關閉",
     "sidebar.markRead": "標為已讀",
     "sidebar.markUnread": "標為未讀",
+    "sidebar.readStateFailed": "無法同步已讀狀態，請重新標為已讀。",
     "sidebar.moreActions": "更多操作",
     "sidebar.sessionActions": "工作階段操作",
     "sidebar.showMore": "顯示更多 · {count}",
