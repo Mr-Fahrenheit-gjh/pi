@@ -2661,10 +2661,16 @@ export async function startRpcSession(
         : chatOnly
           ? { ...CHAT_ONLY_RESOURCE_LOADER_OPTIONS, extensionFactories: [exactSystemPromptExtension, ...(piMeta ? [] : [createInlineVisualExtension(inlineVisualPreference)])] }
         : {
+            ...(piMeta ? {
+              noSkills: true,
+              noContextFiles: true,
+              systemPromptOverride: () => undefined,
+              appendSystemPrompt: [],
+            } : {}),
             extensionFactories: [
               ...(builtins?.extensions ?? []),
               createReadOnlyMcpPolicyExtension(),
-              ...(piMeta ? [createPackageSubagentExtension()] : [
+              ...(piMeta ? [] : [
                 createInlineVisualExtension(inlineVisualPreference),
                 createPackageSubagentExtension(),
                 createDesignDeckExtension(),
