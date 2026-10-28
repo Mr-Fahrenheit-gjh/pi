@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleIdentifier</key><string>cn.pi.menubar</string>
+  <key>CFBundleName</key><string>Pi Menu Bar</string>
+  <key>CFBundleDisplayName</key><string>Pi Menu Bar</string>
+  <key>CFBundleExecutable</key><string>PiMenuBar</string>
+  <key>CFBundleIconFile</key><string>PiIcon</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>1.0</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>LSMinimumSystemVersion</key><string>14.0</string>
+  <key>LSUIElement</key><true/>
+  <key>NSUserNotificationAlertStyle</key><string>alert</string>
+  <key>NSHighResolutionCapable</key><true/>
+  <key>NSAppleEventsUsageDescription</key><string>仅定位并切换已打开的本机 Pi Web 标签页，不读取其他页面内容。</string>
+  <key>NSAppTransportSecurity</key><dict>
+    <key>NSAllowsLocalNetworking</key><true/>
+  </dict>
+</dict></plist>

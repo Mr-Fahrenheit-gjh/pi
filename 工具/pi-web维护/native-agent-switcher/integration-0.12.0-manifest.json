@@ -1,0 +1,324 @@
+{
+  "webVersion": "0.12.0",
+  "baseRevision": "894e1a28dbeeb7b457c7712e495d975fe9927b89",
+  "packageRpcVersion": 1,
+  "historyAdapterTestedVersion": "0.75.0",
+  "patchSha256": "ac006ffafcbf5db87753f1b134141f80eff37df280407f9445ed9d5a2c50c8d9",
+  "files": [
+    {
+      "path": "app/api/agent/[id]/subagents/route.ts",
+      "before": null,
+      "after": "92d3635f78f2922370c03dc47360218de0042699c903c7260dab70e9af17970c"
+    },
+    {
+      "path": "app/api/terminal/preferences/route.ts",
+      "before": null,
+      "after": "d05ec5a699f69f68e709f6d620c82467a008b57df2ede3a167a88007fb0dafb4"
+    },
+    {
+      "path": "app/conversation-transition.css",
+      "before": null,
+      "after": "11d9bb7cbe0e6c2da48586bb9906fc3eeecfd26196f7b9c3e7ed33858b477374"
+    },
+    {
+      "path": "app/globals.css",
+      "before": "825d91494f59f41f1f9d5f3d260e24e7f1d74b3a95b45b75e67fdfae2cf94b6e",
+      "after": "bee8f6eb115258340ddfcc9827cc8ab8e2d77240d6fa4f5b98d8251d623bdfb2"
+    },
+    {
+      "path": "components/AppShell.tsx",
+      "before": "3a6a56fec865efbe74ca3c9ec2e3c05fb10997e6e7b3d0a047ef0f2235d6bd35",
+      "after": "46d2e35be3612f8c7a78801d180cc3d4ec2d67a6be6b33fcf0d4b9c92c98be5a"
+    },
+    {
+      "path": "components/ChatWindow.tsx",
+      "before": "322e71b53643e5a69ffba89fc63ae3831f341a68ca66a8bc6f47664c1461808d",
+      "after": "f7cdba5bd283d90bf6731c0d0d4ecbc4d78240c37e012bffa704e5ee899184c9"
+    },
+    {
+      "path": "components/CodemodeToolView.tsx",
+      "before": "cecca2fdfc931e128174e87bfbf964042a18f0acd370327ea9c5f15d3a1684af",
+      "after": "588aebdb7446241460a3bc2a2b3dfb58cd81684d593ef15466f07b9bd5c22fb9"
+    },
+    {
+      "path": "components/ConversationTransition.test.mjs",
+      "before": null,
+      "after": "1b4e671b130cbcfbce16c49565ddeb4ff622a8237dc0e0a2941f5bc31058e2c4"
+    },
+    {
+      "path": "components/ConversationTransition.tsx",
+      "before": null,
+      "after": "fd938df2a2788e3c557a432e3d81387f75beceabb8386e5153f0030c78d61bdb"
+    },
+    {
+      "path": "components/MessageView.test.mjs",
+      "before": "41a320f4667c1202abe753ef2a5ff9976cd6a6161cb005961e2b132664fa4b41",
+      "after": "d969d05acdebcb3aff1e31c4f0bb6eb71bd2ad49b50d8de3cb42d5bc4a0b3571"
+    },
+    {
+      "path": "components/MessageView.tsx",
+      "before": "0ed21102f2e79fc9f5067f79b08d5338ee5f71262965f407bab872f8ddbd157c",
+      "after": "c7c8545956a0c9be8f4d4c637ca97a99c3d7f6379f18688509bf42a42e4fa982"
+    },
+    {
+      "path": "components/ModelSelector.test.mjs",
+      "before": null,
+      "after": "bf68760a55a0d4933876865683511279940005c3f26dbd3fd1909f731ab55af9"
+    },
+    {
+      "path": "components/ModelSelector.tsx",
+      "before": "6a328d575fc925b27a4795544236f56094c0075619ac8849849dc565f82fa493",
+      "after": "600d12d875d3141e5af3f4febfaf19f8c8f80042aa2b442ec099522884c5f0cc"
+    },
+    {
+      "path": "components/PackageSubagentChat.tsx",
+      "before": null,
+      "after": "3fa75de4c8d8f63e4bbfdbee0f58d07aa1b4093e95d299093d4619248ee46013"
+    },
+    {
+      "path": "components/SubagentFleetPanel.tsx",
+      "before": null,
+      "after": "44ecf4fe2bd00568e121e2c0fb6df286e55a889659dadfcf26d443e2d0b6386f"
+    },
+    {
+      "path": "components/TerminalPanel.tsx",
+      "before": "f5d29677b8b317ed74b6f67bb282dfac141d853425c68755c636db12f69ff832",
+      "after": "7375daaf381a7ec0a3741083fe3927be2ee39ad515afd164f811878c2f9ecac7"
+    },
+    {
+      "path": "components/ThemeIcon.tsx",
+      "before": "30fdc3c4507e8698ca11dfbf5f52b7f80bba7211785c63afd58523f309a2b706",
+      "after": "89d93c18beddfebf0624f25b586d97a110c5f654aee7cec22af01c1127934c92"
+    },
+    {
+      "path": "hooks/useFontPreferences.ts",
+      "before": "7c75314af6600b41e54c531cfd1c8ef2c3aab4df44430f3b95cb6301d5135130",
+      "after": "2f670ca8b86e39fcbdddde0bdf7dbc7f42bd8c3d6f45b4701ff86f1c9ae1b747"
+    },
+    {
+      "path": "hooks/usePackageSubagents.ts",
+      "before": null,
+      "after": "1651d6fba16f282fe6c92a40b4c74a52717081c78a8dc9afcc8c56b2e2477959"
+    },
+    {
+      "path": "lib/ghostty-font-config-server.ts",
+      "before": null,
+      "after": "648ee4ad395aad98d1e4211012c3b93e1db1144569926b8aa11c2b4b3468827c"
+    },
+    {
+      "path": "lib/ghostty-font-config.test.mjs",
+      "before": null,
+      "after": "799f8381b2f207994f2e57d8552eb6bd97e19f6a81c947dd3835fb792b75c2f2"
+    },
+    {
+      "path": "lib/ghostty-font-config.ts",
+      "before": null,
+      "after": "ef3fb9867fbe36437a3e02c69c8c17d3f576cef4366d45e9bc7e1bb921216a3a"
+    },
+    {
+      "path": "lib/ghostty-terminal.test.mjs",
+      "before": null,
+      "after": "2118d2065350adec7d68761c2351d730d6db57b7e3ed19ee24957616e39f419c"
+    },
+    {
+      "path": "lib/ghostty-terminal.ts",
+      "before": null,
+      "after": "3854e76151261a8f367aab8073c41048790123b8b8c78c9907f7cc9b8dceb305"
+    },
+    {
+      "path": "lib/i18n/messages/en.ts",
+      "before": "04f17386d6e80b01e43a65ef95925c637c2491bd84de4751411f027cd004f00d",
+      "after": "f1c4e781606fd9999ae26a5d67fb8e0d8ea83b43bfc2612b6804c24a2f9fef96"
+    },
+    {
+      "path": "lib/i18n/messages/zh-CN.ts",
+      "before": "dfad10bb1a21aa6eae2a578f6bbd5de98d00e3fffdbaa1fe378dd8de5339b611",
+      "after": "519ae804d586e6baa7b35bd9d9b4979d05ab58415d9e92157b4c4af39ec539ed"
+    },
+    {
+      "path": "lib/i18n/messages/zh-TW.ts",
+      "before": "ba1c7d69495a2ec79cf86b6692f3754bd5b1c567e5aff05f55610d7715b79dbd",
+      "after": "d7dc4884e2129e7aadb324ac328ebbe33bd10b544c828ce45afea4707a03d378"
+    },
+    {
+      "path": "lib/message-display.test.mjs",
+      "before": "02145c34327e040b5d42035c3ddda7f18dd045f506c6d22e91db0ee17eff8044",
+      "after": "06e623878a811625cf08d0ac65791c9ba1e9c5aab7cf7eaccc252c581a51c3f8"
+    },
+    {
+      "path": "lib/message-display.ts",
+      "before": "a3030480b698fdf926e6eb77f1402f16b61e7dfc1a72fa913936a3c6c7b15c04",
+      "after": "4fa2965f818c1e6ffdc18f4d625793c184bd90bdcc64381d2aa3eaaf5b9ee965"
+    },
+    {
+      "path": "lib/model-manufacturer.ts",
+      "before": null,
+      "after": "9752898706ea4d7a636bbe1e1747a9aedbfe266f245140616e32f466956bcfd8"
+    },
+    {
+      "path": "lib/package-subagent-bridge.ts",
+      "before": null,
+      "after": "74fa42dfc3993b616aff38019d6068de3308b67d1b5d61188cadc7e1a1ae40bd"
+    },
+    {
+      "path": "lib/package-subagent-chat.test.mjs",
+      "before": null,
+      "after": "d7420c760ee44792e0e7d059e08dcb75cddb59781b426912ebac8f6d58e7564f"
+    },
+    {
+      "path": "lib/package-subagent-chat.ts",
+      "before": null,
+      "after": "5f4be02aaa1a6812489aaab0e52fa6b97940b3db6d21c97ccfda4e065df21e29"
+    },
+    {
+      "path": "lib/package-subagent-history.test.mjs",
+      "before": null,
+      "after": "728609197c6afd3725e83b45f3d10f5e2cd8c7c8b8c3de4a67caee3f0e60e0f9"
+    },
+    {
+      "path": "lib/package-subagent-history.ts",
+      "before": null,
+      "after": "abb3190ce9b8f86f4e86991b7fb9ad582f84a0c8e677ff51763e697c2beecba0"
+    },
+    {
+      "path": "lib/rpc-manager.ts",
+      "before": "6dc920654186b1fb20c8b89ddb1d840ad41623146e1d8c840480c8bce3eedf86",
+      "after": "b5a793cd5b5e82822e366cf564fe7de342aae692c0d0c61404bfc577ad3100ef"
+    },
+    {
+      "path": "lib/stream-token-rate.test.mjs",
+      "before": "cf9abd213cb03ec6ed3d7e78b70e88783c3cb8c4629ca710f03c3cc59aadf815",
+      "after": "4c3c680f930df4e42dc9907299791d6df7c806d2f3e38df85c2a30061c8d2b10"
+    },
+    {
+      "path": "lib/stream-token-rate.ts",
+      "before": "41dffbd2067ede3f26cc3ba69444f1f758783a913e3fc8abe4658f7233ea461e",
+      "after": "b20ec10707b25ba08c7acde9c0f2f59a587dc0d15f964d406e6cd53350a9968c"
+    },
+    {
+      "path": "lib/subagent-fleet-view.test.mjs",
+      "before": null,
+      "after": "359e7271d2c5f10d7efcd47c64edf677d33ffafc2fad4481f4d571bf12530936"
+    },
+    {
+      "path": "lib/subagent-fleet-view.ts",
+      "before": null,
+      "after": "f01a7156232dfeb0ef056ea3947f349f92a78e3ee1a78215b2e9c44f8dd3d820"
+    },
+    {
+      "path": "lib/terminal-theme.test.mjs",
+      "before": null,
+      "after": "ec31cf857c79f68c049e1e482cf4d15ed7cfe7e922f01149c65ef315c23b1eb0"
+    },
+    {
+      "path": "lib/terminal-theme.ts",
+      "before": null,
+      "after": "43a0abcaf76fdc8134abba5cb2bee659ffc0583a48528075cd578c001feaf619"
+    },
+    {
+      "path": "lib/theme.test.mjs",
+      "before": "681c29c89091963e6c0e24f08e0bc8c97823438ad5f452bd44f86d4985776bf2",
+      "after": "21c32b3eb1de94a60383203be14fc806092d070ab29a272ffd06b80480f6f3a7"
+    },
+    {
+      "path": "lib/theme.ts",
+      "before": "bf3b94df079606946ecbab7f23f8c63bfce354e0de555f9e8f275b737ae674d7",
+      "after": "66f3f106ead04cb97fad9406d0b7cafb9f9e87f4c416f613b0f53ab797c0c287"
+    },
+    {
+      "path": "lib/turn-views.test.mjs",
+      "before": "c8e1002559c92f73b76e3f69d429c9b3ae8600b5106beacfcceb3f7dc1b67816",
+      "after": "7da49e23d00bbdcb1044e554809b8d40e9877cfcc85dac98dd5e4d545d90496e"
+    },
+    {
+      "path": "lib/turn-views.ts",
+      "before": "7faaf5e35924c2905c56dc56068be944a25eabb369239a1578368521a7eafedc",
+      "after": "8469074514f7015d517a85637e25b99f5191c483f4428123361fd6e0046cc9d5"
+    },
+    {
+      "path": "e2e/claude-theme.mjs",
+      "before": null,
+      "after": "5269d8c92195864fa950ad09a38e835b617c66f400b910888adadfad308d66dc"
+    },
+    {
+      "path": "e2e/conversation-transition.mjs",
+      "before": null,
+      "after": "4bbd4935d0742df0e5bbb62fcd2abad4a2cda03d01da408e13cd9198826032be"
+    },
+    {
+      "path": "e2e/ghostty-terminal.mjs",
+      "before": null,
+      "after": "2b021c0c9c649ef8a198a17cadb74104034c049bfb865fa83a1a431b0cc6a6fd"
+    },
+    {
+      "path": "e2e/package-subagent-chat.mjs",
+      "before": null,
+      "after": "497e3f6115784085ce1e105be6b6734c82d33c2b717d5950b786eb0109415876"
+    },
+    {
+      "path": "e2e/quiet-tools.mjs",
+      "before": null,
+      "after": "a37d7b64eb8dca7bd150b08399bbad6e6a0a10e9406e14faf01a962170ef8d77"
+    },
+    {
+      "path": "e2e/reply-emphasis.mjs",
+      "before": null,
+      "after": "b7863f11d14888dfdc3574c3318801461decfba64306ee6b8a3947dcc96e1387"
+    },
+    {
+      "path": "docs/agents/client-platform.md",
+      "before": "4b75f0995f2e0dff65d9cf1f515e3729fc19c82ca8206668425169f7bb5597b0",
+      "after": "a387f2e3bee2cbf2265b20833349860eb9e95302797b329066f676b58d17ac26"
+    },
+    {
+      "path": "docs/agents/models.md",
+      "before": "888bbd2ff16bd50e037e46f480ee9405e40565503c0bc39084cc217a06c406c0",
+      "after": "d715121fa1138e7942a0a32fbe66f3cd584b34c47471e56a451e629a2dfb963e"
+    },
+    {
+      "path": "docs/agents/sessions.md",
+      "before": "ac5acf17445eb09240c47e83ac1d4d7be0955bf03b01d25ec0d9b0d13a1bffd7",
+      "after": "652a1bc9b8d36ed893c9a847e2f6719d6aa009ceacc2c43889fcdcb0dfb694f1"
+    },
+    {
+      "path": "docs/agents/settings-ui.md",
+      "before": "291e66d2da044c59f08c605f6433e5004e38d4ba9e95afb33aa0757383ace391",
+      "after": "de4eef1354e83e8e24965394ae898cf74dc1c2e8c14938763e64b2500c024e73"
+    },
+    {
+      "path": "docs/terminal.md",
+      "before": "1bb0320b6bb7df4cb82ce4f3ea446d86133679a1c76252907e68a7afa6bc5cd4",
+      "after": "845d0f8c6917748a97d1f29c0f282860ff6889ec9e378aca018e4e823516b941"
+    },
+    {
+      "path": "public/icons/pi-mark.svg",
+      "before": null,
+      "after": "a9bfa9e6352400e54bab6d71818c18be0f5abdc47afdb8797afb94069b13c56f"
+    },
+    {
+      "path": "bin/prepare-ghostty.mjs",
+      "before": null,
+      "after": "bea946f4b4a9594a2dc19935055d7591838df560b2d023994f5cba11a0dd1b94"
+    },
+    {
+      "path": "next.config.ts",
+      "before": "5d2bd35190faa7f834cddc4873b185b1a8f7dde21fe271de9707e35cadfd486c",
+      "after": "60af77e08b715e8e8bff25e730b6f128444ac2ffb4721831f9586f1371f0422a"
+    },
+    {
+      "path": "package.json",
+      "before": "721de703dbbc5eb7bee2b41704ac591765fb9fd768496a058b06bc2a6987ac5d",
+      "after": "3f9764554579a0c9fef8e640bf80658bb0773be87c7c7a5519b1638b78737dfe"
+    },
+    {
+      "path": "package-lock.json",
+      "before": "f941be25c37e3a7503bc188b89469a0571bfbdd88ca9342836313d395d8ce31f",
+      "after": "1475ae47070ceb94f7923ad51e3b3a1abfcc280fc71ba5bf33623ec6847fb155"
+    }
+  ],
+  "generatedAssets": {
+    "public/vendor/ghostty-web/0.4.0/LICENSE": "5eccd0eeca906db6d661b64dd05e1d4a4b2e49d37d43bbcfd2c8cce4d7832920",
+    "public/vendor/ghostty-web/0.4.0/ghostty-vt.wasm": "d6f0326f1874ad2ce9f289e3a4a0c5f3507d4cb38d8747e4b287def470a0c60a"
+  },
+  "generatedAssetsCommand": "npm ci --ignore-scripts && node bin/prepare-terminal.js && node bin/prepare-ghostty.mjs"
+}

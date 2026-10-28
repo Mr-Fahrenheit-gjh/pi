@@ -1,0 +1,124 @@
+{
+  "webVersion": "0.11.0",
+  "baseRevision": "c9e1513245c7ea73dafb2bb81791e8da20bfe3cf",
+  "packageRpcVersion": 1,
+  "historyAdapterTestedVersion": "0.75.0",
+  "patchSha256": "6f06b6afaa6e301bae7c105c08cbaddbf489bfc471f0fd642e24a0992489502e",
+  "files": [
+    {
+      "path": "app/api/agent/[id]/subagents/route.ts",
+      "before": null,
+      "after": "92d3635f78f2922370c03dc47360218de0042699c903c7260dab70e9af17970c"
+    },
+    {
+      "path": "components/AppShell.tsx",
+      "before": "a569f57aa802ca5bb2819e5d15b25950cf92079b04a82b76a065e4fa71975dc8",
+      "after": "6397637d2942247d8f14532a9ab717b31fb413b105312d5c0b589bb5826241ed"
+    },
+    {
+      "path": "components/ChatWindow.process-details.test.mjs",
+      "before": "8ec3b3b73af5c86ab8dcb7aeb142a04ea3c52cbd3d74cf6eb7584e8f93102a56",
+      "after": "bdd347635b29900735f61caea100578b555d6b9995726cf61082199c3507bf6a"
+    },
+    {
+      "path": "components/ChatWindow.tsx",
+      "before": "cdaa91867173b0249bea16704db8a31160ee8449380b6af6a7663210f6a1c504",
+      "after": "232177c80b31db95aa84d6b4b03678c2f455c40449bcf9b18185a614ebf4d25b"
+    },
+    {
+      "path": "components/MessageView.tsx",
+      "before": "283d3c55b2a69cdbc0505308fd6305b8d4c41b1ca59bcf37ad172ac0f915555a",
+      "after": "205c604cb3fcf9b192ef6fd8c2996ac91175f007d3319c38a6528ccc20f57e66"
+    },
+    {
+      "path": "components/PackageSubagentChat.tsx",
+      "before": null,
+      "after": "3fa75de4c8d8f63e4bbfdbee0f58d07aa1b4093e95d299093d4619248ee46013"
+    },
+    {
+      "path": "components/SubagentFleetPanel.tsx",
+      "before": null,
+      "after": "44ecf4fe2bd00568e121e2c0fb6df286e55a889659dadfcf26d443e2d0b6386f"
+    },
+    {
+      "path": "hooks/usePackageSubagents.ts",
+      "before": null,
+      "after": "1651d6fba16f282fe6c92a40b4c74a52717081c78a8dc9afcc8c56b2e2477959"
+    },
+    {
+      "path": "lib/i18n/messages/en.ts",
+      "before": "7c91af5d762bc130e34553d2fbb9e9cc1d77cc7780f9520749100ffaf3847347",
+      "after": "6c84296df02b8d9da2d4646b1082f30e0f75260c01fa3da47a80b8a595496463"
+    },
+    {
+      "path": "lib/i18n/messages/zh-CN.ts",
+      "before": "9d56fc2ac9b3f7f43067297421f0541613cd037ce5ec01a344f57418b2b575b9",
+      "after": "e915db95f63b04603759d36291da4a191b14f8235612ef870747801ebb07dfb9"
+    },
+    {
+      "path": "lib/i18n/messages/zh-TW.ts",
+      "before": "9028bd135e3eda4f82a48590823da27e207df7f6c2c869367fa81d28dc476eb7",
+      "after": "a8c5ba3abf132ad4bd489929837e6d0490db4a46e02033d71c72e911906d9cda"
+    },
+    {
+      "path": "lib/message-display.test.mjs",
+      "before": "9d36fc920c2468b141a591cf3b9fd1356e39608102e8a64f645b7dd508989b08",
+      "after": "f9e4f611620ae8699118e123735d567c08a6fda06c64cdeb1e35989282593e63"
+    },
+    {
+      "path": "lib/message-display.ts",
+      "before": "d9c02fb9a318fcacbba8fadaf505dd12ccd269ce48c25986dfe5e4f8161737b2",
+      "after": "9405cf15e4f83196d88e09ee177dcc01b47fdaca19a342b5132f01e9dca8e63b"
+    },
+    {
+      "path": "lib/package-subagent-bridge.ts",
+      "before": null,
+      "after": "74fa42dfc3993b616aff38019d6068de3308b67d1b5d61188cadc7e1a1ae40bd"
+    },
+    {
+      "path": "lib/package-subagent-chat.test.mjs",
+      "before": null,
+      "after": "d7420c760ee44792e0e7d059e08dcb75cddb59781b426912ebac8f6d58e7564f"
+    },
+    {
+      "path": "lib/package-subagent-chat.ts",
+      "before": null,
+      "after": "5f4be02aaa1a6812489aaab0e52fa6b97940b3db6d21c97ccfda4e065df21e29"
+    },
+    {
+      "path": "lib/package-subagent-history.test.mjs",
+      "before": null,
+      "after": "728609197c6afd3725e83b45f3d10f5e2cd8c7c8b8c3de4a67caee3f0e60e0f9"
+    },
+    {
+      "path": "lib/package-subagent-history.ts",
+      "before": null,
+      "after": "abb3190ce9b8f86f4e86991b7fb9ad582f84a0c8e677ff51763e697c2beecba0"
+    },
+    {
+      "path": "lib/rpc-manager.ts",
+      "before": "bfd19afb6495915f2da730475fe68c7f2fba5dac974012b13b035b2de2fa946a",
+      "after": "d7281e68c239795c82271b8dc0ce29177a974f86c8623efb06eb058a5aed8af5"
+    },
+    {
+      "path": "lib/subagent-fleet-view.test.mjs",
+      "before": null,
+      "after": "359e7271d2c5f10d7efcd47c64edf677d33ffafc2fad4481f4d571bf12530936"
+    },
+    {
+      "path": "lib/subagent-fleet-view.ts",
+      "before": null,
+      "after": "f01a7156232dfeb0ef056ea3947f349f92a78e3ee1a78215b2e9c44f8dd3d820"
+    },
+    {
+      "path": "e2e/package-subagent-chat.mjs",
+      "before": null,
+      "after": "f1ce4c7f72899969ef532a0ed92776a1ecde3bb169d8ee077e33a011d2d6e6e4"
+    },
+    {
+      "path": "e2e/quiet-tools.mjs",
+      "before": null,
+      "after": "c77691833f54a590931231cf04a05c1711588c487c2201e2c5357cd6ff9063c5"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+# Pi 定制源码 GitHub 同步
+
+同步到私有仓库 `Mr-Fahrenheit-gjh/pi`：`main` 是已提交的 Pi 定制源码白名单快照，`pi-web` 是定制 Web 工作树的完整 Git 历史。工作区其他项目、未提交改动、聊天、凭据和运行记录不作为同步范围；不是整机备份。
+
+用户级 LaunchAgent 每天本地时间 10:00 和登录时执行；休眠错过时在唤醒后补跑，关机或未登录时不运行。任务不会唤醒电脑或重启 Pi Web。联网、Keychain/GitHub 授权及仓库保持私有是同步前提。
+
+入口：`/opt/homebrew/bin/python3 -B 工具/pi-github-sync/sync.py`。脚本本身须先提交；同步不改现有仓库的暂存区、分支或 Web 共享 Git 数据。浅克隆缺失的官方上游历史只在 `data/web-mirror.git` 补齐。
+
+安全检查覆盖白名单源码及完整 Web 历史的文件、提交信息、敏感路径、常见凭据模式和会话记录；仅对经过核对的合成测试值按路径及内容指纹放行。扫描不是无泄露的证明。远端分歧、私有状态无法确认、疑似敏感数据或 Git URL 重写时停止；推送时再由专用 pre-push 检查旧引用，不强推；失败尝试发送系统通知。
+
+本地状态为 `data/status.json`，任务输出在 `data/launch.stdout.log`、`data/launch.stderr.log`。首次启用 LaunchAgent 前必须先创建权限为 0700 的 `data/`，否则 launchd 无法打开日志；手动运行一次脚本也会创建该目录。`data/` 不入库；其中的镜像和快照引用用于判断远端是否被改写，不要随意删除。源码白名单在 `sync.py` 的 `PI_SOURCE_ROOTS` 和 `pi_source()`；新的定制目录需审核后加入。
+
+离线验证：`cd 工具/pi-github-sync && python3 -B -m unittest -v test_sync`。首次同步、定时任务加载和 GitHub 远端状态需分别核实。

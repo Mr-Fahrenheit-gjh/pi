@@ -1,0 +1,1959 @@
+--- /dev/null
++++ b/app/api/agent/[id]/subagents/route.ts
+@@ -0,0 +1,101 @@
++import { NextResponse } from "next/server";
++import { getAgentDir } from "@earendil-works/pi-coding-agent";
++import { join } from "node:path";
++import { readPackageChat, transcriptSessionPath } from "@/lib/package-subagent-chat";
++import { normalizeToolCalls } from "@/lib/normalize";
++import { listOwnedPackageRuns, readOwnedPackageRun } from "@/lib/package-subagent-history";
++import { asRecord } from "@/lib/subagent-fleet-view";
++import { getRpcSession, startRpcSession } from "@/lib/rpc-manager";
++import { resolveSessionPath } from "@/lib/session-reader";
++import { packageRunIds, requestPackageSubagent, type PackageSubagentMethod } from "@/lib/package-subagent-bridge";
++
++export const dynamic = "force-dynamic";
++type Context = { params: Promise<{ id: string }> };
++async function ensureSession(id: string) {
++  let session = getRpcSession(id);
++  if (!session?.isAlive()) {
++    const file = await resolveSessionPath(id);
++    if (!file) throw new Error("Session not found");
++    session = (await startRpcSession(id, file, undefined)).session;
++  }
++  await session.waitUntilReady();
++  return session;
++}
++async function requireOwnedRun(sessionId: string, runId: unknown) {
++  if (typeof runId !== "string" || !runId || runId.length > 128) throw new Error("Valid run id required");
++  const parentFile = getRpcSession(sessionId)?.sessionFile;
++  if (parentFile && readOwnedPackageRun(runId, parentFile)) return;
++  const status = await requestPackageSubagent(sessionId, "status");
++  if (!packageRunIds(status).has(runId)) throw new Error("Run does not belong to this session or is no longer retained");
++}
++function responseError(error: unknown) {
++  const message = error instanceof Error ? error.message : String(error);
++  return NextResponse.json({ available: false, error: message }, { status: message === "Session not found" ? 404 : message.includes("belong") ? 403 : 400 });
++}
++export async function GET(req: Request, context: Context) {
++  try {
++    const { id } = await context.params;
++    const session = await ensureSession(id);
++    const query = new URL(req.url).searchParams;
++    const runId = query.get("id");
++    const params: Record<string, unknown> = {};
++    if (runId) {
++      await requireOwnedRun(id, runId);
++      params.id = runId;
++      if (["transcript", "chat"].includes(query.get("view") ?? "")) params.view = "transcript";
++      params.lines = Math.min(300, Math.max(1, Number(query.get("lines")) || 100));
++      if (query.has("index")) {
++        const index = Number(query.get("index"));
++        if (!Number.isInteger(index) || index < 0) throw new Error("Invalid child index");
++        params.index = index;
++      }
++    }
++    if (!runId && query.get("view") === "chat") params.view = "transcript";
++    const data = await requestPackageSubagent(id, "status", params);
++    if (query.get("view") === "chat") {
++      const text = (data as { text?: string }).text ?? "";
++      const file = transcriptSessionPath(text);
++      // Never open a child AgentSession: its package runner is the sole writer.
++      const chat = file ? readPackageChat(file, join(getAgentDir(), "sessions"), session.sessionFile) : { messages: [], truncated: false };
++      return NextResponse.json({ available: true, ...chat, messages: chat.messages.map(normalizeToolCalls), text: chat.messages.length ? undefined : text });
++    }
++    if (!runId && session.sessionFile) {
++      const snapshot = asRecord(asRecord(data)?.asyncSnapshot) ?? {};
++      const current = Array.isArray(snapshot.runs) ? snapshot.runs : [];
++      const currentIds = packageRunIds(data);
++      const historical = listOwnedPackageRuns(session.sessionFile).filter((run) => !currentIds.has(String(run.id)));
++      return NextResponse.json({ available: true, ...(data as object), asyncSnapshot: {
++        ...snapshot, runs: [...current, ...historical], historySource: "persisted-owned-status",
++      } });
++    }
++    return NextResponse.json({ available: true, ...(data as object) });
++  } catch (error) { return responseError(error); }
++}
++export async function POST(req: Request, context: Context) {
++  try {
++    const { id } = await context.params;
++    await ensureSession(id);
++    const body = await req.json() as { method?: unknown; params?: Record<string, unknown> };
++    if (!["steer", "stop", "resume", "interrupt", "cost"].includes(String(body.method))) throw new Error("Unsupported subagent method");
++    const method = body.method as PackageSubagentMethod;
++    const source = body.params ?? {};
++    const params: Record<string, unknown> = {};
++    if (method !== "cost") {
++      await requireOwnedRun(id, source.id);
++      params.id = source.id;
++      if (method === "stop" && (source.index !== undefined || source.childId !== undefined)) throw new Error("Only whole-run stop is supported; child stop is not available");
++      if (source.childId !== undefined) throw new Error("Unsupported childId");
++      if (source.index !== undefined) {
++        if (!Number.isInteger(source.index) || Number(source.index) < 0) throw new Error("Invalid child index");
++        params.index = source.index;
++      }
++      if (method === "steer" || method === "resume") {
++        if (typeof source.message !== "string" || !source.message.trim() || source.message.length > 16_384) throw new Error("A bounded message is required");
++        params.message = source.message.trim();
++        if (method === "steer" && ["steer", "follow_up", "auto"].includes(String(source.mode))) params.mode = source.mode;
++      }
++    }
++    const data = await requestPackageSubagent(id, method, params);
++    return NextResponse.json({ available: true, ...(data as object) });
++  } catch (error) { return responseError(error); }
++}
+--- a/components/AppShell.tsx
++++ b/components/AppShell.tsx
+@@ -16,6 +16,7 @@
+ import { SystemPromptPanel } from "./SystemPromptPanel";
+ import { ToolDefinitionsPanel } from "./ToolDefinitionsPanel";
+ import { AgentSessionPanel } from "./AgentSessionPanel";
++import { usePackageSubagents, type PackageAgentTarget } from "@/hooks/usePackageSubagents";
+ import { TerminalPanel } from "./TerminalPanel";
+ import { newTerminalTab, restoreTerminalTabs, TERMINAL_TABS_KEY, type TerminalTab } from "./terminal-tab-state";
+ import { useTheme } from "@/hooks/useTheme";
+@@ -161,7 +162,14 @@
+     () => getSessionFamily(sessionsWithSelection, selectedSession?.id),
+     [selectedSession?.id, sessionsWithSelection],
+   );
+-  const hasSubagentSessions = Boolean(activeSessionFamily?.subagents.length);
++  const packageAgents = usePackageSubagents(selectedSession);
++  const [packageSelection, setPackageSelection] = useState<{ sessionId: string; target: PackageAgentTarget } | null>(null);
++  const packageTarget = packageSelection?.sessionId === selectedSession?.id
++    ? packageAgents.targets.find((target) => target.id === packageSelection?.target.id) ?? packageSelection?.target : null;
++  const [managementSessionId, setManagementSessionId] = useState<string | null>(null);
++  const closeSubagentPanel = useCallback(() => setManagementSessionId(null), []);
++  const returnToMain = useCallback(() => setPackageSelection(null), []);
++  const agentCount = (activeSessionFamily?.subagents.length ?? 0) + packageAgents.sessions.length;
+   const [runningSessionIds, setRunningSessionIds] = useState<Set<string>>(() => new Set());
+   const handleRunningSessionIdsChange = useCallback((ids: Set<string>) => {
+     setRunningSessionIds((previous) => {
+@@ -379,10 +387,8 @@
+   }, [sessionHasBranches]);
+ 
+   useEffect(() => {
+-    if (!hasSubagentSessions) {
+-      setActiveTopPanel((panel) => panel === "agents" ? null : panel);
+-    }
+-  }, [hasSubagentSessions]);
++    setActiveTopPanel((panel) => panel === "agents" ? null : panel);
++  }, [selectedSession?.id]);
+ 
+   useEffect(() => {
+     if (rightPanelFullWidth) setActiveTopPanel(null);
+@@ -1522,6 +1528,46 @@
+           </svg>
+           {!mobile && <span>{translate("history.label")}</span>}
+         </button>
++        {selectedSession && (
++          <button
++            type="button"
++            onClick={() => toggleTopPanel("agents", mobile)}
++            title={translate("agentSwitcher.title")}
++            aria-label="代理切换"
++            data-agent-switcher
++            aria-pressed={activeTopPanel === "agents"}
++            style={{
++              position: "relative",
++              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
++              width: mobile ? TOP_BAR_ICON_BUTTON_SIZE : undefined,
++              height: "100%", padding: mobile ? 0 : "0 12px",
++              background: activeTopPanel === "agents" ? "var(--bg-selected)" : "none",
++              border: "none",
++              borderTop: activeTopPanel === "agents" ? "2px solid var(--accent)" : "2px solid transparent",
++              borderRight: "1px solid var(--border)",
++              color: activeTopPanel === "agents" ? "var(--text)" : "var(--text-muted)",
++              cursor: "pointer", flexShrink: 0, fontSize: 11, whiteSpace: "nowrap",
++              transition: "color 0.1s, background 0.1s",
++            }}
++            data-mobile-toolbar-action={mobile ? "agents" : undefined}
++          >
++            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
++              <rect x="5" y="7" width="14" height="11" rx="2" /><path d="M9 11h.01M15 11h.01M9 15h6M12 7V4M10 4h4" />
++            </svg>
++            {!mobile && <span>{packageTarget?.role ?? translate("agentSwitcher.main")}</span>}
++            <span
++              aria-hidden="true"
++              style={{
++                minWidth: 15, height: 15, padding: "0 4px", display: "grid", placeItems: "center",
++                borderRadius: 7, background: "var(--bg-selected)", color: "var(--accent)",
++                fontSize: 10, lineHeight: 1, fontVariantNumeric: "tabular-nums",
++                ...(mobile ? { position: "absolute", top: 2, right: 2, minWidth: 13, height: 13, padding: "0 3px", fontSize: 9 } : {}),
++              }}
++            >
++              {agentCount}
++            </span>
++          </button>
++        )}
+         {(() => {
+           // 上下文压缩后当前消息可能不再包含 user 消息，需同时参考会话文件的消息总数。
+           const hasMessages = Boolean(
+@@ -1600,45 +1646,6 @@
+             </button>
+           );
+         })()}
+-        {hasSubagentSessions && (
+-          <button
+-            type="button"
+-            onClick={() => toggleTopPanel("agents", mobile)}
+-            title={translate("agentSwitcher.title")}
+-            aria-label={translate("agentSwitcher.title")}
+-            aria-pressed={activeTopPanel === "agents"}
+-            style={{
+-              position: "relative",
+-              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+-              width: mobile ? TOP_BAR_ICON_BUTTON_SIZE : undefined,
+-              height: "100%", padding: mobile ? 0 : "0 12px",
+-              background: activeTopPanel === "agents" ? "var(--bg-selected)" : "none",
+-              border: "none",
+-              borderTop: activeTopPanel === "agents" ? "2px solid var(--accent)" : "2px solid transparent",
+-              borderRight: "1px solid var(--border)",
+-              color: activeTopPanel === "agents" ? "var(--text)" : "var(--text-muted)",
+-              cursor: "pointer", flexShrink: 0, fontSize: 11, whiteSpace: "nowrap",
+-              transition: "color 0.1s, background 0.1s",
+-            }}
+-            data-mobile-toolbar-action={mobile ? "agents" : undefined}
+-          >
+-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+-              <rect x="5" y="7" width="14" height="11" rx="2" /><path d="M9 11h.01M15 11h.01M9 15h6M12 7V4M10 4h4" />
+-            </svg>
+-            {!mobile && <span>{translate("agentSwitcher.title")}</span>}
+-            <span
+-              aria-hidden="true"
+-              style={{
+-                minWidth: 15, height: 15, padding: "0 4px", display: "grid", placeItems: "center",
+-                borderRadius: 7, background: "var(--bg-selected)", color: "var(--accent)",
+-                fontSize: 10, lineHeight: 1, fontVariantNumeric: "tabular-nums",
+-                ...(mobile ? { position: "absolute", top: 2, right: 2, minWidth: 13, height: 13, padding: "0 3px", fontSize: 9 } : {}),
+-              }}
+-            >
+-              {activeSessionFamily!.subagents.length}
+-            </span>
+-          </button>
+-        )}
+         {sessionHasBranches && (mobile ? (
+           <button
+             type="button"
+@@ -2227,14 +2234,23 @@
+               overflowY: "auto",
+               zIndex: 500,
+             }}>
+-              {activeTopPanel === "agents" && activeSessionFamily && selectedSession && (
+-                <AgentSessionPanel
+-                  rootSession={activeSessionFamily.root}
+-                  subagents={activeSessionFamily.subagents}
+-                  selectedSessionId={selectedSession.id}
+-                  runningSessionIds={runningSessionIds}
+-                  onSelectSession={handleSelectSession}
+-                />
++              {activeTopPanel === "agents" && selectedSession && (
++                <div data-agent-switcher-panel>
++                  <AgentSessionPanel
++                    rootSession={activeSessionFamily?.root ?? selectedSession}
++                    subagents={[...(activeSessionFamily?.subagents ?? []), ...packageAgents.sessions]}
++                    selectedSessionId={packageTarget?.id ?? selectedSession.id}
++                    runningSessionIds={new Set([...runningSessionIds, ...packageAgents.running])}
++                    onSelectSession={(choice) => {
++                      const target = packageAgents.targets.find((target) => target.id === choice.id);
++                      setPackageSelection(target ? { sessionId: selectedSession.id, target } : null);
++                      setActiveTopPanel(null);
++                      if (!target && choice.id !== selectedSession.id) handleSelectSession(choice);
++                    }}
++                  />
++                  <button type="button" className="w-full border-t border-border bg-bg-panel px-3 py-3 text-left text-xs text-text-muted hover:bg-bg-hover"
++                    onClick={() => { setActiveTopPanel(null); setManagementSessionId(selectedSession.id); }}>任务管理</button>
++                </div>
+               )}
+               {activeTopPanel === "system" && (
+                 <SystemPromptPanel
+@@ -2469,6 +2485,10 @@
+             <ChatWindow
+               key={sessionKey}
+               session={selectedSession}
++              packageTarget={packageTarget}
++              onReturnToMain={returnToMain}
++              showSubagentPanel={Boolean(selectedSession && managementSessionId === selectedSession.id)}
++              onCloseSubagentPanel={closeSubagentPanel}
+               searchTarget={searchTarget?.sessionId === selectedSession?.id ? searchTarget : null}
+               onSearchTargetHandled={handleSearchTargetHandled}
+               initialScrollPosition={selectedSession ? sessionScrollPositionsRef.current.get(selectedSession.id) ?? null : null}
+--- a/components/ChatWindow.process-details.test.mjs
++++ b/components/ChatWindow.process-details.test.mjs
+@@ -5,8 +5,6 @@
+ const source = await readFile(new URL("./ChatWindow.tsx", import.meta.url), "utf8");
+ 
+ test("groups the leading segment when the history page starts mid-turn", () => {
+-  // A turn longer than the initial page loses its anchor, and the old loop
+-  // flattened every message before the first anchor instead of grouping them.
+   assert.match(source, /const hasAnchor = isMessageGroupAnchor\(msg\)/);
+   assert.match(source, /if \(!hasAnchor && idx !== 0\)/);
+   assert.match(source, /const userIdx = hasAnchor \? idx : -1/);
+@@ -14,19 +12,26 @@
+   assert.match(source, /if \(hasAnchor\) rendered\.push\(renderMessage\(userIdx\)\)/);
+ });
+ 
+-test("expands process details when a completed turn has no final answer", () => {
+-  assert.match(source, /const \[expanded, setExpanded\] = useState\(defaultExpanded\)/);
+-  assert.match(
+-    source,
+-    /<ProcessDetailsGroup[\s\S]*?defaultExpanded=\{!finalAnswerMessage\}/,
+-  );
++test("live and unanswered turns stay collapsed by default", () => {
++  assert.match(source, /defaultExpanded = false/);
++  assert.doesNotMatch(source, /defaultExpanded=\{!finalAnswerMessage\}/);
++  assert.match(source, /<ProcessDetailsGroup[^>]*running messageCount=/);
++  assert.match(source, /splitAssistantVisibleBlocks\(streaming, \{ isStreaming: true \}\)\.processBlocks/);
+ });
+ 
+-test("resets process details when the turn gains or loses its final answer", () => {
+-  // useState only reads defaultExpanded on mount; keying on answer availability
+-  // makes an answered turn start collapsed even if it first rendered unanswered.
+-  assert.match(
+-    source,
+-    /<ProcessDetailsGroup key=\{finalAnswerMessage \? "answered" : "unanswered"\}[\s\S]*?defaultExpanded=\{!finalAnswerMessage\}/,
+-  );
++test("completed turns reset the live disclosure and retain search reveal", () => {
++  assert.match(source, /key=\{finalAnswerMessage \? "answered" : "unanswered"\}/);
++  assert.match(source, /if \(reveal\) setExpanded\(true\)/);
+ });
++
++test("manual collapse is not overridden by a persistent search reveal", () => {
++  assert.match(source, /aria-expanded=\{expanded\}/);
++  assert.doesNotMatch(source, /expanded \|\| reveal/);
++  assert.doesNotMatch(source, /running && <span/);
++});
++
++test("errors and interactive notices are not hidden with live tool cards", () => {
++  assert.match(source, /liveMessage\.role !== "assistant" \|\| getAssistantErrorMessage\(liveMessage\) \|\| isAssistantTruncated\(liveMessage\)/);
++  assert.match(source, /failedToolCount > 0/);
++  assert.match(source, /chat\.processToolErrors/);
++});
+--- a/components/ChatWindow.tsx
++++ b/components/ChatWindow.tsx
+@@ -7,13 +7,17 @@
+ import { normalizeCustomPanelLines } from "@/lib/ansi";
+ import { EXTENSION_DIALOG_BASE_WIDTH, fitExtensionDialogWidth } from "@/lib/extension-dialog-fit";
+ import { asBracketedPaste, toTerminalKeyData } from "@/lib/terminal-input";
+-import { countToolCallBlocks, getAssistantErrorMessage, getDisplayableAssistantBlocks, hasAssistantAnswer, isAssistantTruncated, isMessageGroupAnchor, splitFinalAssistantBlocks } from "@/lib/message-display";
++import { countToolCallBlocks, getAssistantErrorMessage, hasAssistantAnswer, isAssistantTruncated, isMessageGroupAnchor, splitAssistantVisibleBlocks, splitFinalAssistantBlocks } from "@/lib/message-display";
+ import { extractTurnWrittenFiles, type WrittenFile } from "@/lib/turn-written-files";
+ import { buildQuotedSelection } from "@/lib/quoted-selection";
+ import { dropMentionText, splitDroppedItems, uploadFiles, type DroppedItem } from "@/lib/file-upload-client";
+ import { MessageView } from "./MessageView";
+ import { MarkdownBody } from "./MarkdownBody";
+ import { ChatInput, type ChatInputHandle } from "./ChatInput";
++import { SubagentFleetPanel } from "./SubagentFleetPanel";
++import { PackageSubagentChat } from "./PackageSubagentChat";
++import type { PackageAgentTarget } from "@/hooks/usePackageSubagents";
++import { openStackedDialog } from "@/lib/stacked-dialog";
+ import { ChatMinimap, useMessageRefs } from "./ChatMinimap";
+ import { ExtensionStatusBar } from "./ExtensionStatusBar";
+ import { AnsiText } from "./AnsiText";
+@@ -39,6 +43,10 @@
+ 
+ interface Props {
+   session: SessionInfo | null;
++  packageTarget?: PackageAgentTarget | null;
++  onReturnToMain?: () => void;
++  showSubagentPanel?: boolean;
++  onCloseSubagentPanel?: () => void;
+   searchTarget?: { sessionId: string; entryId: string; blockIndex?: number } | null;
+   onSearchTargetHandled?: (target: { sessionId: string; entryId: string }) => void;
+   initialScrollPosition?: ChatScrollPosition | null;
+@@ -208,19 +216,19 @@
+   return next;
+ }
+ 
+-function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = false, reveal = false, children, t }: { messageCount: number; toolCallCount: number; defaultExpanded?: boolean; reveal?: boolean; children: ReactNode; t: (key: string, params?: Record<string, string | number>) => string }) {
++function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = false, reveal = false, running = false, failedToolCount = 0, children, t }: { messageCount: number; toolCallCount: number; defaultExpanded?: boolean; reveal?: boolean; running?: boolean; failedToolCount?: number; children: ReactNode; t: (key: string, params?: Record<string, string | number>) => string }) {
+   const [expanded, setExpanded] = useState(defaultExpanded);
+   useLayoutEffect(() => {
+     if (reveal) setExpanded(true);
+   }, [reveal]);
+-  const parts = [t("chat.processDetails"), `${messageCount} ${t(messageCount === 1 ? "chat.message" : "chat.messages")}`];
+-  if (toolCallCount > 0) parts.push(`${toolCallCount} ${t(toolCallCount === 1 ? "chat.toolCall" : "chat.toolCalls")}`);
++  const label = running ? t("chat.working") : t("chat.viewProcess");
++  const details = `${messageCount} ${t(messageCount === 1 ? "chat.message" : "chat.messages")} · ${toolCallCount} ${t(toolCallCount === 1 ? "chat.toolCall" : "chat.toolCalls")}`;
+ 
+   return (
+-    <div style={{ marginBottom: 14 }}>
++    <div data-process-details data-running={running || undefined} style={{ marginBottom: 14 }}>
+       <button
+         type="button"
+-        aria-expanded={expanded || reveal}
++        aria-expanded={expanded}
+         onClick={() => setExpanded((v) => !v)}
+         style={{
+           display: "flex",
+@@ -236,16 +244,21 @@
+           fontSize: 12,
+           textAlign: "left",
+         }}
+-        title={expanded ? t("chat.collapseProcess") : t("chat.expandProcess")}
++        title={`${expanded ? t("chat.collapseProcess") : t("chat.expandProcess")} · ${details}`}
+       >
+         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>
+           <polyline points="4 2.5 7.5 6 4 9.5" />
+         </svg>
+         <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+-          {parts.join(" · ")}
++          <span className={running ? "animate-[pulse_1.5s_infinite]" : undefined}>{label}</span>
+         </span>
+       </button>
+-      {(expanded || reveal) && (
++      {failedToolCount > 0 && (
++        <div role="status" style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 4 }}>
++          {t("chat.processToolErrors", { count: failedToolCount })}
++        </div>
++      )}
++      {expanded && (
+         <div style={{ marginTop: 8 }}>
+           {children}
+         </div>
+@@ -254,10 +267,16 @@
+   );
+ }
+ 
+-export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initialScrollPosition, onScrollPositionChange, sessionRunning, newSessionCwd, newSessionDraftKey, newSessionContextBar, initialNewSessionChoices, onNewSessionChoicesChange, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSystemToolsChange, onSystemInfoLoaderChange, onSessionStatsChange, onSessionStatsPanelOpen, onOpenSettings, onContextUsageChange, onOpenFile, onFilesUploaded, onOpenSession, onAskInNewChat, quoteSelectionEnabled = false, initialPrompt, onInitialPromptConsumed, soundEnabled = true, onSoundToggle, playDoneSound = () => {}, unlockAudio }: Props) {
++export function ChatWindow({ session, packageTarget, onReturnToMain, showSubagentPanel = false, onCloseSubagentPanel, searchTarget, onSearchTargetHandled, initialScrollPosition, onScrollPositionChange, sessionRunning, newSessionCwd, newSessionDraftKey, newSessionContextBar, initialNewSessionChoices, onNewSessionChoicesChange, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSystemToolsChange, onSystemInfoLoaderChange, onSessionStatsChange, onSessionStatsPanelOpen, onOpenSettings, onContextUsageChange, onOpenFile, onFilesUploaded, onOpenSession, onAskInNewChat, quoteSelectionEnabled = false, initialPrompt, onInitialPromptConsumed, soundEnabled = true, onSoundToggle, playDoneSound = () => {}, unlockAudio }: Props) {
+   const { t } = useI18n();
+   const isMobile = useIsMobile();
+   const completionNotificationsEnabled = session?.relation?.kind !== "subagent";
++  const viewingPackageChild = Boolean(packageTarget);
++  const subagentDialogRef = useRef<HTMLDivElement>(null);
++  useEffect(() => {
++    if (!showSubagentPanel) return;
++    return openStackedDialog(document, subagentDialogRef.current, () => onCloseSubagentPanel?.());
++  }, [showSubagentPanel, onCloseSubagentPanel]);
+ 
+   // Wrap onAgentEnd to play the completion sound. This is more reliable than
+   // wrapping handleAgentEventRef because useAgentSession overwrites that ref
+@@ -983,6 +1002,15 @@
+       onDragLeave={handleDragLeave}
+       onDrop={handleDrop}
+     >
++      {extensionDialog && <ExtensionDialog key={extensionDialog.id} request={extensionDialog} waitingCount={waitingExtensionDialogCount} onRespond={respondToExtensionUi} />}
++      {extensionCustomUi && <ExtensionCustomPanel key={extensionCustomUi.id} request={extensionCustomUi} waitingCount={waitingExtensionCustomUiCount} onInput={sendExtensionCustomInput} />}
++      {session && packageTarget && <PackageSubagentChat key={`${session.id}:${packageTarget.id}`} session={session} target={packageTarget}
++        onReturn={() => onReturnToMain?.()} onOpenFile={onOpenFile} />}
++      {showSubagentPanel && session?.id && <div className="absolute inset-0 z-50 flex justify-end bg-black/30" onClick={(event) => { if (event.target === event.currentTarget) onCloseSubagentPanel?.(); }}>
++        <div ref={subagentDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="子代理任务" className="flex h-full w-full max-w-2xl min-w-0 border-l border-border shadow-xl">
++          <SubagentFleetPanel sessionId={session.id} onClose={() => onCloseSubagentPanel?.()} />
++        </div>
++      </div>}
+       {isDragOver && (
+         <div className="pointer-events-none absolute inset-0 z-50 flex animate-[drop-zone-in_0.15s_ease_both] items-center justify-center bg-[rgba(37,99,235,0.06)] backdrop-blur-[1px]">
+           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+@@ -1032,13 +1060,7 @@
+         <NoticeShelf notices={notices} floating onPauseChange={setNoticePaused} />
+       </div>
+ 
+-      <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
+-        {extensionDialog && (
+-          <ExtensionDialog key={extensionDialog.id} request={extensionDialog} waitingCount={waitingExtensionDialogCount} onRespond={respondToExtensionUi} />
+-        )}
+-        {extensionCustomUi && (
+-          <ExtensionCustomPanel key={extensionCustomUi.id} request={extensionCustomUi} waitingCount={waitingExtensionCustomUiCount} onInput={sendExtensionCustomInput} />
+-        )}
++      <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden" style={{ display: viewingPackageChild ? "none" : undefined }}>
+         {!isEmptyNew && <>
+         <div
+           ref={scrollContainerRef}
+@@ -1077,7 +1099,7 @@
+                 if (idx === lastUserIdx) { (lastUserMsgRef as { current: HTMLDivElement | null }).current = el; }
+               };
+ 
+-              const renderMessage = (idx: number, options: { attachRef?: boolean; keyPrefix?: string; messageOverride?: AgentMessage; showTimestamp?: boolean; writtenFiles?: WrittenFile[]; recoverTruncation?: boolean } = {}): ReactNode => {
++              const renderMessage = (idx: number, options: { attachRef?: boolean; keyPrefix?: string; messageOverride?: AgentMessage; assistantContent?: "answer" | "process"; showTimestamp?: boolean; writtenFiles?: WrittenFile[]; recoverTruncation?: boolean } = {}): ReactNode => {
+                 const msg = options.messageOverride ?? messages[idx];
+                 const isVisible = isMessageGroupAnchor(msg) || msg.role === "assistant";
+                 const currentRefIdx = visibleRefIndexByMessage.get(idx);
+@@ -1101,6 +1123,7 @@
+                   <MessageView
+                     key={`${keyPrefix}-view-${messageKey}`}
+                     message={msg}
++                    assistantContent={options.assistantContent}
+                     toolResults={toolResultsMap}
+                     modelNames={modelNames}
+                     cwd={messageCwd}
+@@ -1149,6 +1172,43 @@
+                 while (endIdx < messages.length && !isMessageGroupAnchor(messages[endIdx])) endIdx += 1;
+ 
+                 const finalAssistantIdx = findFinalAssistantIndex(messages, userIdx, endIdx);
++                const isLiveTail = (sessionBusy || streamState.isStreaming) && endIdx === messages.length && userIdx === lastAnchorIdx;
++                const failedToolCount = messages.slice(userIdx + 1, endIdx).filter((m) => m.role === "toolResult" && m.isError).length;
++
++                if (isLiveTail) {
++                  if (hasAnchor) rendered.push(renderMessage(userIdx));
++                  const processViews: ReactNode[] = [];
++                  let processToolCount = 0;
++                  let revealProcess = false;
++                  for (let liveIdx = userIdx + 1; liveIdx < endIdx; liveIdx++) {
++                    const liveMessage = messages[liveIdx];
++                    // Dialogs, notices, explicit shell commands and provider failures
++                    // stay visible. Only the assistant's internal process is folded.
++                    if (liveMessage.role !== "assistant" || getAssistantErrorMessage(liveMessage) || isAssistantTruncated(liveMessage)) {
++                      if (liveMessage.role !== "toolResult") rendered.push(renderMessage(liveIdx));
++                      continue;
++                    }
++                    const split = splitAssistantVisibleBlocks(liveMessage);
++                    if (split.answerBlocks.length > 0) rendered.push(renderMessage(liveIdx, { assistantContent: "answer", showTimestamp: false }));
++                    if (split.processBlocks.length === 0) continue;
++                    processToolCount += countToolCallBlocks(split.processBlocks);
++                    revealProcess ||= pendingSearchScroll?.entryId === entryIds[liveIdx] && (!searchBlock || split.processBlocks.includes(searchBlock));
++                    processViews.push(renderMessage(liveIdx, { keyPrefix: "live-process", assistantContent: "process", attachRef: split.answerBlocks.length === 0, showTimestamp: false }));
++                  }
++                  const streaming = streamState.streamingMessage as AssistantMessage | null;
++                  const streamingProcess = streaming ? splitAssistantVisibleBlocks(streaming, { isStreaming: true }).processBlocks : [];
++                  if (streaming && streamingProcess.length > 0) {
++                    processToolCount += countToolCallBlocks(streamingProcess);
++                    processViews.push(<MessageView key="streaming-process" message={withAssistantBlocks(streaming, streaming.content, { omitUsage: true })} assistantContent="process" toolResults={toolResultsMap} isStreaming modelNames={modelNames} cwd={messageCwd} onOpenFile={onOpenFile} onOpenSession={onOpenSession} />);
++                  }
++                  rendered.push(
++                    <ProcessDetailsGroup key={`live-process-${entryIds[groupStartIdx] ?? groupStartIdx}`} running messageCount={processViews.length} toolCallCount={processToolCount} failedToolCount={failedToolCount} reveal={revealProcess} t={t}>
++                      {processViews}
++                    </ProcessDetailsGroup>,
++                  );
++                  idx = endIdx;
++                  continue;
++                }
+ 
+                 if (finalAssistantIdx === -1) {
+                   for (let renderIdx = groupStartIdx; renderIdx < endIdx; renderIdx++) {
+@@ -1158,26 +1218,13 @@
+                   continue;
+                 }
+ 
+-                const isLiveTail = (sessionBusy || streamState.isStreaming) && endIdx === messages.length && userIdx === lastAnchorIdx;
+-                if (isLiveTail) {
+-                  for (let renderIdx = groupStartIdx; renderIdx < endIdx; renderIdx++) {
+-                    rendered.push(renderMessage(renderIdx));
+-                  }
+-                  idx = endIdx;
+-                  continue;
+-                }
+-
+                 if (hasAnchor) rendered.push(renderMessage(userIdx));
+ 
+                 const finalAssistant = messages[finalAssistantIdx] as AssistantMessage;
+-                const finalSplit = splitFinalAssistantBlocks(finalAssistant);
++                const finalSplit = splitAssistantVisibleBlocks(finalAssistant);
+                 const finalAnswerMessage = finalSplit.answerBlocks.length > 0 || getAssistantErrorMessage(finalAssistant) || isAssistantTruncated(finalAssistant)
+                   ? withAssistantBlocks(finalAssistant, finalSplit.answerBlocks)
+                   : null;
+-
+-                const finalProcessEnd = finalAssistant.content.indexOf(finalSplit.answerBlocks[0]);
+-                // Keep the original prefix so deferred thinking retains its stored block indices.
+-                const finalProcessBlocks = finalAssistant.content.slice(0, finalProcessEnd < 0 ? undefined : finalProcessEnd);
+ 
+                 const processViews: ReactNode[] = [];
+                 let processToolCount = 0;
+@@ -1187,15 +1234,17 @@
+                 for (let processIdx = userIdx + 1; processIdx <= finalAssistantIdx; processIdx++) {
+                   const processMessage = messages[processIdx];
+                   if (processMessage.role === "custom") {
+-                    revealProcess ||= Boolean(pendingSearchScroll && pendingSearchScroll.entryId === entryIds[processIdx]);
+-                    processViews.push(renderMessage(processIdx, { attachRef: false, keyPrefix: "process" }));
++                    rendered.push(renderMessage(processIdx));
+                     continue;
+                   }
+                   if (processMessage.role !== "assistant") continue;
+-                  const message = processIdx === finalAssistantIdx
+-                    ? withAssistantBlocks(processMessage, finalProcessBlocks, { omitUsage: Boolean(finalAnswerMessage) })
+-                    : processMessage;
+-                  const blocks = getDisplayableAssistantBlocks(message);
++                  const split = splitAssistantVisibleBlocks(processMessage);
++                  if (processIdx !== finalAssistantIdx && (split.answerBlocks.length > 0 || getAssistantErrorMessage(processMessage) || isAssistantTruncated(processMessage))) {
++                    rendered.push(renderMessage(processIdx, { assistantContent: "answer", showTimestamp: false }));
++                  }
++                  // Filter in MessageView, keeping the stored content indices for deferred thinking.
++                  const message = withAssistantBlocks(processMessage, processMessage.content, { omitUsage: true });
++                  const blocks = split.processBlocks;
+                   if (blocks.length === 0) continue;
+                   processRefIdx ??= visibleRefIndexByMessage.get(processIdx);
+                   processToolCount += countToolCallBlocks(blocks);
+@@ -1204,6 +1253,7 @@
+                     attachRef: false,
+                     keyPrefix: "process",
+                     messageOverride: message,
++                    assistantContent: "process",
+                     showTimestamp: false,
+                   }));
+                 }
+@@ -1219,7 +1269,7 @@
+                           would otherwise stay open once its answer shows up, e.g. when
+                           switching between an answered and an unanswered leaf of the same
+                           turn. Manual toggles survive every other re-render. */}
+-                      <ProcessDetailsGroup key={finalAnswerMessage ? "answered" : "unanswered"} messageCount={processViews.length} toolCallCount={processToolCount} defaultExpanded={!finalAnswerMessage} reveal={revealProcess} t={t}>
++                      <ProcessDetailsGroup key={finalAnswerMessage ? "answered" : "unanswered"} messageCount={processViews.length} toolCallCount={processToolCount} failedToolCount={failedToolCount} reveal={revealProcess} t={t}>
+                         {processViews}
+                       </ProcessDetailsGroup>
+                     </div>,
+@@ -1263,11 +1313,11 @@
+                 </>
+               );
+             })()}
+-            {streamState.isStreaming && hasStreamingContent && streamState.streamingMessage && (
+-              <MessageView message={streamState.streamingMessage as AgentMessage} toolResults={toolResultsMap} isStreaming modelNames={modelNames} cwd={messageCwd} onOpenFile={onOpenFile} onOpenSession={onOpenSession} />
++            {streamState.isStreaming && streamState.streamingMessage && splitAssistantVisibleBlocks(streamState.streamingMessage as AssistantMessage, { isStreaming: true }).answerBlocks.length > 0 && (
++              <MessageView message={streamState.streamingMessage} assistantContent="answer" toolResults={toolResultsMap} isStreaming modelNames={modelNames} cwd={messageCwd} onOpenFile={onOpenFile} onOpenSession={onOpenSession} />
+             )}
+ 
+-            {agentRunning && !hasStreamingContent && (agentPhase || isCompacting) && (
++            {agentRunning && !hasStreamingContent && (agentPhase || isCompacting) && (!messages.some(isMessageGroupAnchor) || isCompacting) && (
+               <div className="break-words py-2 text-[13px] text-text-muted">
+                 <span className="animate-[pulse_1.5s_infinite]">{phaseLabel(agentPhase, t, isCompacting)}</span>
+               </div>
+--- a/components/MessageView.tsx
++++ b/components/MessageView.tsx
+@@ -186,6 +186,7 @@
+ 
+ interface Props {
+   message: AgentMessage;
++  assistantContent?: "answer" | "process";
+   isStreaming?: boolean;
+   toolResults?: Map<string, ToolResultMessage>;
+   modelNames?: Record<string, string>;
+@@ -279,12 +280,12 @@
+   return true;
+ }
+ 
+-export const MessageView = memo(function MessageView({ message, isStreaming, toolResults, modelNames, cwd, onOpenFile, onOpenSession, entryId, searchBlock, onFork, forking, onEditContent, onCancelEdit, isEditing, showTimestamp, prevTimestamp, sessionId, writtenFiles, onCompact, isCompacting, compactError }: Props) {
++export const MessageView = memo(function MessageView({ message, assistantContent, isStreaming, toolResults, modelNames, cwd, onOpenFile, onOpenSession, entryId, searchBlock, onFork, forking, onEditContent, onCancelEdit, isEditing, showTimestamp, prevTimestamp, sessionId, writtenFiles, onCompact, isCompacting, compactError }: Props) {
+   if (message.role === "user") {
+     return <UserMessageView message={message as UserMessage} cwd={cwd} onOpenFile={onOpenFile} entryId={entryId} onFork={onFork} forking={forking} onEditContent={onEditContent} onCancelEdit={onCancelEdit} isEditing={isEditing} />;
+   }
+   if (message.role === "assistant") {
+-    return <AssistantMessageView message={message as AssistantMessage} isStreaming={isStreaming} toolResults={toolResults} modelNames={modelNames} cwd={cwd} onOpenFile={onOpenFile} onOpenSession={onOpenSession} showTimestamp={showTimestamp} prevTimestamp={prevTimestamp} sessionId={sessionId} entryId={entryId} searchBlock={searchBlock} writtenFiles={writtenFiles} onCompact={onCompact} isCompacting={isCompacting} compactError={compactError} />;
++    return <AssistantMessageView message={message as AssistantMessage} assistantContent={assistantContent} isStreaming={isStreaming} toolResults={toolResults} modelNames={modelNames} cwd={cwd} onOpenFile={onOpenFile} onOpenSession={onOpenSession} showTimestamp={showTimestamp} prevTimestamp={prevTimestamp} sessionId={sessionId} entryId={entryId} searchBlock={searchBlock} writtenFiles={writtenFiles} onCompact={onCompact} isCompacting={isCompacting} compactError={compactError} />;
+   }
+   if (message.role === "toolResult") {
+     // Rendered inline under its toolCall — skip standalone rendering if paired
+@@ -302,6 +303,7 @@
+   return null;
+ }, (prev, next) => {
+   return prev.message === next.message
++    && prev.assistantContent === next.assistantContent
+     && prev.isStreaming === next.isStreaming
+     && haveSameRelevantToolResults(prev.message, prev.toolResults, next.toolResults)
+     && prev.modelNames === next.modelNames
+@@ -636,6 +638,7 @@
+ 
+ function AssistantMessageView({
+   message,
++  assistantContent,
+   isStreaming,
+   toolResults,
+   modelNames,
+@@ -653,6 +656,7 @@
+   compactError,
+ }: {
+   message: AssistantMessage;
++  assistantContent?: "answer" | "process";
+   isStreaming?: boolean;
+   toolResults?: Map<string, ToolResultMessage>;
+   modelNames?: Record<string, string>;
+@@ -673,10 +677,14 @@
+   const time = showTimestamp ? formatTime(message.timestamp) : null;
+   const blockItems = useMemo(() => (message.content ?? [])
+     .map((block, originalIndex) => ({ block, originalIndex }))
+-    .filter(({ block }) => !isEmptyThinkingBlock(block, { isStreaming })), [message.content, isStreaming]);
++    .filter(({ block }) => {
++      if (isEmptyThinkingBlock(block, { isStreaming })) return false;
++      const prose = block.type === "text" || block.type === "image";
++      return !assistantContent || (assistantContent === "answer" ? prose : !prose);
++    }), [message.content, isStreaming, assistantContent]);
+   const blocks = useMemo(() => blockItems.map(({ block }) => block), [blockItems]);
+-  const providerError = getAssistantErrorMessage(message, { isStreaming });
+-  const truncated = isAssistantTruncated(message, { isStreaming });
++  const providerError = assistantContent === "process" ? null : getAssistantErrorMessage(message, { isStreaming });
++  const truncated = assistantContent !== "process" && isAssistantTruncated(message, { isStreaming });
+   const unansweredTruncation = truncated && !hasAssistantAnswer(message);
+   const [hovered, setHovered] = useState(false);
+   const [copied, setCopied] = useState(false);
+--- /dev/null
++++ b/components/PackageSubagentChat.tsx
+@@ -0,0 +1,65 @@
++"use client";
++
++import { useEffect, useMemo, useRef, useState } from "react";
++import { MessageView } from "./MessageView";
++import { fleetRequest, fleetStateLabel, fleetUrl } from "@/lib/subagent-fleet-view";
++import type { PackageAgentTarget } from "@/hooks/usePackageSubagents";
++import type { AgentMessage, SessionInfo, ToolResultMessage } from "@/lib/types";
++
++type Chat = { messages: AgentMessage[]; text?: string; truncated?: boolean };
++const button = "rounded px-3 py-1.5 text-xs text-text-muted hover:bg-bg-hover hover:text-text";
++
++/** Selection lives in the native toolbar. This component only reads a child's transcript. */
++export function PackageSubagentChat({ session, target, onReturn, onOpenFile }: {
++  session: SessionInfo; target: PackageAgentTarget; onReturn: () => void;
++  onOpenFile?: (path: string, page?: number) => void;
++}) {
++  const [chat, setChat] = useState<Chat | null>(null);
++  const [error, setError] = useState("");
++  const [refresh, setRefresh] = useState(0);
++  const scroll = useRef<HTMLDivElement>(null);
++  const follow = useRef(true);
++  const { runId, index } = target;
++  useEffect(() => {
++    let alive = true;
++    let controller: AbortController | null = null;
++    setChat(null); setError(""); follow.current = true;
++    const load = async () => {
++      if (controller || document.visibilityState !== "visible") return;
++      const query = new URLSearchParams({ view: "chat" });
++      if (runId) query.set("id", runId);
++      if (index !== undefined) query.set("index", String(index));
++      controller = new AbortController();
++      const request = controller;
++      const timeout = window.setTimeout(() => request.abort(), 15_000);
++      try {
++        const data = await fleetRequest(`${fleetUrl(session.id)}?${query}`, request.signal) as Chat;
++        if (alive) { setChat(data); setError(""); }
++      } catch (reason) { if (alive) setError(reason instanceof Error ? reason.message : "记录读取失败"); }
++      finally { window.clearTimeout(timeout); controller = null; }
++    };
++    void load();
++    const timer = window.setInterval(() => void load(), 2000);
++    document.addEventListener("visibilitychange", load);
++    return () => { alive = false; controller?.abort(); window.clearInterval(timer); document.removeEventListener("visibilitychange", load); };
++  }, [session.id, runId, index, refresh]);
++  useEffect(() => { if (follow.current && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight; }, [chat]);
++  const results = useMemo(() => new Map((chat?.messages ?? []).filter((msg): msg is ToolResultMessage => msg.role === "toolResult").map((msg) => [msg.toolCallId, msg])), [chat]);
++
++  return <section className="relative flex min-h-0 min-w-0 flex-1 flex-col" aria-label="子代理记录">
++    <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2 text-xs text-text-muted">
++      <button className={button} type="button" onClick={onReturn}>返回主代理</button>
++      <span className="min-w-0 flex-1 truncate" title="查看记录不会打断任务；下方输入仍发给主代理">{target.label} · {fleetStateLabel(target.state)} · 输入仍发给主代理</span>
++      <button type="button" className={button} onClick={() => setRefresh((value) => value + 1)}>刷新</button>
++    </div>
++    <div ref={scroll} className="min-h-0 flex-1 overflow-auto p-4" onScroll={() => { const el = scroll.current; if (el) follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; }}>
++      <div className="mx-auto max-w-[var(--chat-content-max-width,820px)]">
++        {error && <p role="alert" className="mb-3 text-sm text-red-400">{error}</p>}
++        {!chat && !error && <p className="text-sm text-text-muted">正在读取子代理记录…</p>}
++        {chat?.truncated && <p className="mb-3 text-xs text-text-muted">显示最近的记录</p>}
++        {chat?.messages.map((message, index) => <MessageView key={index} message={message} toolResults={results} cwd={session.cwd} onOpenFile={onOpenFile} />)}
++        {chat && chat.messages.length === 0 && <pre className="whitespace-pre-wrap break-words text-sm text-text-muted">{chat.text || "子代理尚未写入记录，运行时会自动更新。"}</pre>}
++      </div>
++    </div>
++  </section>;
++}
+--- /dev/null
++++ b/components/SubagentFleetPanel.tsx
+@@ -0,0 +1,261 @@
++"use client";
++
++import { useCallback, useEffect, useRef, useState } from "react";
++import {
++  fleetCanResume, fleetCommand, fleetIsActive, fleetReadableDetails, fleetRequest, fleetCostText,
++  fleetStateLabel, fleetUrl, normalizeFleetView,
++  type FleetMethod, type FleetRow, type FleetView, type SteerMode,
++} from "@/lib/subagent-fleet-view";
++
++export interface SubagentFleetPanelProps { sessionId: string; onClose?: () => void }
++const buttonClass = "rounded border border-[var(--border)] px-3 py-2 text-sm hover:bg-[var(--bg-hover)] disabled:opacity-40 disabled:cursor-not-allowed";
++const errorText = (error: unknown) => error instanceof Error ? error.message : "请求失败，请重试";
++
++/** Embeddable panel, not a modal. Session changes remount all state and cancel old requests. */
++export function SubagentFleetPanel(props: SubagentFleetPanelProps) {
++  return <SessionFleetPanel key={props.sessionId} {...props} />;
++}
++
++function SessionFleetPanel({ sessionId, onClose }: SubagentFleetPanelProps) {
++  const root = useRef<HTMLElement>(null);
++  const alive = useRef(true);
++  const visible = useRef(true);
++  const currentView = useRef<FleetView | null>(null);
++  const listRequest = useRef<AbortController | null>(null);
++  const commandRequest = useRef<AbortController | null>(null);
++  const [view, setView] = useState<FleetView | null>(null);
++  const [loading, setLoading] = useState(true);
++  const [error, setError] = useState("");
++  const [selected, setSelected] = useState<string | null>(null);
++  const [revision, setRevision] = useState(0);
++  const [detailRecord, setDetailRecord] = useState<{ id: string; view: FleetView } | null>(null);
++  const detail = detailRecord?.id === selected ? detailRecord.view : null;
++  const [detailLoading, setDetailLoading] = useState(false);
++  const [detailError, setDetailError] = useState("");
++  const [message, setMessage] = useState("");
++  const [mode, setMode] = useState<SteerMode>("auto");
++  const [busy, setBusy] = useState(false);
++  const [notice, setNotice] = useState("");
++  const [actionError, setActionError] = useState("");
++  const [stopConfirm, setStopConfirm] = useState(false);
++  const [costReport, setCostReport] = useState<string>("");
++  const [costBusy, setCostBusy] = useState(false);
++  const selectedRun = view?.runs.find((run) => run.id === selected);
++
++  const refresh = useCallback(async () => {
++    listRequest.current?.abort();
++    const controller = new AbortController();
++    listRequest.current = controller;
++    setLoading(true);
++    const timeout = window.setTimeout(() => controller.abort(), 15_000);
++    try {
++      const next = normalizeFleetView(await fleetRequest(fleetUrl(sessionId), controller.signal));
++      if (!alive.current || listRequest.current !== controller || controller.signal.aborted) return;
++      currentView.current = next;
++      setView(next);
++      setError("");
++      setRevision((value) => value + 1);
++    } catch (reason) {
++      if (alive.current && listRequest.current === controller) {
++        setError(controller.signal.aborted ? "加载超时，请刷新重试" : errorText(reason));
++      }
++    } finally {
++      window.clearTimeout(timeout);
++      if (alive.current && listRequest.current === controller) {
++        listRequest.current = null;
++        setLoading(false);
++      }
++    }
++  }, [sessionId]);
++
++  useEffect(() => {
++    alive.current = true;
++    void refresh();
++    const isVisible = () => visible.current && document.visibilityState === "visible";
++    let idleTicks = 0;
++    const maybeRefresh = () => {
++      const active = !currentView.current || currentView.current.active;
++      if (!active && ++idleTicks % 3 !== 0) return;
++      if (isVisible() && !listRequest.current && !commandRequest.current) void refresh();
++    };
++    const observer = typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver(([entry]) => {
++      visible.current = entry.isIntersecting;
++      if (!isVisible()) {
++        // Clear the reference before aborting so an obsolete request cannot publish errors.
++        const obsolete = listRequest.current;
++        listRequest.current = null;
++        obsolete?.abort();
++        setLoading(false);
++      } else maybeRefresh();
++    });
++    if (root.current) observer?.observe(root.current);
++    const onVisibility = () => {
++      if (document.visibilityState !== "visible") {
++        const obsolete = listRequest.current;
++        listRequest.current = null;
++        obsolete?.abort();
++        setLoading(false);
++      } else maybeRefresh();
++    };
++    document.addEventListener("visibilitychange", onVisibility);
++    const timer = window.setInterval(maybeRefresh, 5_000);
++    return () => {
++      alive.current = false;
++      observer?.disconnect();
++      document.removeEventListener("visibilitychange", onVisibility);
++      window.clearInterval(timer);
++      listRequest.current?.abort();
++      commandRequest.current?.abort();
++    };
++  }, [refresh]);
++
++  useEffect(() => {
++    setDetailError("");
++    if (!selected) { setDetailLoading(false); return; }
++    const controller = new AbortController();
++    let current = true;
++    setDetailLoading(true);
++    const timeout = window.setTimeout(() => controller.abort(), 15_000);
++    void fleetRequest(fleetUrl(sessionId, selected), controller.signal).then((data) => {
++      if (current && !controller.signal.aborted) setDetailRecord({ id: selected, view: normalizeFleetView(data) });
++    }).catch((reason) => {
++      if (current) setDetailError(controller.signal.aborted ? "记录加载超时" : errorText(reason));
++    }).finally(() => {
++      window.clearTimeout(timeout);
++      if (current) setDetailLoading(false);
++    });
++    return () => { current = false; window.clearTimeout(timeout); controller.abort(); };
++  }, [sessionId, selected, revision]);
++
++  const selectRun = (id: string) => {
++    setSelected(id);
++    setMessage("");
++    setStopConfirm(false);
++    setActionError("");
++    setNotice("");
++  };
++  const command = async (method: FleetMethod) => {
++    if (!selectedRun?.id || commandRequest.current) return;
++    const controller = new AbortController();
++    commandRequest.current = controller;
++    // A pre-command snapshot must never overwrite the result of a control action.
++    const obsolete = listRequest.current;
++    listRequest.current = null;
++    obsolete?.abort();
++    setLoading(false);
++    setBusy(true);
++    setActionError("");
++    setNotice("");
++    try {
++      await fleetRequest(fleetUrl(sessionId), controller.signal, fleetCommand(method, selectedRun.id, message, mode));
++      if (!alive.current || controller.signal.aborted) return;
++      setNotice(method === "stop" ? "已发送停止请求" : method === "resume" ? "已发送续接请求" : method === "interrupt" ? "已请求保存进度并暂停" : "已发送指导消息");
++      setMessage("");
++      setStopConfirm(false);
++      void refresh();
++    } catch (reason) {
++      if (alive.current && !controller.signal.aborted) setActionError(`${errorText(reason)}。可刷新确认任务状态。`);
++    } finally {
++      if (alive.current) { commandRequest.current = null; setBusy(false); }
++    }
++  };
++
++  const loadCost = async () => {
++    setCostBusy(true);
++    try {
++      const response = await fetch(fleetUrl(sessionId), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ method: "cost" }) });
++      const data = await response.json();
++      if (!response.ok) throw new Error(data.error ?? "费用读取失败");
++      if (alive.current) setCostReport(fleetCostText(data));
++    } catch (reason) { if (alive.current) setCostReport(errorText(reason)); }
++    finally { if (alive.current) setCostBusy(false); }
++  };
++
++  return (
++    <section ref={root} aria-label="子任务" className="flex min-h-0 w-full min-w-0 flex-col bg-[var(--bg-panel)] text-[var(--text)]">
++      <header className="flex flex-wrap items-center gap-2 border-b border-[var(--border)] p-3">
++        <h2 className="mr-auto font-semibold">子任务{view?.totalActive !== undefined ? ` · ${view.totalActive} 个活跃` : ""}</h2>
++        <button type="button" className={buttonClass} disabled={busy} onClick={() => void refresh()}>{loading ? "刷新中…" : "刷新"}</button>
++        <button type="button" className={buttonClass} disabled={costBusy} onClick={() => void loadCost()}>{costBusy ? "读取中…" : "用量与费用"}</button>
++        {onClose && <button type="button" className={buttonClass} onClick={onClose}>关闭</button>}
++      </header>
++      <div className="min-h-0 overflow-auto p-3">
++        <p className="mb-3 text-xs text-[var(--text-muted)]">显示当前会话的任务，运行时自动刷新。</p>
++        {costReport && <details open className="mb-3"><summary className="cursor-pointer text-sm">主会话与子代理用量</summary><SafeText text={costReport} /></details>}
++        {error && <p role="alert" className="mb-3 break-words text-sm">加载失败：{error}{view ? "（下方为上次结果）" : ""}</p>}
++        {!view && loading && <p role="status">正在加载子任务…</p>}
++        {view && !view.available && <p role="status">当前会话暂不支持子任务。{view.error}</p>}
++        {view?.available && <>
++          {view.runs.length === 0 && view.fleet.length === 0 && <p role="status">当前没有子任务。</p>}
++          <ul className="space-y-2" aria-label="运行列表">
++            {view.runs.map((run) => <li key={run.key} className="rounded border border-[var(--border)] p-3">
++              <RowSummary row={run} />
++              {run.id ? <button type="button" className={`${buttonClass} mt-2`} disabled={busy} aria-pressed={selected === run.id} onClick={() => selectRun(run.id!)}>查看记录与操作</button>
++                : <p className="mt-2 text-xs text-[var(--text-muted)]">无有效运行标识，仅展示。</p>}
++            </li>)}
++          </ul>
++          {view.fleet.length > 0 && <div className="mt-4">
++            <h3 className="text-sm font-semibold">活跃成员</h3>
++            <p className="mb-2 text-xs text-[var(--text-muted)]">可能与上方任务重叠；成员标识不可用于控制。</p>
++            <ul className="space-y-2">{view.fleet.map((row) => <li key={row.key} className="rounded border border-[var(--border)] p-3"><RowSummary row={row} /></li>)}</ul>
++          </div>}
++          {(view.omitted > 0 || view.omittedRuns > 0 || view.omittedChildren > 0) && <p className="mt-2 text-xs text-[var(--text-muted)]">未展示：{view.omitted} 个成员、{view.omittedRuns} 个任务、{view.omittedChildren} 个步骤。</p>}
++          {view.text && <details className="mt-3"><summary className="cursor-pointer text-sm">状态摘要</summary><SafeText text={view.text} /></details>}
++        </>}
++        {selected && <section aria-label="任务记录与操作" className="mt-4 rounded border border-[var(--border)] p-3">
++          <div className="flex flex-wrap items-center gap-2"><h3 className="mr-auto break-all font-semibold">{selectedRun?.label ?? "任务记录"}</h3>
++            <button type="button" className={buttonClass} onClick={() => setRevision((value) => value + 1)}>刷新记录</button>
++          </div>
++          <p className="mt-1 break-all text-xs text-[var(--text-muted)]">{selected}</p>
++          {detailLoading && <p role="status" className="mt-2">{detail ? "正在刷新记录…" : "正在加载记录…"}</p>}
++          {detailError && <p role="alert" className="mt-2">记录加载失败：{detailError}</p>}
++          {detail && <>{!detail.available ? <p className="mt-2">记录暂不可用。{detail.error}</p> : <>
++            <SafeText text={detail.text ?? (fleetReadableDetails(detail.details) || "暂无记录")} />
++            {detail.text && detail.details !== undefined && <details><summary className="cursor-pointer text-sm">结构化详情</summary><SafeText text={fleetReadableDetails(detail.details)} /></details>}
++          </>}</>}
++          {selectedRun && view?.available && !error ? <>
++            {(fleetIsActive(selectedRun.state) || fleetCanResume(selectedRun.state)) && <div className="mt-3 space-y-2">
++              <label className="block text-sm">{fleetIsActive(selectedRun.state) ? "指导消息" : "续接消息"}
++                <textarea value={message} disabled={busy} onChange={(event) => setMessage(event.target.value)} rows={3} placeholder="说明下一步要做什么"
++                  className="mt-1 block w-full resize-y rounded border border-[var(--border)] bg-[var(--bg)] p-2 text-base" />
++              </label>
++              <div className="flex flex-wrap items-center gap-2">
++                {fleetIsActive(selectedRun.state) ? <>
++                  <label className="text-sm">发送方式 <select className="rounded border border-[var(--border)] bg-[var(--bg)] p-2" value={mode} disabled={busy} onChange={(event) => setMode(event.target.value as SteerMode)}>
++                    <option value="auto">自动</option><option value="steer">当前轮结束后指导</option><option value="follow_up">后续跟进</option>
++                  </select></label>
++                  <button type="button" className={buttonClass} disabled={busy || !message.trim()} onClick={() => void command("steer")}>发送指导</button>
++                  <button type="button" className={buttonClass} disabled={busy} onClick={() => void command("interrupt")}>暂停并保留进度</button>
++                  <button type="button" className={buttonClass} disabled={busy} onClick={() => setStopConfirm(true)}>停止</button>
++                </> : <button type="button" className={buttonClass} disabled={busy || !message.trim()} onClick={() => void command("resume")}>续接任务</button>}
++              </div>
++              {stopConfirm && <div className="rounded border border-[var(--border)] p-3" role="group" aria-label="停止确认">
++                <p className="mb-2 text-sm">停止后不能续接；要稍后继续，请选择暂停。确定停止这个任务？</p>
++                <div className="flex flex-wrap gap-2"><button type="button" className={buttonClass} disabled={busy} onClick={() => void command("stop")}>确认停止</button>
++                  <button type="button" className={buttonClass} disabled={busy} onClick={() => setStopConfirm(false)}>取消</button></div>
++              </div>}
++            </div>}
++          </> : <p className="mt-3 text-xs text-[var(--text-muted)]">请刷新确认任务仍在当前会话，再进行操作。</p>}
++          {busy && <p role="status" className="mt-2 text-sm">正在发送请求…</p>}
++          {notice && <p role="status" className="mt-2 text-sm">{notice}</p>}
++          {actionError && <p role="alert" className="mt-2 break-words text-sm">操作失败：{actionError}</p>}
++        </section>}
++      </div>
++    </section>
++  );
++}
++
++function SafeText({ text }: { text: string }) {
++  return <pre className="my-2 max-h-96 overflow-auto whitespace-pre-wrap break-words rounded bg-[var(--bg)] p-3 text-sm [overflow-wrap:anywhere]">{text}</pre>;
++}
++function RowSummary({ row }: { row: FleetRow }) {
++  return <>
++    <div className="flex flex-wrap items-center gap-2"><span className="break-words font-medium [overflow-wrap:anywhere]">{row.label}</span><span className="text-xs text-[var(--text-muted)]">{fleetStateLabel(row.state)}</span></div>
++    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 break-words text-xs text-[var(--text-muted)] [overflow-wrap:anywhere]">
++      <span>角色：{row.role ?? row.label}</span>{row.model && <span>模型：{row.model}</span>}
++      {row.metrics.map((metric) => <span key={metric.label}>{metric.label}：{metric.value.toLocaleString("zh-CN", { maximumFractionDigits: 6 })}</span>)}
++    </div>
++    {row.activity && <p className="mt-1 break-words text-xs text-[var(--text-muted)]">{row.activity}</p>}
++    {row.children.length > 0 && <ul className="mt-2 space-y-2 border-l border-[var(--border)] pl-3">{row.children.map((child) => <li key={child.key}><RowSummary row={child} /></li>)}</ul>}
++  </>;
++}
+--- /dev/null
++++ b/hooks/usePackageSubagents.ts
+@@ -0,0 +1,52 @@
++"use client";
++
++import { useEffect, useMemo, useState } from "react";
++import { fleetIsActive, fleetRequest, fleetUrl, normalizeFleetView, type FleetView } from "@/lib/subagent-fleet-view";
++import type { SessionInfo, SubagentSessionStatus } from "@/lib/types";
++
++export type PackageAgentTarget = { id: string; runId?: string; index?: number; label: string; state: string; role: string };
++
++/** One list owner, shared by the native toolbar and read-only child view. */
++export function usePackageSubagents(session: SessionInfo | null) {
++  const sessionId = session?.id;
++  const [snapshot, setSnapshot] = useState<{ sessionId: string; view: FleetView } | null>(null);
++  useEffect(() => {
++    if (!sessionId) return;
++    let alive = true;
++    let controller: AbortController | null = null;
++    const load = async () => {
++      if (controller || document.visibilityState !== "visible") return;
++      controller = new AbortController();
++      const request = controller;
++      const timeout = window.setTimeout(() => request.abort(), 15_000);
++      try {
++        const view = normalizeFleetView(await fleetRequest(fleetUrl(sessionId), request.signal));
++        if (alive) setSnapshot({ sessionId, view });
++      } catch { /* The task panel displays connection errors without disrupting chat. */ }
++      finally { window.clearTimeout(timeout); controller = null; }
++    };
++    void load();
++    const timer = window.setInterval(() => void load(), 3000);
++    document.addEventListener("visibilitychange", load);
++    return () => { alive = false; controller?.abort(); window.clearInterval(timer); document.removeEventListener("visibilitychange", load); };
++  }, [sessionId]);
++  const view = snapshot?.sessionId === sessionId ? snapshot?.view : null;
++  const targets = useMemo<PackageAgentTarget[]>(() => {
++    const runs = (view?.runs ?? []).flatMap<PackageAgentTarget>((run) => {
++      if (!run.id) return [];
++      const steps = run.children.filter((child) => child.kind === "step");
++      return steps.length > 1 ? steps.map((child, index) => ({ id: `package:${run.id}:${index}`, runId: run.id, index,
++        label: child.label, state: child.state, role: child.role ?? child.label })) : [{
++        id: `package:${run.id}`, runId: run.id, label: run.label, state: run.state, role: steps[0]?.role ?? steps[0]?.label ?? run.role ?? run.label,
++      }];
++    });
++    // Opaque foreground keys are never sent as control IDs.
++    return view?.fleet.length && runs.length === 0
++      ? [{ id: "package:foreground", label: "前台子代理", state: "running", role: "子代理" }, ...runs] : runs;
++  }, [view]);
++  const sessions = useMemo(() => session ? targets.map((target): SessionInfo => ({ ...session, id: target.id, path: "", name: target.label, firstMessage: target.label,
++    relation: { kind: "subagent", parentSessionId: session.id, profile: target.role, description: target.label,
++      status: (target.state === "complete" ? "completed" : ["paused", "stopped", "partial"].includes(target.state) ? "interrupted" : target.state) as SubagentSessionStatus } })) : [], [session, targets]);
++  const running = useMemo(() => targets.filter((target) => fleetIsActive(target.state)).map((target) => target.id), [targets]);
++  return { targets, sessions, running };
++}
+--- a/lib/i18n/messages/en.ts
++++ b/lib/i18n/messages/en.ts
+@@ -432,6 +432,10 @@
+     "chat.runningCommand": "Running command...",
+     "chat.thinking": "Thinking...",
+     "chat.processDetails": "Process details",
++    "chat.working": "Working…",
++    "chat.viewProcess": "View process",
++    "chat.hideProcess": "Hide process",
++    "chat.processToolErrors": "{count} tool call(s) failed. View process for details.",
+     "chat.message": "message",
+     "chat.messages": "messages",
+     "chat.toolCall": "tool call",
+--- a/lib/i18n/messages/zh-CN.ts
++++ b/lib/i18n/messages/zh-CN.ts
+@@ -432,6 +432,10 @@
+     "chat.runningCommand": "正在运行命令...",
+     "chat.thinking": "正在思考...",
+     "chat.processDetails": "处理详情",
++    "chat.working": "正在工作…",
++    "chat.viewProcess": "查看过程",
++    "chat.hideProcess": "收起过程",
++    "chat.processToolErrors": "有 {count} 次工具执行失败，可展开过程查看详情。",
+     "chat.message": "条消息",
+     "chat.messages": "条消息",
+     "chat.toolCall": "次工具调用",
+--- a/lib/i18n/messages/zh-TW.ts
++++ b/lib/i18n/messages/zh-TW.ts
+@@ -432,6 +432,10 @@
+     "chat.runningCommand": "正在執行命令...",
+     "chat.thinking": "正在思考...",
+     "chat.processDetails": "處理詳細資料",
++    "chat.working": "正在工作…",
++    "chat.viewProcess": "查看過程",
++    "chat.hideProcess": "收起過程",
++    "chat.processToolErrors": "有 {count} 次工具執行失敗，可展開過程查看詳情。",
+     "chat.message": "則訊息",
+     "chat.messages": "則訊息",
+     "chat.toolCall": "次工具呼叫",
+--- a/lib/message-display.test.mjs
++++ b/lib/message-display.test.mjs
+@@ -20,6 +20,20 @@
+   assert.equal(getThinkingPreview("First\rSecond"), "First");
+   assert.equal(getThinkingPreview(" \n\t"), "");
+   assert.equal(getThinkingPreview("\u{1F4A1}".repeat(300)), "\u{1F4A1}".repeat(240));
++});
++
++test("visible blocks retain progress prose around tools without changing block identity", async () => {
++  const { splitAssistantVisibleBlocks } = await loadSubject();
++  const message = assistant([
++    { type: "text", text: "Visible progress" },
++    { type: "thinking", thinking: "Hidden reasoning" },
++    { type: "toolCall", toolCallId: "call-1", toolName: "read", input: {} },
++    { type: "text", text: "More visible progress" },
++  ]);
++  const split = splitAssistantVisibleBlocks(message, { isStreaming: true });
++  assert.deepEqual(split.answerBlocks.map(block => block.type), ["text", "text"]);
++  assert.deepEqual(split.processBlocks.map(block => block.type), ["thinking", "toolCall"]);
++  assert.equal(split.processBlocks[0], message.content[1]);
+ });
+ 
+ test("splits trailing final answer blocks from process blocks", async () => {
+--- a/lib/message-display.ts
++++ b/lib/message-display.ts
+@@ -76,6 +76,15 @@
+   };
+ }
+ 
++/** Progress prose is a normal message, even when followed by a tool call. */
++export function splitAssistantVisibleBlocks(message: AssistantMessage, options: DisplayOptions = {}) {
++  const blocks = getDisplayableAssistantBlocks(message, options);
++  return {
++    answerBlocks: blocks.filter(isFinalAnswerBlock),
++    processBlocks: blocks.filter((block) => !isFinalAnswerBlock(block)),
++  };
++}
++
+ export function countToolCallBlocks(blocks: AssistantContentBlock[]): number {
+   return blocks.filter((block): block is ToolCallContent => block.type === "toolCall").length;
+ }
+--- /dev/null
++++ b/lib/package-subagent-bridge.ts
+@@ -0,0 +1,68 @@
++import { randomUUID } from "node:crypto";
++import { type ExtensionAPI, type InlineExtension } from "@earendil-works/pi-coding-agent";
++
++const REQUEST = "subagents:rpc:v1:request";
++const REPLY = "subagents:rpc:v1:reply:";
++const REGISTRY = Symbol.for("pi-web:package-subagent-bridge/v1");
++export type PackageSubagentMethod = "ping" | "status" | "steer" | "stop" | "resume" | "interrupt" | "cost";
++type Bridge = { request: (method: PackageSubagentMethod, params: Record<string, unknown>) => Promise<unknown> };
++function registry(): Map<string, Bridge> {
++  const root = globalThis as unknown as Record<symbol, unknown>;
++  return (root[REGISTRY] ??= new Map<string, Bridge>()) as Map<string, Bridge>;
++}
++
++export function requestOnBus(
++  events: ExtensionAPI["events"], method: PackageSubagentMethod,
++  params: Record<string, unknown>, timeoutMs = 15_000,
++): Promise<unknown> {
++  return new Promise((resolve, reject) => {
++    const requestId = randomUUID();
++    let settled = false;
++    const finish = (error?: Error, data?: unknown) => {
++      if (settled) return;
++      settled = true;
++      clearTimeout(timer);
++      unsubscribe?.();
++      if (error) reject(error); else resolve(data);
++    };
++    const timer = setTimeout(() => finish(new Error("子代理请求超时；请刷新状态确认结果，不要重复提交操作")), timeoutMs);
++    const unsubscribe = events.on(REPLY + requestId, (value: unknown) => {
++      const reply = value as { version?: number; requestId?: string; success?: boolean; data?: unknown; error?: { message?: string } };
++      if (reply?.version !== 1 || reply.requestId !== requestId) return;
++      finish(reply.success === true ? undefined : new Error(reply.error?.message ?? "子代理请求失败"), reply.data);
++    });
++    try { events.emit(REQUEST, { version: 1, requestId, method, params }); }
++    catch (error) { finish(error instanceof Error ? error : new Error(String(error))); }
++  });
++}
++
++/** One package runtime per parent. The event bus belongs to that session, never the browser. */
++export function createPackageSubagentExtension(): InlineExtension {
++  return {
++    name: "pi-web-package-subagents", hidden: true,
++    factory: async (api) => {
++      // The user's quiet adapter owns package registration. This is only a UI bridge.
++      let sessionId: string | undefined;
++      const bridge: Bridge = { request: (method, params) => requestOnBus(api.events, method, params) };
++      api.on("session_start", (_event, ctx) => {
++        if (sessionId && registry().get(sessionId) === bridge) registry().delete(sessionId);
++        sessionId = ctx.sessionManager.getSessionId();
++        registry().set(sessionId, bridge);
++      });
++      api.on("session_shutdown", () => {
++        if (sessionId && registry().get(sessionId) === bridge) registry().delete(sessionId);
++      });
++    },
++  };
++}
++
++export function requestPackageSubagent(sessionId: string, method: PackageSubagentMethod, params: Record<string, unknown> = {}): Promise<unknown> {
++  const bridge = registry().get(sessionId);
++  if (!bridge) throw new Error("当前会话未加载 pi-subagents；聊天专用会话不启用子代理");
++  return bridge.request(method, params);
++}
++
++export function packageRunIds(status: unknown): Set<string> {
++  const value = status as { asyncSnapshot?: { runs?: Array<{ id?: unknown }> } };
++  return new Set((value?.asyncSnapshot?.runs ?? []).flatMap((run) => typeof run.id === "string" ? [run.id] : []));
++}
+--- /dev/null
++++ b/lib/package-subagent-chat.test.mjs
+@@ -0,0 +1,57 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { mkdtempSync, writeFileSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
++import { join } from 'node:path';
++import { tmpdir } from 'node:os';
++import { readPackageChat, transcriptSessionPath } from './package-subagent-chat.ts';
++import { normalizeToolCalls } from './normalize.ts';
++
++test('only package-generated header paths, not user transcript text, are used', () => {
++  assert.equal(transcriptSessionPath('Run: abc\nArtifacts:\n  Session: /trusted/session.jsonl\n\nTranscript:\nSession: /etc/passwd'), '/trusted/session.jsonl');
++  assert.equal(transcriptSessionPath('Run: abc\n\nTranscript:\nSession: /etc/passwd'), undefined);
++});
++
++test('a linked project authorizes only its verified parent child tree', () => {
++  const dir = mkdtempSync(join(tmpdir(), 'web-linked-chat-'));
++  try {
++    const root = join(dir, 'sessions'); mkdirSync(root);
++    const storage = join(dir, 'actual-project'); mkdirSync(storage);
++    symlinkSync(storage, join(root, 'project'));
++    const parent = join(root, 'project', 'parent.jsonl'); writeFileSync(parent, '{}');
++    mkdirSync(join(storage, 'parent', 'run-0'), { recursive: true });
++    const child = join(root, 'project', 'parent', 'run-0', 'session.jsonl');
++    writeFileSync(child, JSON.stringify({ type: 'message', message: { role: 'user', content: 'owned' } }));
++    assert.throws(() => readPackageChat(child, root), /允许/);
++    assert.equal(readPackageChat(child, root, parent).messages[0].content, 'owned');
++    const sibling = join(storage, 'foreign.jsonl'); writeFileSync(sibling, '{}');
++    assert.throws(() => readPackageChat(sibling, root, parent), /允许/);
++    symlinkSync(sibling, join(storage, 'parent', 'escape.jsonl'));
++    assert.throws(() => readPackageChat(join(storage, 'parent', 'escape.jsonl'), root, parent), /允许/);
++  } finally { rmSync(dir, { recursive: true, force: true }); }
++});
++
++test('read-only bounded transcript uses native normalization and ignores torn/system entries', () => {
++  const dir = mkdtempSync(join(tmpdir(), 'web-child-chat-'));
++  try {
++    const root = join(dir, 'sessions'); mkdirSync(root);
++    const file = join(root, 'child.jsonl');
++    writeFileSync(file, [
++      { type: 'session', id: 'child' },
++      { type: 'message', message: { role: 'system', content: 'private prompt' } },
++      { type: 'message', message: { role: 'user', content: 'task' } },
++      { type: 'message', message: { role: 'assistant', content: [{ type: 'toolCall', id: 'call', name: 'read', arguments: { path: 'x' } }] } },
++    ].map(JSON.stringify).join('\n') + '\n{"type":');
++    const before = readPackageChat(file, root);
++    before.messages = before.messages.map(normalizeToolCalls);
++    assert.equal(before.messages.length, 2);
++    assert.equal(before.messages[1].content[0].toolName, 'read');
++    assert.equal(before.messages[1].content[0].toolCallId, 'call');
++    const outside = join(dir, 'outside.jsonl'); writeFileSync(outside, '{}');
++    assert.throws(() => readPackageChat(outside, root), /允许/);
++    writeFileSync(file, Array.from({ length: 150 }, (_, i) => JSON.stringify({ type: 'message', message: { role: 'user', content: String(i) } })).join('\n'));
++    const tail = readPackageChat(file, root);
++    assert.equal(tail.messages.length, 100);
++    assert.equal(tail.messages[0].content, '50');
++    assert.equal(tail.truncated, true);
++  } finally { rmSync(dir, { recursive: true, force: true }); }
++});
+--- /dev/null
++++ b/lib/package-subagent-chat.ts
+@@ -0,0 +1,48 @@
++import { closeSync, constants, fstatSync, openSync, readSync, realpathSync } from "node:fs";
++import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
++import type { AgentMessage } from "./types.ts";
++
++/** The path comes only from the package's owned-run transcript header, never a browser parameter. */
++export function transcriptSessionPath(text: string): string | undefined {
++  const header = text.split("\n\n")[0];
++  return header.split("\n").map((line) => line.trim()).find((line) => line.startsWith("Session: "))?.slice(9).trim();
++}
++
++export function readPackageChat(file: string, sessionsRoot: string, parentSessionFile?: string) {
++  const roots = [realpathSync(sessionsRoot)];
++  if (parentSessionFile) {
++    // The trusted parent is resolved by Web, never supplied by the browser.
++    // Project session folders may themselves be links. Only this parent's
++    // child tree is added, not every target of every link under sessions/.
++    const parent = realpathSync(parentSessionFile);
++    if (!parent.endsWith(".jsonl")) throw new Error("Invalid parent session file");
++    roots.push(join(dirname(parent), basename(parent, ".jsonl")));
++  }
++  const path = realpathSync(file);
++  const allowed = roots.some((root) => {
++    const child = relative(root, path);
++    return child && !isAbsolute(child) && child !== ".." && !child.startsWith(`..${sep}`);
++  });
++  if (!allowed || !path.endsWith(".jsonl")) {
++    throw new Error("子代理记录不在允许的会话目录中");
++  }
++  const fd = openSync(resolve(path), constants.O_RDONLY | (constants.O_NONBLOCK || 0));
++  try {
++    const stat = fstatSync(fd);
++    if (!stat.isFile()) throw new Error("子代理记录不是普通文件");
++    const start = Math.max(0, stat.size - 1024 * 1024);
++    const buffer = Buffer.alloc(Math.min(stat.size, 1024 * 1024));
++    const count = readSync(fd, buffer, 0, buffer.length, start);
++    const lines = buffer.subarray(0, count).toString("utf8").split("\n");
++    if (start > 0) lines.shift();
++    const messages: AgentMessage[] = [];
++    for (const line of lines) {
++      try {
++        const entry = JSON.parse(line);
++        if (entry.type !== "message" || !["user", "assistant", "toolResult", "bashExecution"].includes(entry.message?.role)) continue;
++        messages.push(entry.message);
++      } catch { /* torn append or incomplete first line: retry on next refresh */ }
++    }
++    return { messages: messages.slice(-100), truncated: start > 0 || messages.length > 100 };
++  } finally { closeSync(fd); }
++}
+--- /dev/null
++++ b/lib/package-subagent-history.test.mjs
+@@ -0,0 +1,29 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { stripTypeScriptTypes } from 'node:module';
++import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
++import { join } from 'node:path';
++import { tmpdir } from 'node:os';
++const source = readFileSync(new URL('./package-subagent-history.ts', import.meta.url), 'utf8')
++  .replaceAll('"./regular-file"', JSON.stringify(new URL('./regular-file.ts', import.meta.url).href))
++  .replaceAll('"./subagent-fleet-view"', JSON.stringify(new URL('./subagent-fleet-view.ts', import.meta.url).href));
++const { readOwnedPackageRun, listOwnedPackageRuns } = await import('data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
++
++test('persisted ownership survives absent snapshots, rejects foreign runs and symlink artifacts', () => {
++  const root = mkdtempSync(join(tmpdir(), 'web-history-'));
++  try {
++    const parent = join(root, 'parent.jsonl'), foreign = join(root, 'foreign.jsonl');
++    writeFileSync(parent, '{}'); writeFileSync(foreign, '{}');
++    const id = 'aaaaaaaa-1111-4444-8888-aaaaaaaaaaaa'; mkdirSync(join(root, id));
++    const statusPath = join(root, id, 'status.json');
++    writeFileSync(statusPath, JSON.stringify({ runId: id, sessionId: parent, state: 'complete', startedAt: 10, steps: [{ agent: 'delegate' }] }));
++    assert.equal(readOwnedPackageRun(id, parent, root).state, 'complete');
++    assert.equal(readOwnedPackageRun(id, foreign, root), undefined);
++    assert.equal(readOwnedPackageRun('../' + id, parent, root), undefined);
++    assert.equal(listOwnedPackageRuns(parent, root).length, 1);
++    const alias = join(root, 'alias.jsonl'); symlinkSync(parent, alias);
++    assert.equal(readOwnedPackageRun(id, alias, root).id, id);
++    rmSync(statusPath); symlinkSync(parent, statusPath);
++    assert.equal(readOwnedPackageRun(id, parent, root), undefined);
++  } finally { rmSync(root, { recursive: true, force: true }); }
++});
+--- /dev/null
++++ b/lib/package-subagent-history.ts
+@@ -0,0 +1,41 @@
++import { lstatSync, readdirSync, realpathSync } from "node:fs";
++import { tmpdir } from "node:os";
++import { join, resolve } from "node:path";
++import { readRegularFileText } from "./regular-file";
++import { asRecord } from "./subagent-fleet-view";
++
++// Read-only compatibility adapter for pi-subagents 0.75 persisted status artifacts.
++// RPC stays the only control path. Unknown/corrupt artifacts fail closed.
++export function packageRunRoot(): string | undefined {
++  if (process.env.PI_SUBAGENTS_TEMP_ROOT?.trim()) return join(resolve(process.env.PI_SUBAGENTS_TEMP_ROOT.trim()), "async-subagent-runs");
++  if (!process.getuid) return undefined;
++  return join(tmpdir(), `pi-subagents-uid-${process.getuid()}`, "async-subagent-runs");
++}
++
++export function readOwnedPackageRun(id: string, parentFile: string, root = packageRunRoot()): Record<string, unknown> | undefined {
++  if (!root || !/^[a-zA-Z0-9][a-zA-Z0-9-]{7,127}$/.test(id)) return undefined;
++  try {
++    const runDir = join(root, id);
++    const statusPath = join(runDir, "status.json");
++    if (lstatSync(runDir).isSymbolicLink() || lstatSync(statusPath).isSymbolicLink()) return undefined;
++    const status = asRecord(JSON.parse(readRegularFileText(statusPath, 4 * 1024 * 1024) ?? "null"));
++    if (status?.runId !== id || typeof status.sessionId !== "string" || !Array.isArray(status.steps)
++      || realpathSync(status.sessionId) !== realpathSync(parentFile)) return undefined;
++    const steps = status.steps.map(asRecord).filter((step): step is Record<string, unknown> => Boolean(step)).map((step) => ({
++      agent: step.agent, sessionName: step.sessionName, status: step.status, model: step.model,
++      startedAt: step.startedAt, endedAt: step.endedAt,
++    }));
++    return { id, kind: status.mode, label: steps[0]?.sessionName ?? steps[0]?.agent ?? id, state: status.state, startedAt: status.startedAt, endedAt: status.endedAt,
++      children: steps.map((step, index) => ({ id: `step:${index}`, kind: "step", label: step.sessionName ?? step.agent, role: step.agent, state: step.status, model: step.model })), historical: true };
++  } catch { return undefined; }
++}
++
++export function listOwnedPackageRuns(parentFile: string, root = packageRunRoot()): Record<string, unknown>[] {
++  if (!root) return [];
++  try {
++    return readdirSync(root).flatMap((id) => {
++      const run = readOwnedPackageRun(id, parentFile, root);
++      return run ? [run] : [];
++    }).sort((a, b) => Number(b.startedAt ?? 0) - Number(a.startedAt ?? 0));
++  } catch { return []; }
++}
+--- a/lib/rpc-manager.ts
++++ b/lib/rpc-manager.ts
+@@ -17,6 +17,7 @@
+ import { getProjectTrustStatus, projectTrustReloadOptions } from "./project-trust";
+ import { notifySessionComplete } from "./web-push";
+ import { hasActiveSessionLivenessProvider } from "./session-liveness";
++import { createPackageSubagentExtension } from "./package-subagent-bridge";
+ import type { SlashCommandInfo } from "@earendil-works/pi-coding-agent";
+ import type { AgentSessionLike, ExtensionUiContextLike, ToolInfo } from "./pi-types";
+ import type {
+@@ -1828,6 +1829,8 @@
+       setWorkingIndicator: () => {},
+       setHiddenThinkingLabel: () => {},
+       setWidget: (key, content, options) => {
++        // Machine-readable package widgets are rendered by the native chat adapter.
++        if (key === "subagent-async" || key === "subagent-inspect") return;
+         if (!this._alive || this.extensionWidgetsResetting) return;
+         if (typeof content === "function") {
+           this.setExtensionWidgetFactory(
+@@ -2407,6 +2410,7 @@
+             extensionFactories: [
+               ...(builtins?.extensions ?? []),
+               createReadOnlyMcpPolicyExtension(),
++              createPackageSubagentExtension(),
+               createProjectCommandBashExtension({
+                 cwd: sessionCwd,
+                 settings: settingsManager,
+--- /dev/null
++++ b/lib/subagent-fleet-view.test.mjs
+@@ -0,0 +1,129 @@
++import assert from "node:assert/strict";
++import test from "node:test";
++import {
++  fleetCanResume, fleetCommand, fleetReadableDetails, fleetRequest, fleetRunId,
++  fleetState, fleetStateLabel, fleetUrl, normalizeFleetView,
++} from "./subagent-fleet-view.ts";
++
++const id = "aa470515-756d-4326-84a7-981447987f46";
++
++test("projects installed v1 snapshot; child and host identifiers are display-only", () => {
++  const view = normalizeFleetView({ available: true, asyncSnapshot: {
++    runs: [{ id, kind: "workflow", label: "计划", state: "running", activity: { currentTool: "read" },
++      children: [{ id: "stage-a", kind: "step", label: "检查", state: "complete" },
++        { id: "host-a", kind: "host-step", state: "running" }] }],
++    omitted: { runs: 2, children: 3 },
++  } });
++  assert.equal(view.runs[0].id, id);
++  assert.equal(view.runs[0].activity, "read");
++  assert.equal(view.runs[0].children[0].id, undefined);
++  assert.equal(view.runs[0].children[1].id, undefined);
++  assert.deepEqual(view.runs[0].metrics, []);
++  assert.equal(view.active, true);
++  assert.equal(view.omittedRuns, 2);
++  assert.equal(view.omittedChildren, 3);
++});
++
++test("never resolves opaque fleet keys, even if an entry supplies id", () => {
++  const view = normalizeFleetView({ available: true, fleet: {
++    entries: [{ key: id, id, agent: "explore", role: "侦察", model: "model-x", tokens: { total: 0, input: 0 }, cost: 0 }],
++    totalActive: 4, omitted: 3,
++  } });
++  assert.equal(view.fleet[0].id, undefined);
++  assert.equal(view.fleet[0].role, "侦察");
++  assert.equal(view.fleet[0].model, "model-x");
++  assert.deepEqual(view.fleet[0].metrics, [{ label: "Tokens", value: 0 }, { label: "输入", value: 0 }, { label: "费用（USD）", value: 0 }]);
++  assert.equal(view.active, true);
++  assert.equal(view.omitted, 3);
++});
++
++test("unknown/malformed fields fail softly, duplicate ids collapse, metrics must exist", () => {
++  for (const value of [null, undefined, 42, [], { asyncSnapshot: { runs: "bad" } }]) {
++    assert.deepEqual(normalizeFleetView(value).runs, []);
++  }
++  const view = normalizeFleetView({ available: true, asyncSnapshot: { runs: [null, [],
++    { id, state: "pending", newField: {} }, { id, state: "complete" },
++    { id: "../bad", state: "future-state", tokens: { total: NaN, input: -1 }, cost: Infinity },
++    { id: "fleet-1" }, { id: "step-x", kind: "step" },
++  ] } });
++  assert.equal(view.runs.length, 4);
++  assert.equal(view.runs[0].state, "queued");
++  assert.equal(view.runs[1].id, undefined);
++  assert.equal(view.runs[2].id, undefined);
++  assert.equal(view.runs[3].id, undefined);
++  assert.deepEqual(view.runs[1].metrics, []);
++  assert.equal(fleetStateLabel("future-state"), "future-state");
++  assert.equal(fleetStateLabel("__proto__"), "__proto__");
++  assert.equal(fleetState("__proto__"), "__proto__");
++});
++
++test("bounds cyclic child data and detects active descendants", () => {
++  const run = { id, state: "complete", children: [{ state: "running" }] };
++  run.children.push(run);
++  const view = normalizeFleetView({ available: true, asyncSnapshot: { runs: [run] } });
++  assert.equal(view.active, true);
++  assert.equal(view.runs[0].children[1].id, undefined);
++});
++
++test("control ids are safe, paths/synthetic labels rejected; states govern resume", () => {
++  assert.equal(fleetRunId(id), id);
++  assert.equal(fleetRunId("run_123"), "run_123");
++  assert.equal(fleetRunId("x".repeat(128)), "x".repeat(128));
++  assert.equal(fleetRunId("x".repeat(129)), undefined);
++  for (const value of ["", "async", "fleet-1", "step:0", "nested:1", "../x", "x/y", "x…", " x", "x\n", {}, "x".repeat(161)]) {
++    assert.equal(fleetRunId(value), undefined);
++  }
++  assert.equal(fleetCanResume("paused"), true);
++  assert.equal(fleetCanResume("stopped"), false);
++  assert.equal(fleetCanResume("interrupted"), false);
++  assert.equal(fleetCanResume("running"), false);
++  assert.equal(fleetCanResume("unknown"), false);
++});
++
++test("exact API URLs and command payloads; messages required for steer/resume", () => {
++  assert.equal(fleetUrl("session /?"), "/api/agent/session%20%2F%3F/subagents");
++  const url = new URL(fleetUrl("session", id), "http://localhost");
++  assert.equal(url.searchParams.get("id"), id);
++  assert.equal(url.searchParams.get("view"), "transcript");
++  assert.equal(url.searchParams.get("lines"), "100");
++  assert.deepEqual(fleetCommand("stop", id, "ignored"), { method: "stop", params: { id } });
++  assert.deepEqual(fleetCommand("interrupt", id), { method: "interrupt", params: { id } });
++  assert.deepEqual(fleetCommand("resume", id, "  继续  "), { method: "resume", params: { id, message: "继续" } });
++  assert.deepEqual(fleetCommand("steer", id, "检查", "follow_up"), { method: "steer", params: { id, message: "检查", mode: "follow_up" } });
++  assert.throws(() => fleetCommand("steer", id, " "), /填写消息/);
++  assert.throws(() => fleetCommand("resume", id), /填写消息/);
++  assert.throws(() => fleetCommand("stop", "fleet-1"), /无效/);
++  assert.throws(() => fleetUrl("session", "../bad"), /无效/);
++});
++
++test("records remain plain text, including HTML and structured unknown details", () => {
++  assert.equal(fleetReadableDetails("<script>bad()</script>"), "<script>bad()</script>");
++  assert.equal(fleetReadableDetails({ result: "完成" }), '{\n  "result": "完成"\n}');
++  assert.equal(fleetReadableDetails(undefined), "");
++  const cyclic = {}; cyclic.self = cyclic;
++  assert.equal(fleetReadableDetails(cyclic), "记录无法显示");
++});
++
++test("fetch passes abort signal, POST returns RPC data, HTTP/RPC errors surface", async (t) => {
++  const controller = new AbortController();
++  const data = { text: "accepted", details: { state: "running" } };
++  t.mock.method(globalThis, "fetch", async (url, options) => {
++    assert.equal(url, fleetUrl("s"));
++    assert.equal(options.signal, controller.signal);
++    assert.equal(options.cache, "no-store");
++    assert.equal(options.method, "POST");
++    assert.deepEqual(JSON.parse(options.body), fleetCommand("stop", id));
++    return Response.json(data);
++  });
++  assert.deepEqual(await fleetRequest(fleetUrl("s"), controller.signal, fleetCommand("stop", id)), data);
++  globalThis.fetch.mock.mockImplementation(async () => Response.json({ error: "unavailable" }, { status: 503 }));
++  await assert.rejects(fleetRequest("/test", controller.signal), /unavailable/);
++  globalThis.fetch.mock.mockImplementation(async () => Response.json({ success: false, error: { message: "invalid state" } }));
++  await assert.rejects(fleetRequest("/test", controller.signal), /invalid state/);
++  globalThis.fetch.mock.mockImplementation(async (_url, options) => {
++    options.signal.throwIfAborted();
++    return Response.json({});
++  });
++  controller.abort();
++  await assert.rejects(fleetRequest("/test", controller.signal), { name: "AbortError" });
++});
+--- /dev/null
++++ b/lib/subagent-fleet-view.ts
+@@ -0,0 +1,169 @@
++// Client-safe projections. Fleet keys and workflow child ids are never control targets.
++export interface FleetRow {
++  key: string;
++  id?: string;
++  label: string;
++  state: string;
++  kind?: string;
++  role?: string;
++  model?: string;
++  activity?: string;
++  metrics: { label: string; value: number }[];
++  children: FleetRow[];
++}
++export interface FleetView {
++  available: boolean;
++  error?: string;
++  text?: string;
++  details?: unknown;
++  runs: FleetRow[];
++  fleet: FleetRow[];
++  totalActive?: number;
++  omitted: number;
++  omittedRuns: number;
++  omittedChildren: number;
++  active: boolean;
++}
++export type FleetMethod = "steer" | "stop" | "resume" | "interrupt";
++export type SteerMode = "steer" | "follow_up" | "auto";
++
++export { record as asRecord };
++function record(value: unknown): Record<string, unknown> {
++  return value !== null && typeof value === "object" && !Array.isArray(value)
++    ? value as Record<string, unknown> : {};
++}
++function text(value: unknown): string | undefined {
++  return typeof value === "string" && value.trim() ? value : undefined;
++}
++function number(value: unknown): number | undefined {
++  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
++}
++function array(value: unknown): unknown[] { return Array.isArray(value) ? value : []; }
++
++/** Accept safe public run identifiers, not paths, truncated labels or opaque fleet keys. */
++export function fleetRunId(value: unknown): string | undefined {
++  return typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(value)
++    && !value.startsWith("fleet-") && value !== "async" ? value : undefined;
++}
++export function fleetState(value: unknown): string {
++  const state = text(value) ?? "unknown";
++  return state === "completed" ? "complete" : state === "pending" ? "queued" : state;
++}
++export function fleetStateLabel(state: string): string {
++  const labels: Record<string, string> = { queued: "排队中", running: "运行中", complete: "已完成", failed: "失败", partial: "部分完成",
++    paused: "已暂停", stopped: "已停止", rejected: "已拒绝", interrupted: "已中断", unknown: "状态未知" };
++  return Object.prototype.hasOwnProperty.call(labels, state) ? labels[state] : state;
++}
++export function fleetIsActive(state: string): boolean { return state === "running" || state === "queued"; }
++export function fleetCanResume(state: string): boolean {
++  return ["complete", "failed", "partial", "paused"].includes(state);
++}
++function metrics(source: Record<string, unknown>): FleetRow["metrics"] {
++  const tokens = record(source.tokens);
++  const usage = record(source.usage);
++  const cost = record(source.cost ?? usage.cost);
++  const candidates: [string, unknown][] = [
++    ["Tokens", typeof source.tokens === "number" ? source.tokens : tokens.total ?? usage.totalTokens ?? source.totalTokens],
++    ["输入", tokens.input ?? usage.input], ["输出", tokens.output ?? usage.output],
++    ["上下文", tokens.window], ["费用（USD）", typeof source.cost === "number" ? source.cost : cost.total],
++  ];
++  return candidates.flatMap(([label, value]) => {
++    const valid = number(value);
++    return valid === undefined ? [] : [{ label, value: valid }];
++  });
++}
++function row(value: unknown, key: string, control: boolean, depth = 0): FleetRow | undefined {
++  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
++  const source = record(value);
++  const activity = record(source.activity);
++  const state = fleetState(source.state ?? source.status);
++  const kind = text(source.kind);
++  return {
++    key,
++    // Only root snapshot nodes may identify runs. Steps/host steps use other namespaces.
++    id: control && kind !== "step" && kind !== "host-step" ? fleetRunId(source.id) : undefined,
++    label: text(source.label) ?? text(source.agent) ?? text(source.name) ?? "子任务",
++    state,
++    ...(kind ? { kind } : {}),
++    role: text(source.role) ?? text(source.agent),
++    model: text(source.model) ?? text(source.modelId),
++    activity: text(activity.currentTool) ?? text(activity.state) ?? text(source.goal),
++    metrics: metrics(source),
++    children: depth < 3 ? array(source.children).flatMap((child, index) => {
++      const projected = row(child, `${key}/${index}`, false, depth + 1);
++      return projected ? [projected] : [];
++    }) : [],
++  };
++}
++function rowIsActive(row: FleetRow): boolean {
++  return fleetIsActive(row.state) || row.children.some(rowIsActive);
++}
++export function normalizeFleetView(value: unknown): FleetView {
++  const source = record(value);
++  const snapshot = record(source.asyncSnapshot);
++  const fleet = record(source.fleet);
++  const seen = new Set<string>();
++  const runs = array(snapshot.runs).flatMap((value, index) => {
++    const projected = row(value, `run/${index}`, true);
++    if (!projected) return [];
++    if (projected.id && seen.has(projected.id)) return [];
++    if (projected.id) { seen.add(projected.id); projected.key = `run/${projected.id}`; }
++    return [projected];
++  });
++  const entries = array(fleet.entries).flatMap((value, index) => {
++    const projected = row(value, `fleet/${index}`, false);
++    if (!projected) return [];
++    projected.state = "running"; // Public fleet contains active children only.
++    return [projected];
++  });
++  const omitted = record(snapshot.omitted);
++  const totalActive = number(fleet.totalActive);
++  return {
++    available: source.available === true, error: text(source.error), text: text(source.text), details: source.details,
++    runs, fleet: entries, totalActive, omitted: number(fleet.omitted) ?? 0,
++    omittedRuns: number(omitted.runs) ?? 0, omittedChildren: number(omitted.children) ?? 0,
++    active: runs.some(rowIsActive) || entries.length > 0 || (totalActive ?? 0) > 0,
++  };
++}
++export function fleetCostText(value: unknown): string {
++  const report = record(value);
++  const usageLine = (label: string, value: unknown) => {
++    const usage = record(value);
++    const tokens = ["input", "output", "cacheRead", "cacheWrite"].reduce((sum, key) => sum + (number(usage[key]) ?? 0), 0);
++    const cost = number(usage.cost);
++    return `${label}：${tokens.toLocaleString("zh-CN")} tokens${cost === undefined ? "" : ` · $${cost.toFixed(6)}`}`;
++  };
++  const lines = [usageLine("主会话", report.parent), usageLine("子代理", report.childTotal), usageLine("合计", report.total)];
++  for (const child of array(report.children)) { const entry = record(child); lines.push(usageLine(text(entry.label) ?? text(entry.agent) ?? "子代理", entry.usage)); }
++  if ((number(report.unresolvedAsyncChildren) ?? 0) > 0) lines.push(`${report.unresolvedAsyncChildren} 个任务的用量尚未读取，合计未包含这些任务。`);
++  return lines.join("\n");
++}
++export function fleetReadableDetails(value: unknown): string {
++  if (typeof value === "string") return value;
++  if (value === undefined || value === null) return "";
++  try { return JSON.stringify(value, null, 2) ?? ""; } catch { return "记录无法显示"; }
++}
++export function fleetCommand(method: FleetMethod, id: string, message?: string, mode: SteerMode = "auto") {
++  if (!fleetRunId(id)) throw new Error("运行标识无效");
++  if ((method === "steer" || method === "resume") && !message?.trim()) throw new Error("请填写消息");
++  return { method, params: { id, ...(method === "steer" || method === "resume" ? { message: message!.trim() } : {}),
++    ...(method === "steer" ? { mode } : {}) } };
++}
++export function fleetUrl(sessionId: string, runId?: string): string {
++  const base = `/api/agent/${encodeURIComponent(sessionId)}/subagents`;
++  if (runId === undefined) return base;
++  if (!fleetRunId(runId)) throw new Error("运行标识无效");
++  return `${base}?${new URLSearchParams({ id: runId, view: "transcript", lines: "100" })}`;
++}
++/** POST returns RPC data directly; do not mistake its optional text/details for a GET envelope. */
++export async function fleetRequest(url: string, signal: AbortSignal, body?: ReturnType<typeof fleetCommand>): Promise<unknown> {
++  const response = await fetch(url, { signal, cache: "no-store", ...(body ? {
++    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
++  } : {}) });
++  const value: unknown = await response.json();
++  const data = record(value);
++  if (!response.ok || data.error || data.success === false) {
++    throw new Error(text(data.error) ?? text(record(data.error).message) ?? `请求失败（${response.status}）`);
++  }
++  return value;
++}
+--- /dev/null
++++ b/e2e/package-subagent-chat.mjs
+@@ -0,0 +1,82 @@
++import assert from 'node:assert/strict';
++import { spawn } from 'node:child_process';
++import { once } from 'node:events';
++import { createServer } from 'node:net';
++import { mkdtemp, mkdir, writeFile, appendFile, readFile } from 'node:fs/promises';
++import { createWriteStream } from 'node:fs';
++import { tmpdir } from 'node:os';
++import { join, resolve } from 'node:path';
++import { fileURLToPath, pathToFileURL } from 'node:url';
++import { chromium } from 'playwright';
++const source = resolve(fileURLToPath(new URL('../', import.meta.url)));
++const packageRoot = process.env.PI_WEB_CHAT_PACKAGE_ROOT || source;
++const root = await mkdtemp(join(tmpdir(), 'pi-native-child-chat-'));
++const home = join(root, 'home'), agent = join(home, '.pi/agent'), cwd = join(home, 'workspace');
++let web, browser, page;
++const log = createWriteStream(join(root, 'web.log'));
++const runId = 'aaaaaaaa-1111-4444-8888-aaaaaaaaaaaa';
++try {
++  await mkdir(join(agent, 'extensions'), { recursive: true }); await mkdir(join(agent, 'agents'), { recursive: true }); await mkdir(cwd, { recursive: true });
++  await writeFile(join(agent, 'settings.json'), JSON.stringify({ packages: [], defaultProvider:'fixture', defaultModel:'one' }));
++  await writeFile(join(agent, 'agents/settings.json'), JSON.stringify({ builtInEnabled:false }));
++  await writeFile(join(agent, 'models.json'), JSON.stringify({ providers:{fixture:{baseUrl:'http://127.0.0.1:1',apiKey:'fixture',api:'openai-completions',models:[{id:'one',name:'Fixture One',reasoning:false,input:['text'],cost:{input:0,output:0,cacheRead:0,cacheWrite:0},contextWindow:100000,maxTokens:4096}]}} }));
++  process.env.PI_CODING_AGENT_DIR = agent;
++  const { SessionManager } = await import(pathToFileURL(join(packageRoot,'node_modules/@earendil-works/pi-coding-agent/dist/index.js')).href);
++  const manager = SessionManager.create(cwd); manager.appendMessage({role:'user',content:'主代理原始对话',timestamp:Date.now()});
++  const sessionId = manager.getSessionId();
++  const childFile = join(agent,'sessions','fixture-child.jsonl');
++  const entry = (text) => JSON.stringify({type:'message',id:Math.random().toString(16).slice(2),message:{role:'assistant',content:[{type:'text',text}],model:'one',provider:'fixture',timestamp:Date.now()}})+'\n';
++  await writeFile(childFile, entry('正在调查网页'));
++  const snapshot = { fleet:{entries:[],totalActive:0},asyncSnapshot:{runs:[{id:runId,kind:'single',label:'测试子代理',state:'running',children:[{id:'step:0',kind:'step',label:'scout',state:'running'}]}]} };
++  const transcript = `Run: ${runId}\nState: running\nArtifacts:\n  Session: ${childFile}\n\nTranscript tail`;
++  // An isolated faux RPC provider: real Web API/reader, no real model calls or user settings.
++  await writeFile(join(agent,'extensions/fixture.ts'), `export default function(pi) { pi.events.on('subagents:rpc:v1:request', request => { const data = request.params?.view === 'transcript' ? {text:${JSON.stringify(transcript)},...${JSON.stringify(snapshot)}} : ${JSON.stringify(snapshot)}; pi.events.emit('subagents:rpc:v1:reply:'+request.requestId,{version:1,requestId:request.requestId,success:true,data}); }); }`);
++  const probe=createServer(); probe.listen(0,'127.0.0.1'); await once(probe,'listening'); const port=probe.address().port; await new Promise(r=>probe.close(r));
++  const base=`http://127.0.0.1:${port}`;
++  web=spawn(process.execPath,['node_modules/next/dist/bin/next','start','-H','127.0.0.1','-p',String(port)],{cwd:packageRoot,env:{...process.env,HOME:home,PI_CODING_AGENT_DIR:agent,PI_WEB_HOSTNAME:'127.0.0.1',PI_WEB_PASSWORD:'',PI_WEB_DISABLE_MCP:'1',PI_OFFLINE:'1',NODE_ENV:'production'}});
++  web.stdout.pipe(log); web.stderr.pipe(log);
++  const deadline=Date.now()+30000;
++  while(true) {try {if((await fetch(base)).status===200) break;}catch{} assert.ok(Date.now()<deadline&&web.exitCode===null,'Server unavailable'); await new Promise(r=>setTimeout(r,200));}
++  const response=await fetch(`${base}/api/agent/${sessionId}/subagents?id=${runId}&view=chat`);
++  const data=await response.json(); assert.equal(response.status,200,JSON.stringify(data)); assert.equal(data.messages[0].content[0].text,'正在调查网页');
++  const denied=await fetch(`${base}/api/agent/${sessionId}/subagents?id=foreign-run&view=chat`); assert.equal(denied.status,403);
++  const unsafeStop = await fetch(`${base}/api/agent/${sessionId}/subagents`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({method:'stop',params:{id:runId,index:0}})});
++  assert.equal(unsafeStop.status,400);
++  browser=await chromium.launch({headless:true,channel:'chrome'});
++  for (const width of [1280,390]) {
++    await writeFile(childFile,entry('正在调查网页'));
++    const context=await browser.newContext({viewport:{width,height:900},locale:'zh-CN'}); await context.addInitScript(()=>{
++      localStorage.setItem('pi-locale','zh-CN');
++      window.__sources=[]; const Original=window.EventSource;
++      window.EventSource=class extends Original { constructor(...args) { super(...args); window.__sources.push(this); } };
++    });
++    page=await context.newPage(); page.setDefaultTimeout(15000); const errors=[]; page.on('pageerror',error=>errors.push(error.message));
++    await page.route('**/api/models?**',route=>route.fulfill({json:{models:{},modelList:[{provider:'fixture',id:'one',name:'Fixture One'}],defaultModel:null,thinkingLevels:{},thinkingLevelMaps:{},thinkingLevelPins:{}}}));
++    await page.goto(`${base}/?session=${sessionId}`);
++    const openSwitcher = async () => {
++      await page.locator('.chat-content').waitFor();
++      if (width < 600 && !await page.getByRole('button',{name:'代理切换',exact:true}).isVisible()) await page.locator('[data-mobile-toolbar-more]').click();
++      await page.getByRole('button',{name:'代理切换',exact:true}).click();
++    };
++    await openSwitcher();
++    await page.getByRole('option').filter({hasText:'测试子代理'}).click();
++    await page.getByText('正在调查网页',{exact:true}).waitFor();
++    assert.equal(await page.getByRole('button',{name:'返回主代理',exact:true}).isVisible(),true);
++    await appendFile(childFile,entry('调查已完成'));
++    await page.getByText('调查已完成',{exact:true}).waitFor();
++    await page.screenshot({path:join(root,`child-${width}.png`)});
++    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+1); assert.equal(overflow,false,'Horizontal overflow');
++    await page.evaluate(()=>window.__sources.forEach(source=>source.dispatchEvent(new MessageEvent('message',{data:JSON.stringify({type:'extension_ui_request',id:'child-view-confirm',method:'confirm',title:'权限确认',message:'查看子代理时权限提示仍然可见'})}))));
++    await page.getByText('查看子代理时权限提示仍然可见',{exact:true}).waitFor();
++    await page.keyboard.press('Escape');
++    await page.getByRole('button',{name:'返回主代理',exact:true}).click(); await page.locator('.chat-content').getByText('主代理原始对话',{exact:true}).waitFor();
++    await openSwitcher();
++    await page.getByRole('button',{name:'任务管理',exact:true}).click();
++    await page.getByRole('dialog').waitFor();
++    await page.keyboard.press('Escape');
++    assert.deepEqual(errors,[]); await context.close();
++  }
++  const result={passed:true,packageRoot,buildId:(await readFile(join(packageRoot,'.next/BUILD_ID'),'utf8')).trim(),artifacts:root,realModelRequests:0,checks:['owned chat API','foreign run denied','native switcher desktop/mobile','native message cards','automatic updates','return to main','no horizontal overflow','parent permission dialog visible while viewing child']};
++  await writeFile(join(source,'../native-agent-switcher/smoke-result.json'),JSON.stringify(result,null,2)+'\n'); console.log(JSON.stringify(result,null,2));
++} catch(error) {console.error('Artifacts:',root); if(page&&!page.isClosed()) await page.screenshot({path:join(root,'failure.png')}).catch(()=>{}); throw error;}
++finally {await browser?.close(); if(web&&web.exitCode===null){web.kill('SIGTERM');await once(web,'exit');}log.end();}
+--- /dev/null
++++ b/e2e/quiet-tools.mjs
+@@ -0,0 +1,142 @@
++import assert from 'node:assert/strict';
++import { spawn } from 'node:child_process';
++import { once } from 'node:events';
++import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, createWriteStream } from 'node:fs';
++import { tmpdir } from 'node:os';
++import { dirname, join } from 'node:path';
++import { fileURLToPath } from 'node:url';
++import { setTimeout as delay } from 'node:timers/promises';
++import { chromium } from 'playwright';
++import { createServer } from 'node:net';
++
++const source = dirname(dirname(fileURLToPath(import.meta.url)));
++const root = process.env.PI_WEB_CHAT_PACKAGE_ROOT || source;
++const out = join(source, 'test-results/quiet-tools');
++mkdirSync(out, { recursive: true });
++const agentDir = mkdtempSync(join(tmpdir(), 'pi-web-quiet-'));
++const project = join(agentDir, 'project');
++mkdirSync(project);
++mkdirSync(join(agentDir, 'sessions/quiet'), { recursive: true });
++writeFileSync(join(agentDir, 'settings.json'), JSON.stringify({ packages: [], extensions: [], skills: [] }));
++const sid = 'quiet-tools-smoke';
++const timestamp = new Date().toISOString();
++const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } };
++const assistant = (content, extra = {}) => ({ role: 'assistant', content, api: 'openai-completions', provider: 'test', model: 'test', usage, stopReason: 'stop', timestamp: Date.now(), ...extra });
++const entries = [];
++const add = (message) => entries.push({ type: 'message', id: `entry${entries.length}`, parentId: entries.at(-1)?.id ?? null, timestamp, message });
++add({ role: 'user', content: '已完成的测试任务', timestamp: Date.now() });
++add(assistant([{ type: 'text', text: '过程中的说明始终可见' }, { type: 'thinking', thinking: 'HIDDEN_THINKING' }, { type: 'toolCall', id: 'call1', name: 'bash', arguments: { command: 'echo HIDDEN_COMMAND' } }]));
++add({ role: 'toolResult', toolCallId: 'call1', toolName: 'bash', content: [{ type: 'text', text: 'HIDDEN_OUTPUT' }], isError: false, timestamp: Date.now() });
++add(assistant([{ type: 'text', text: '正式回答可见' }]));
++add({ role: 'user', content: '正在执行的测试任务', timestamp: Date.now() });
++add(assistant([{ type: 'toolCall', id: 'call2', name: 'read', arguments: { path: 'HIDDEN_PATH' } }]));
++add({ role: 'toolResult', toolCallId: 'call2', toolName: 'read', content: [{ type: 'text', text: 'HIDDEN_FAILURE_DETAIL' }], isError: true, timestamp: Date.now() });
++const sessionFile = join(agentDir, 'sessions/quiet', `2026-10-12T00-00-00-000Z_${sid}.jsonl`);
++const save = () => writeFileSync(sessionFile, [{ type: 'session', version: 3, id: sid, timestamp, cwd: project }, ...entries].map(x => JSON.stringify(x)).join('\n') + '\n');
++save();
++const probe = createServer().listen(0, '127.0.0.1');
++await once(probe, 'listening');
++const port = probe.address().port;
++await new Promise(r => probe.close(r));
++const log = createWriteStream(join(out, 'server.log'));
++const server = spawn(process.execPath, [join(root, 'node_modules/next/dist/bin/next'), 'start', '-H', '127.0.0.1', '-p', String(port)], { cwd: root, env: { ...process.env, PI_CODING_AGENT_DIR: agentDir, PI_WEB_PASSWORD: '', NEXT_TELEMETRY_DISABLED: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
++server.stdout.pipe(log); server.stderr.pipe(log);
++let browser;
++let live = false;
++try {
++  const base = `http://127.0.0.1:${port}`;
++  for (let i = 0; i < 100; i++) {
++    if (await fetch(base).then(r => r.ok).catch(() => false)) break;
++    if (server.exitCode !== null) throw new Error(`Server exited ${server.exitCode}`);
++    await delay(200);
++  }
++  browser = await chromium.launch({ headless: true, channel: 'chrome' });
++  const context = await browser.newContext({ locale: 'zh-CN' });
++  // Inject controllable SSE events; no model API or live user's session is used.
++  await context.addInitScript(() => {
++    localStorage.setItem('pi-locale', 'zh-CN');
++    window.__sources = [];
++    window.EventSource = class {
++      static CONNECTING = 0; static OPEN = 1; static CLOSED = 2;
++      readyState = 1; onmessage = null; onerror = null;
++      constructor(url) { this.url = url; window.__sources.push(this); setTimeout(() => this.onmessage?.({ data: JSON.stringify({ type: 'connected', isStreaming: false }) }), 0); }
++      close() { this.readyState = 2; }
++    };
++    window.__feed = event => window.__sources.filter(s => s.readyState === 1).forEach(s => s.onmessage?.({ data: JSON.stringify(event) }));
++  });
++  const page = await context.newPage();
++  await page.route('**/api/agent/*/subagents**', route => route.fulfill({ json: { available: false } }));
++  const errors = [];
++  page.on('pageerror', e => errors.push(e.message));
++  const state = () => ({ running: live, state: { isStreaming: live, isPromptRunning: live, messages: [], thinkingLevel: 'off', extensionStatuses: [], extensionWidgets: [] } });
++  await page.route(`**/api/sessions/${sid}/state`, route => route.fulfill({ json: state() }));
++  await page.route(`**/api/agent/${sid}`, route => route.fulfill({ json: state() }));
++  await page.goto(`${base}/?session=${sid}`, { waitUntil: 'networkidle' });
++  await page.getByText('正式回答可见', { exact: true }).waitFor();
++  await page.getByText('过程中的说明始终可见', { exact: true }).waitFor();
++  assert.equal(await page.getByText('HIDDEN_OUTPUT', { exact: true }).count(), 0);
++  assert.equal(await page.getByText('HIDDEN_FAILURE_DETAIL', { exact: true }).count(), 0);
++  await page.getByText('有 1 次工具执行失败，可展开过程查看详情。', { exact: true }).waitFor();
++  await page.locator('[data-process-details]').first().locator(':scope > button').click();
++  await page.getByRole('button', { name: /bash.*HIDDEN_COMMAND/ }).click();
++  await page.getByText('HIDDEN_OUTPUT', { exact: true }).waitFor();
++  await page.locator('[data-process-details]').first().locator(':scope > button').click();
++  live = true;
++  await page.evaluate(() => window.__feed({ type: 'agent_start' }));
++  const active = page.locator('[data-process-details][data-running]');
++  const activeToggle = active.locator(':scope > button');
++  await active.getByText('正在工作…', { exact: true }).waitFor();
++  assert.equal(await activeToggle.getAttribute('aria-expanded'), 'false');
++  assert.equal((await activeToggle.innerText()).trim(), '正在工作…');
++  assert.equal(await page.getByText('HIDDEN_FAILURE_DETAIL', { exact: true }).count(), 0);
++  await activeToggle.click();
++  await page.getByRole('button', { name: /read.*HIDDEN_PATH/ }).click();
++  await activeToggle.click();
++  for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
++    await page.setViewportSize(viewport);
++    await activeToggle.click();
++    await page.getByText('HIDDEN_FAILURE_DETAIL', { exact: true }).waitFor();
++    await activeToggle.click();
++    assert.equal(await page.getByText('HIDDEN_FAILURE_DETAIL', { exact: true }).count(), 0);
++    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
++  }
++  const feed = event => page.evaluate(event => window.__feed(event), event);
++  await feed({ type: 'message_start', message: assistant([{ type: 'thinking', thinking: 'STREAM_HIDDEN_REASONING' }]) });
++  assert.equal(await page.getByText('STREAM_HIDDEN_REASONING', { exact: true }).count(), 0);
++  await activeToggle.click();
++  await page.getByText('STREAM_HIDDEN_REASONING', { exact: true }).waitFor();
++  await activeToggle.click();
++  for (let i = 0; i < 3; i++) {
++    await feed({ type: 'message_start', message: assistant([{ type: 'text', text: '运行中说明' }, { type: 'thinking', thinking: 'STREAM_HIDDEN_REASONING' + i }]) });
++    await page.getByText('运行中说明', { exact: true }).waitFor();
++    assert.equal(await activeToggle.getAttribute('aria-expanded'), 'false');
++    await activeToggle.click();
++    await page.getByText('STREAM_HIDDEN_REASONING' + i, { exact: true }).waitFor();
++    await activeToggle.click();
++    assert.equal(await activeToggle.getAttribute('aria-expanded'), 'false');
++  }
++  await feed({ type: 'message_start', message: assistant([{ type: 'thinking', thinking: 'STREAM_HIDDEN_REASONING' }, { type: 'text', text: '流式正式回答' }]) });
++  await page.getByText('流式正式回答', { exact: true }).waitFor();
++  await feed({ type: 'message_end', message: assistant([], { stopReason: 'error', errorMessage: 'VISIBLE_PROVIDER_ERROR' }) });
++  await page.getByText(/VISIBLE_PROVIDER_ERROR/).waitFor();
++  await feed({ type: 'extension_ui_request', id: 'confirm-test', method: 'confirm', title: '权限确认测试', message: '确认提示不能被隐藏' });
++  await page.getByText('确认提示不能被隐藏', { exact: true }).waitFor();
++  await page.screenshot({ path: join(out, 'mobile.png'), fullPage: true });
++  await page.keyboard.press('Escape');
++  live = false;
++  add(assistant([{ type: 'text', text: '新的正式回答' }]));
++  save();
++  await page.reload({ waitUntil: 'networkidle' });
++  await page.getByText('新的正式回答', { exact: true }).waitFor();
++  assert.equal(await page.locator('[data-process-details][data-running]').count(), 0);
++  assert.equal(await page.locator('[data-process-details] button[aria-expanded="true"]').count(), 0);
++  assert.deepEqual(errors, []);
++  const result = { passed: true, buildId: readFileSync(join(root, '.next/BUILD_ID'), 'utf8').trim(), packageRoot: root, isolatedAgentDir: agentDir, desktopAndMobile: true, tested: ['historical collapse', 'live collapse', 'expand and collapse', 'streaming reasoning hidden', 'streaming answer visible', 'tool error notice', 'provider error visible', 'extension confirm visible', 'completion collapse'], timestamp: new Date().toISOString() };
++  writeFileSync(join(out, 'result.json'), JSON.stringify(result, null, 2));
++  console.log(JSON.stringify(result, null, 2));
++} finally {
++  await browser?.close();
++  server.kill('SIGTERM');
++  if (server.exitCode === null) await once(server, 'exit');
++  log.end();
++}
