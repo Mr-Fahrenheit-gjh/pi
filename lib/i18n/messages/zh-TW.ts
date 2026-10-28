@@ -42,6 +42,8 @@ export const zhTWLocale: LocalePlugin = {
     "quickActions.conversationFiles": "本對話的檔案",
     "quickActions.renameConversation": "重新命名目前對話",
     "quickActions.forkConversation": "從目前對話建立 Fork",
+    "quickActions.switchToPiMeta": "切換到 Pi Meta",
+    "quickActions.switchToPiWeb": "切換到 Pi Web",
     "quickActions.openFinder": "在 Finder 開啟對話工作目錄",
     "quickActions.enableInlineVisuals": "開啟 Intelligence UI（互動圖解）",
     "quickActions.disableInlineVisuals": "關閉 Intelligence UI（互動圖解）",

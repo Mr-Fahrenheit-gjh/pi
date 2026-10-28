@@ -1,5 +1,5 @@
 "use client";
-import { runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
+import { runtimeApi, runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
 
 import { forwardRef, useState, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from "react";
 import { getFileIcon, FolderIcon } from "./FileIcons";
@@ -457,7 +457,7 @@ export function TreeNode({
         )}
         {hovered && !node.isDir && (
           <a
-            href={`/api/files/${encodeFilePathForApi(node.fullPath)}?type=download`}
+            href={runtimeApi(`/api/files/${encodeFilePathForApi(node.fullPath)}?type=download`)}
             download
             onClick={(e) => e.stopPropagation()}
             title={t("files.download")}

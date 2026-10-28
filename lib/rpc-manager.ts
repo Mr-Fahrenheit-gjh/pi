@@ -71,8 +71,8 @@ import {
 
 import { getInterruptSteerState, installInterruptSteer, isInterruptSteerBusy } from "./interrupt-steer.mjs";
 
-// One SDK policy for parent sessions, built-in children and extension user messages.
-installInterruptSteer(AgentSession);
+// Pi Meta uses the verified original AgentSession, without the local interrupt patch.
+if (process.env.PI_META_PROCESS !== "1") installInterruptSteer(AgentSession);
 
 // ============================================================================
 // Types
@@ -2561,6 +2561,11 @@ export async function startRpcSession(
   const chatOnly = selectedToolNames?.length === 0 && !subagentLoadsResources;
   const finishStartingSession = trackStartingSession(sessionCwd);
   const starting = (async () => {
+    const piMeta = process.env.PI_META_PROCESS === "1";
+    if (piMeta && (Reflect.get(globalThis, Symbol.for("pi-web:meta-original-agent-session/v1")) !== true ||
+        "hasPendingInterruptSteer" in AgentSession.prototype)) {
+      throw new Error("Pi Meta original kernel was not loaded; refusing to start a session");
+    }
     // Some extensions access the SDK's global theme even outside the terminal UI.
     if (!chatOnly) initTheme();
     const agentDir = getAgentDir();
@@ -2654,26 +2659,28 @@ export async function startRpcSession(
             appendSystemPrompt: subagentResources.appendSystemPrompt,
           }
         : chatOnly
-          ? { ...CHAT_ONLY_RESOURCE_LOADER_OPTIONS, extensionFactories: [exactSystemPromptExtension, createInlineVisualExtension(inlineVisualPreference)] }
+          ? { ...CHAT_ONLY_RESOURCE_LOADER_OPTIONS, extensionFactories: [exactSystemPromptExtension, ...(piMeta ? [] : [createInlineVisualExtension(inlineVisualPreference)])] }
         : {
             extensionFactories: [
               ...(builtins?.extensions ?? []),
               createReadOnlyMcpPolicyExtension(),
-              createInlineVisualExtension(inlineVisualPreference),
-              createPackageSubagentExtension(),
-              createDesignDeckExtension(),
-              createRuntimePeerExtension(),
-              createProjectCommandBashExtension({
-                cwd: sessionCwd,
-                settings: settingsManager,
-              }),
-              createSubagentExtension(
-                SUBAGENT_CONTROLLER.extensionRuntime,
-                () => listSubagentProfiles(sessionCwd),
-                isBuiltInSubagentsEnabled,
-              ),
+              ...(piMeta ? [createPackageSubagentExtension()] : [
+                createInlineVisualExtension(inlineVisualPreference),
+                createPackageSubagentExtension(),
+                createDesignDeckExtension(),
+                createRuntimePeerExtension(),
+                createProjectCommandBashExtension({
+                  cwd: sessionCwd,
+                  settings: settingsManager,
+                }),
+                createSubagentExtension(
+                  SUBAGENT_CONTROLLER.extensionRuntime,
+                  () => listSubagentProfiles(sessionCwd),
+                  isBuiltInSubagentsEnabled,
+                ),
+              ]),
             ],
-            extensionsOverride: (base) => preferUserBashExtension(preferPiWebSubagentExtension(base)),
+            extensionsOverride: (base) => preferUserBashExtension(piMeta ? base : preferPiWebSubagentExtension(base)),
           },
       ...(trustReloadOptions ? { resourceLoaderReloadOptions: trustReloadOptions } : {}),
     });
@@ -2784,7 +2791,7 @@ export async function startRpcSession(
     }
 
     skillsBinding?.setActiveToolsGetter(() => inner.getActiveToolNames());
-    if (!subagentResources) bindInlineVisualPrompt(inner.agent, inlineVisualPreference);
+    if (!subagentResources && !piMeta) bindInlineVisualPrompt(inner.agent, inlineVisualPreference);
     const exactSystemPrompt = subagentResources
       ? skillsBinding!.getExactSystemPrompt
       : chatOnly
@@ -2794,7 +2801,7 @@ export async function startRpcSession(
     const mcpHost = builtins?.mcpHost ?? subagentMcp?.mcpHost;
     const wrapper = new AgentSessionWrapper(inner, {
       exactSystemPrompt,
-      ...(!subagentResources ? { inlineVisualPreference } : {}),
+      ...(!subagentResources && !piMeta ? { inlineVisualPreference } : {}),
       chatOnly,
       onAgentRunStart: (id) => persistReadLifecycle(id, "start"),
       onAgentRunComplete: (completedSessionId, sessionName) => {

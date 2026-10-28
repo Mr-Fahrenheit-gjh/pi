@@ -17,6 +17,7 @@ function actionsFixture(selectedSession = { id: 'current', cwd: '/conversation' 
   const calls = [];
   const context = {
     quickCwd: '/browser-folder', selectedSession, pageRuntime: () => runtime, translate: key => enLocale.messages[key],
+    runtimePage: target => target === 'meta' ? '/pi-meta' : '/', window: { location: { assign: path => calls.push(['navigate', path]) } },
     inlineVisualsEnabled, setInlineVisualsEnabled: value => calls.push(['inlineVisuals', value]),
     isMobile: false, splitOpen: false, setSplitOpen: value => calls.push(['splitOpen', value]),
     setActiveChatPane: value => calls.push(['activePane', value]), setRightPanelOpen: value => calls.push(['rightPanel', value]),
@@ -36,11 +37,21 @@ function rows(search = '', mode = 'command') {
 }
 
 test('command and chat modes never mix commands with conversation or file results', () => {
-  assert.deepEqual(rows(), ['action:new', 'action:terminal', 'action:outputs', 'action:rename', 'action:fork', 'action:finder', 'action:inline-visuals', 'action:split']);
+  assert.deepEqual(rows(), ['action:new', 'action:terminal', 'action:outputs', 'action:rename', 'action:fork', 'action:finder', 'action:inline-visuals', 'action:runtime-meta', 'action:split']);
   assert.deepEqual(rows('file'), ['action:outputs']);
   assert.deepEqual(rows('', 'chat'), ['session:other']);
   assert.deepEqual(rows('file', 'chat'), ['session:other', 'file:report.md']);
   assert.deepEqual(rows('rename', 'chat'), []);
+});
+
+test('Pi Meta command switches runtimes and hides Pi-only visuals', () => {
+  const pi = actionsFixture(null, 'pi');
+  pi.actions.find(action => action.id === 'runtime-meta').run();
+  assert.deepEqual(pi.calls, [['navigate', '/pi-meta']]);
+  const meta = actionsFixture(null, 'meta');
+  assert.equal(meta.actions.some(action => action.id === 'inline-visuals'), false);
+  meta.actions.find(action => action.id === 'runtime-meta').run();
+  assert.deepEqual(meta.calls, [['navigate', '/']]);
 });
 
 test('Intelligence UI command reflects the current preference and toggles the existing setting', () => {
@@ -284,6 +295,7 @@ function forkFixture() {
     splitBeforeForkSuffix: () => null, shortTitle: value => value, TOAST_TITLE_MAX: 40, t: key => key,
     showToast: (...args) => toasts.push(args), openForkedRef: { current: (session, rowKey) => opens.push([session.id, rowKey]) },
     allSessions: [], unread: new Set(), loads: 0, uiRefreshes: 0,
+    markReadState(ids, isRead) { for (const id of ids) { if (isRead) context.unread.delete(id); else context.unread.add(id); } },
     async refreshUiState() { context.uiRefreshes++; },
     setAllSessions(fn) { context.allSessions = fn(context.allSessions); }, setUnreadSessionIds(fn) { context.unread = fn(context.unread); },
     loadSessions() { context.loads++; },

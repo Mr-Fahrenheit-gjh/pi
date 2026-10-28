@@ -4,6 +4,7 @@ import { createContext, memo, useContext, useMemo, type ComponentProps, type Mou
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
 import { parsePdfPageFragment, resolveLocalFileHref, shouldOpenLocalFileInApp } from "@/lib/file-links";
 import { encodeFilePathForApi } from "@/lib/file-paths";
+import { runtimeApi } from "@/lib/runtime-client.mjs";
 import { markdownAppUrlTransform, markdownRehypePlugins, markdownRemarkPlugins, markdownUrlTransform, markdownUserRemarkPlugins, normalizeDisplayMath } from "@/lib/markdown";
 import { splitMarkdownBlocks } from "@/lib/markdown-blocks";
 import { ImagePreview } from "./ImagePreview";
@@ -58,7 +59,7 @@ function MarkdownImage({
   const href = typeof src === "string" ? src : undefined;
   const filePath = href ? resolveLocalFileHref(href, cwd) : null;
   const imageSrc = filePath
-    ? `/api/files/${encodeFilePathForApi(filePath)}?type=read`
+    ? runtimeApi(`/api/files/${encodeFilePathForApi(filePath)}?type=read`)
     : href;
   // Dynamic local paths are served directly by the file API.
   // eslint-disable-next-line @next/next/no-img-element

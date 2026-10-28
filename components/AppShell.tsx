@@ -1,5 +1,5 @@
 "use client";
-import { pageRuntime, runtimeFetch as fetch, runtimeStorageKey } from "@/lib/runtime-client.mjs";
+import { pageRuntime, runtimeFetch as fetch, runtimePage, runtimeStorageKey } from "@/lib/runtime-client.mjs";
 
 import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -1587,11 +1587,11 @@ export function AppShell() {
       { id: "terminal", label: translate("quickActions.terminal"), keywords: ["terminal", "shell", "终端", "終端"], run: () => handleOpenTerminal(quickCwd) },
     ] : []),
     ...(selectedSession ? [{ id: "outputs", label: translate("quickActions.conversationFiles"), keywords: ["outputs", "files", "成果", "文件"], run: () => openWorkspace("outputs:overview") }] : []),
-    ...(selectedSession && !selectedSession.transient && selectedSession.relation?.kind !== "subagent" && pageRuntime() === "pi" ? [{
+    ...(selectedSession && !selectedSession.transient && selectedSession.relation?.kind !== "subagent" && pageRuntime() !== "feynman" ? [{
       id: "rename", label: translate("quickActions.renameConversation"), keywords: ["rename", "title", "重命名", "改名", "重新命名"],
       run: () => { setRightPanelExpanded(false); setSidebarOpen(true); sidebarControlRef.current?.renameSession(selectedSession); },
     }] : []),
-    ...(selectedSession && !selectedSession.transient && pageRuntime() === "pi" ? [{
+    ...(selectedSession && !selectedSession.transient && pageRuntime() !== "feynman" ? [{
       id: "fork", label: translate("quickActions.forkConversation"), keywords: ["fork", "clone", "分叉", "分支"],
       run: () => { setSidebarOpen(true); sidebarControlRef.current?.forkSession(selectedSession); },
     }] : []),
@@ -1599,10 +1599,15 @@ export function AppShell() {
       id: "finder", label: translate("quickActions.openFinder"), keywords: ["finder", "folder", "directory", "工作目录", "工作目錄"],
       run: () => { void sidebarControlRef.current?.openDirectoryInFileManager(selectedSession.cwd).then(failed => { if (failed) setSidebarOpen(true); }); },
     }] : []),
-    {
+    ...(pageRuntime() !== "meta" ? [{
       id: "inline-visuals", label: translate(inlineVisualsEnabled ? "quickActions.disableInlineVisuals" : "quickActions.enableInlineVisuals"),
       keywords: ["intelligence ui", "intellgence ui", "interactive", "inline visuals", "diagram", "交互图解", "互動圖解"],
       run: () => setInlineVisualsEnabled(!inlineVisualsEnabled),
+    }] : []),
+    {
+      id: "runtime-meta", label: translate(pageRuntime() === "meta" ? "quickActions.switchToPiWeb" : "quickActions.switchToPiMeta"),
+      keywords: ["pi meta", "pi web", "runtime", "纯净", "純淨", "切换", "切換"],
+      run: () => window.location.assign(runtimePage(pageRuntime() === "meta" ? "pi" : "meta")),
     },
     ...(!isMobile ? [{
       id: "split", label: translate(splitOpen ? "split.close" : "split.command"),
@@ -1613,7 +1618,7 @@ export function AppShell() {
   // Subagent work tabs: like files, only the active one is mounted.
   const activeAgentTab = agentTabs.find((tab) => `agent:${tab.sessionId}` === activeFileTabId) ?? null;
   const activeCwdName = activeCwd ? getFileName(activeCwd) || activeCwd : null;
-  const runtimeBrand = pageRuntime() === "feynman" ? "Feynman" : "Pi Web";
+  const runtimeBrand = pageRuntime() === "feynman" ? "Feynman" : pageRuntime() === "meta" ? "Pi Meta" : "Pi Web";
   const windowTitle = activeCwdName ? `${activeCwdName} - ${runtimeBrand}` : runtimeBrand;
 
   useEffect(() => {

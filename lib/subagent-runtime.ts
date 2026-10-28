@@ -47,9 +47,8 @@ import { addWorktree, removeWorktree } from "./worktree";
 import { randomUUID } from "node:crypto";
 import { installInterruptSteer, hasQueuedInterruptSteer, queueInternalSteer, setInterruptSteerGuard } from "./interrupt-steer.mjs";
 
-// Also bind here: embedded/test loaders can hold a different SDK module instance
-// from rpc-manager. All built-in children must use the same user-steer contract.
-installInterruptSteer(AgentSession);
+// Embedded/test loaders may hold a different SDK instance, but Meta must remain original.
+if (process.env.PI_META_PROCESS !== "1") installInterruptSteer(AgentSession);
 
 interface HostSession {
   readonly inner: AgentSessionLike;

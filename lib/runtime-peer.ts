@@ -10,7 +10,8 @@ import type { AgentRuntime } from "./runtime-client.mjs";
 import { registerRuntimeCleanup } from "./runtime-resources";
 import type { SessionInfo } from "./types";
 
-export interface PeerSource { runtime: AgentRuntime; sessionId: string }
+type PeerRuntime = Exclude<AgentRuntime, "meta">;
+export interface PeerSource { runtime: PeerRuntime; sessionId: string }
 export interface PeerRequest {
   action: "locate" | "list" | "read" | "artifacts" | "send" | "status";
   sessionId?: string; query?: string; before?: string; limit?: number;
@@ -18,9 +19,9 @@ export interface PeerRequest {
   approvalId?: string;
 }
 const PEER_MARKER = "[跨运行时协作 | ";
-const targetRuntime = (source: PeerSource): AgentRuntime => source.runtime === "pi" ? "feynman" : "pi";
+const targetRuntime = (source: PeerSource): PeerRuntime => source.runtime === "pi" ? "feynman" : "pi";
 const boundedLimit = (limit?: number) => Math.max(1, Math.min(100, Math.trunc(limit || 30)));
-const catalog = (runtime: AgentRuntime) => runtime === "pi" ? listAllSessions() : listFeynmanSessions();
+const catalog = (runtime: PeerRuntime) => runtime === "pi" ? listAllSessions() : listFeynmanSessions();
 
 export function parsePeerRequest(value: unknown): PeerRequest {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Expected a peer request");
@@ -34,7 +35,7 @@ export function parsePeerRequest(value: unknown): PeerRequest {
   return input as unknown as PeerRequest;
 }
 
-async function sessionContext(runtime: AgentRuntime, id: string, request: PeerRequest) {
+async function sessionContext(runtime: PeerRuntime, id: string, request: PeerRequest) {
   const params = new URLSearchParams({ tail: String(boundedLimit(request.limit)) });
   if (request.before) params.set("before", request.before);
   if (runtime === "feynman") {

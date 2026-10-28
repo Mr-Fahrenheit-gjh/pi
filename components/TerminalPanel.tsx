@@ -8,6 +8,7 @@ import { loadGhosttyFontPreferences, loadGhosttyTerminal, terminalKeyAction, TER
 import { readTerminalTheme } from "@/lib/terminal-theme";
 import { wheelLines, mouseWheelSequence } from "@/lib/terminal-wheel";
 import { createTerminalWriter, terminalRequest } from "@/lib/terminal-client";
+import { runtimeApi } from "@/lib/runtime-client.mjs";
 import {
   applyTerminalModifiers,
   NO_TERMINAL_MODIFIERS,
@@ -227,7 +228,7 @@ export function TerminalPanel({ tab, active, onClosed, onCloseError }: Props) {
       const connect = () => {
         if (disposed || exited || closingRef.current || !navigator.onLine) return;
         events?.close();
-        events = new EventSource(`/api/terminal/${encodeURIComponent(id)}/events${offset === undefined ? "" : `?after=${offset}`}`);
+        events = new EventSource(runtimeApi(`/api/terminal/${encodeURIComponent(id)}/events${offset === undefined ? "" : `?after=${offset}`}`));
         events.onmessage = (message) => {
           if (disposed) return;
           const event = JSON.parse(message.data) as TerminalEvent;

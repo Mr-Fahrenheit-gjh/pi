@@ -118,7 +118,7 @@ export function PiWebTitle({ onWidthChange }: {
   const revertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appVersion = process.env.NEXT_PUBLIC_APP_VERSION;
   const piVersion = process.env.NEXT_PUBLIC_PI_VERSION;
-  const text = useScramble(versionShown ? brandVersionText(appVersion, piVersion) : runtime === "feynman" ? "Feynman" : BRAND_TEXT, ready, animateArrival);
+  const text = useScramble(versionShown ? brandVersionText(appVersion, piVersion) : runtime === "feynman" ? "Feynman" : runtime === "meta" ? "Pi Meta" : BRAND_TEXT, ready, animateArrival);
 
   useLayoutEffect(() => {
     onWidthChange?.();
@@ -163,8 +163,8 @@ export function PiWebTitle({ onWidthChange }: {
         ariaLabel={t("sidebar.runtimeSwitch")} cancelLabel={t("sidebar.runtimeCancel")}
         onClose={() => setAnchor(null)} returnFocusTo={buttonRef.current} width={180}
         items={[
-          ...(["pi", "feynman"] as const).map((target) => ({
-            type: "item" as const, id: target, label: target === "pi" ? "Pi Web" : "Feynman",
+          ...(["pi", "meta", "feynman"] as const).map((target) => ({
+            type: "item" as const, id: target, label: target === "pi" ? "Pi Web" : target === "meta" ? "Pi Meta" : "Feynman",
             checked: runtime === target,
             onSelect: () => {
               if (target === runtime) return;

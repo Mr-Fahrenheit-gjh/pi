@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-type RestartState = { epoch: string; pending: boolean; error: string | null };
+type RestartState = { epoch: string; pending: boolean; error: string | null; attemptId?: string; deploymentLease?: boolean; deploymentCommitted?: boolean; closing?: boolean; drainId?: string };
 declare global { var __piWebServiceRestart: RestartState | undefined; }
 export function serviceRestartState(): RestartState {
   return globalThis.__piWebServiceRestart ??= { epoch: randomUUID(), pending: false, error: null };

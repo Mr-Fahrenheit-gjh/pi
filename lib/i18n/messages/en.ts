@@ -42,6 +42,8 @@ export const enLocale: LocalePlugin = {
     "quickActions.conversationFiles": "Files from this conversation",
     "quickActions.renameConversation": "Rename this conversation",
     "quickActions.forkConversation": "Fork this conversation",
+    "quickActions.switchToPiMeta": "Switch to Pi Meta",
+    "quickActions.switchToPiWeb": "Switch to Pi Web",
     "quickActions.openFinder": "Open conversation folder in Finder",
     "quickActions.enableInlineVisuals": "Enable Intelligence UI (interactive diagrams)",
     "quickActions.disableInlineVisuals": "Disable Intelligence UI (interactive diagrams)",

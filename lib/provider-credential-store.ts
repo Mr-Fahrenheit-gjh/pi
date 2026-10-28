@@ -33,6 +33,8 @@ async function updateStoredCredentials<T>(
 
   let lockCompromisedError: Error | undefined;
   const release = await lockfile.lock(authPath, {
+    // Match the SDK lock path when the shared account is a symlink.
+    realpath: false,
     retries: {
       retries: 10,
       factor: 2,

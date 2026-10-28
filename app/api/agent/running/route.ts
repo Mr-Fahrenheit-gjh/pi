@@ -9,6 +9,9 @@ import {
 import { readSessionReadState } from "@/lib/session-read-state";
 import { getSessionUiStateRevision } from "@/lib/session-ui-state";
 import { feynmanRestartBlockingIds } from "@/lib/feynman-rpc";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { piMetaRestartBlockingIds } from "@/lib/pi-meta-process.mjs";
+import { serviceRestartState } from "@/lib/service-restart-state";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +27,12 @@ export async function GET() {
       sessionListVersion: getSessionListVersion(),
       designDecks: getDesignDecks(),
       runningSessionIds: getRunningRpcSessionIds(),
-      otherRuntimeRunningSessionIds: feynmanRestartBlockingIds(),
+      piMetaDeploymentLease: 1,
+      otherRuntimeRunningSessionIds: [
+        ...feynmanRestartBlockingIds(),
+        ...(serviceRestartState().pending ? ["service:restarting"] : []),
+        ...await piMetaRestartBlockingIds({ mainAgentDir: getAgentDir(), packageDir: process.cwd() }),
+      ],
       awaitingInputSessionIds: getAwaitingInputRpcSessionIds(),
       completionNotificationSuppressedSessionIds: getCompletionNotificationSuppressedRpcSessionIds(),
       sessionUiStateRevision: getSessionUiStateRevision(),

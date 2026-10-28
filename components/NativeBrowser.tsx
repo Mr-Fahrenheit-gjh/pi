@@ -1,5 +1,5 @@
 "use client";
-import { runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
+import { runtimeApi, runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useI18n } from "@/hooks/useI18n";
 import { normalizePreviewUrl } from "@/lib/browser-preview";
@@ -67,7 +67,7 @@ export function NativeBrowser({ url, onNavigate, collapsed, controlsId, active, 
   }, [url, ready]);
   useEffect(() => {
     if (!active || !ready || closed) return;
-    const events = new EventSource(`/api/browser/${id.current}/events`);
+    const events = new EventSource(runtimeApi(`/api/browser/${id.current}/events`));
     events.onmessage = e => {
       const event = JSON.parse(e.data) as BrowserEvent;
       if (event.type === "frame") { if (!loading.current && event.url === actualUrl.current) setFrame(event); }
