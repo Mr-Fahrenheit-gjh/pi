@@ -1843,6 +1843,7 @@ export function ModelsConfig({ onClose, embedded = false, cwd = null }: {
   // apply immediately instead of waiting for this panel's Save button.
   const enabledModels = useEnabledModels(cwd);
   const [config, setConfig] = useState<ModelsJson>({ providers: {} });
+  const configRevisionRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -1884,6 +1885,7 @@ export function ModelsConfig({ onClose, embedded = false, cwd = null }: {
       .then(async (r) => {
         const d = await r.json() as ModelsJson & { error?: string };
         if (!r.ok || d.error) throw new Error(d.error ?? `HTTP ${r.status}`);
+        configRevisionRef.current = r.headers.get("X-Config-Revision");
         return d;
       })
       .then((d) => {
@@ -2036,12 +2038,13 @@ export function ModelsConfig({ onClose, embedded = false, cwd = null }: {
     try {
       const res = await fetch("/api/models-config", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "If-Match": configRevisionRef.current ?? "" },
         body: JSON.stringify(draft),
       });
       const d = await res.json() as { success?: boolean; error?: string };
-      if (!res.ok || d.error) setSaveError(d.error ?? `HTTP ${res.status}`);
+      if (!res.ok || d.error) setSaveError(d.error === "stale-config" ? t("apiWorkbench.error.stale-config") : d.error ?? `HTTP ${res.status}`);
       else {
+        configRevisionRef.current = res.headers.get("X-Config-Revision");
         setSavedOk(true);
         setTimeout(() => setSavedOk(false), 2000);
         // models.json just changed under the switches: providers may have been

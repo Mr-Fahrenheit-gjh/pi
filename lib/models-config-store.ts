@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { writePrivateFileAtomicSync } from "./atomic-file";
@@ -78,36 +79,45 @@ export class ModelsConfigReadError extends Error {
  * an empty read would delete every provider on the next save. Unusable
  * contents throw instead.
  */
-export function readModelsConfig(
-  modelsPath = getModelsConfigPath(),
-): Record<string, unknown> {
-  if (!existsSync(modelsPath)) return { providers: {} };
+export function readModelsConfigSnapshot(modelsPath = getModelsConfigPath()) {
+  let raw = "";
+  try {
+    const stat = lstatSync(modelsPath);
+    if (!stat.isFile() || stat.size > 2 * 1024 * 1024) throw new Error();
+    raw = readFileSync(modelsPath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw new ModelsConfigReadError("models.json is unreadable or not a regular configuration file");
+  }
   let parsed: unknown;
   try {
-    const content = readFileSync(modelsPath, "utf8").replace(/^\uFEFF/, "");
-    if (!content.trim()) return { providers: {} };
-    parsed = JSON.parse(stripJsonComments(content));
-  } catch (error) {
-    throw new ModelsConfigReadError(
-      `Failed to read ${modelsPath}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-  if (!isRecord(parsed)) {
-    throw new ModelsConfigReadError(`Failed to read ${modelsPath}: expected a JSON object`);
-  }
-  return parsed;
+    const content = raw.replace(/^\uFEFF/, "");
+    parsed = content.trim() ? JSON.parse(stripJsonComments(content)) : {providers:{}};
+  } catch { throw new ModelsConfigReadError("models.json contains invalid JSON"); }
+  if (!isRecord(parsed)) throw new ModelsConfigReadError("models.json: expected a JSON object");
+  return {config:parsed, revision:createHash("sha256").update(raw).digest("hex")};
+}
+
+export function readModelsConfig(modelsPath = getModelsConfigPath()): Record<string, unknown> {
+  return readModelsConfigSnapshot(modelsPath).config;
+}
+
+export class ModelsConfigConflictError extends Error {
+  constructor() { super("stale-config"); }
 }
 
 export function writeModelsConfig(
   data: Record<string, unknown>,
   modelsPath = getModelsConfigPath(),
-): void {
-  // Refuse to replace a file this panel could not read: the draft being saved
-  // was not built from it, so writing would silently discard its contents.
-  readModelsConfig(modelsPath);
+  expectedRevision?: string,
+): string {
+  // Both editors compare the exact bytes they read before replacing the file.
+  const before = readModelsConfigSnapshot(modelsPath);
+  if (expectedRevision !== undefined && expectedRevision !== before.revision) throw new ModelsConfigConflictError();
   const dir = dirname(modelsPath);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const normalized = normalizeModelsConfigCosts(sanitizeModelsConfig(data));
-  writePrivateFileAtomicSync(modelsPath, JSON.stringify(normalized, null, 2));
+  const content = JSON.stringify(normalized, null, 2);
+  writePrivateFileAtomicSync(modelsPath, content);
   invalidateModelsCache();
+  return createHash("sha256").update(content).digest("hex");
 }

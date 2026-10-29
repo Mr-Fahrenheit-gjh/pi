@@ -5,6 +5,7 @@ import {
   type ScopedModel,
 } from "@earendil-works/pi-coding-agent";
 import type { Api, Model } from "@earendil-works/pi-ai";
+import { isChatModel } from "./openai-api-workbench";
 
 const THINKING_LEVEL_SUFFIXES = new Set<ThinkingLevel>([
   "off",
@@ -117,16 +118,18 @@ export async function resolveVisibleModels(
   patterns: string[] | undefined,
 ): Promise<ModelScopeResult> {
   const cleaned = (patterns ?? []).map((pattern) => pattern.trim()).filter(Boolean);
+  // /models imports can contain Image, Audio, Embedding and classifier IDs.
+  // They need their own API adapters, not a chat completion request.
+  const available: readonly Model<Api>[] = (await modelRuntime.getAvailable()).filter(isChatModel);
   if (cleaned.length === 0) {
     return {
-      visible: await modelRuntime.getAvailable(),
+      visible: available,
       scopedModels: [],
       thinkingLevelPins: {},
       warnings: [],
     };
   }
 
-  const available = await modelRuntime.getAvailable();
   assertNoAmbiguousExactPatterns(cleaned, available);
   const snapshotRuntime = {
     getAvailable: async () => available,

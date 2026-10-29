@@ -1,4 +1,26 @@
 /* Shared settings and configuration surfaces. */
+.api-workbench { max-width: 960px; width: 100%; margin: 0 auto; }
+.api-workbench p { margin: 4px 0; line-height: 1.6; }
+.api-workbench-note { font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
+.api-workbench-fields { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 12px; }
+.api-workbench-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.api-workbench select, .api-workbench input:not([type="checkbox"]) { width: 100%; min-width: 0; padding: 7px 9px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 5px; font: inherit; }
+.api-workbench input[type="month"] { width: auto; max-width: 160px; }
+.api-workbench summary { cursor: pointer; font-size: 13px; padding: 7px 0; }
+.api-workbench-check { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; line-height: 1.6; }
+.api-workbench-check input { margin-top: 4px; flex-shrink: 0; }
+.api-workbench-models { max-height: 220px; overflow: auto; font-size: 12px; padding-left: 20px; overflow-wrap: anywhere; }
+.api-workbench-usage { border-top: 1px solid var(--border); padding-top: 18px; }
+.api-workbench-warning { color: var(--text); border-left: 2px solid var(--accent); padding-left: 8px; font-size: 12px; }
+.api-workbench-table { overflow-x: auto; margin: 12px 0; }
+.api-workbench table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+.api-workbench th, .api-workbench td { padding: 8px; text-align: right; border-bottom: 1px solid var(--border); }
+.api-workbench th:first-child, .api-workbench td:first-child { text-align: left; }
+.api-workbench-links { display: flex; flex-wrap: wrap; gap: 14px; margin: 12px 0; font-size: 12px; }
+.api-workbench a { color: var(--accent); }
+.api-workbench .config-footer { padding-inline: 0; flex-wrap: wrap; }
+@media (max-width: 600px) { .api-workbench-grid { grid-template-columns: 1fr; } }
+
 .config-panel-root {
   min-width: 0;
   min-height: 0;

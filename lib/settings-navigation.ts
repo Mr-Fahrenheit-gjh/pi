@@ -1,6 +1,7 @@
 export const SETTINGS_SECTION_VALUES = [
   "general",
   "models",
+  "api",
   "skills",
   "agents",
   "plugins",
@@ -66,7 +67,7 @@ function readState(storage: StorageLike): SettingsNavigationState {
 }
 
 function selectionKey(section: SettingsDetailSection, cwd?: string | null): string | null {
-  if (section === "models") return section;
+  if (section === "models" || section === "api") return section;
   if (cwd) return JSON.stringify([section, cwd]);
   // MCP works without a project; its selection then lives under the bare name,
   // which no project key (always an array) can collide with.

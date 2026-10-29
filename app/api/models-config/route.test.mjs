@@ -23,10 +23,10 @@ after(async () => {
   await rm(testAgentDir, { recursive: true, force: true });
 });
 
-function put(body) {
+function put(body, revision) {
   return new Request("http://localhost/api/models-config", {
     method: "PUT",
-    headers: { "Content-Type": "application/json", Host: "localhost" },
+    headers: { "Content-Type": "application/json", Host: "localhost", ...(revision ? {"If-Match":revision} : {}) },
     body: JSON.stringify(body),
   });
 }
@@ -40,6 +40,11 @@ test("a models.json with a syntax error is reported instead of read as empty, an
   assert.match((await response.json()).error, /models\.json/);
 
   response = await PUT(put({ providers: {} }));
+  assert.equal(response.status, 428);
+  assert.equal((await response.json()).error, "stale-config");
+  assert.equal(await readFile(modelsPath, "utf8"), original);
+
+  response = await PUT(put({ providers: {} }, "prior-draft-revision"));
   assert.equal(response.status, 409);
   assert.match((await response.json()).error, /models\.json/);
   assert.equal(await readFile(modelsPath, "utf8"), original);
@@ -50,5 +55,20 @@ test("a commented models.json loads with its providers", async () => {
 
   const response = await GET();
   assert.equal(response.status, 200);
+  assert.match(response.headers.get("X-Config-Revision"), /^[a-f0-9]{64}$/);
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
   assert.deepEqual(await response.json(), { providers: { acme: { models: [{ id: "a" }] } } });
+});
+
+test("a fresh Models draft saves once, then its stale revision cannot overwrite another edit", async () => {
+  await writeFile(modelsPath, JSON.stringify({providers:{}}));
+  const first = await GET(), revision = first.headers.get("X-Config-Revision");
+  const next = {providers:{acme:{models:[{id:"keep-this-edit"}]}}};
+  const saved = await PUT(put(next,revision));
+  assert.equal(saved.status,200);
+  assert.notEqual(saved.headers.get("X-Config-Revision"),revision);
+  const stale = await PUT(put({providers:{}},revision));
+  assert.equal(stale.status,409);
+  assert.equal((await stale.json()).error,"stale-config");
+  assert.deepEqual(JSON.parse(await readFile(modelsPath,"utf8")),next);
 });
