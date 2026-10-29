@@ -21,18 +21,18 @@ export function VoiceControls({ active, sessionId, leafId, appendDraft }: {
   const mode = view?.mode ?? "idle";
   const busy = !["idle", "error"].includes(mode);
   const call = ["connecting", "live", "delegating", "ending"].includes(mode);
-  const iconStyle = { width: 28, height: 28, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", borderRadius: 6 };
-  return <div className="voice-controls" data-testid="voice-controls" style={{ display: "flex", gap: 2, alignItems: "center" }}>
+  const iconStyle = { width: 32, height: 32, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", borderRadius: 9 };
+  return <div className="voice-controls" data-testid="voice-controls" style={{ display: "flex", gap: 12, alignItems: "center" }}>
     <button type="button" style={iconStyle} aria-label={t(mode === "recording" ? "voice.stopRecording" : "voice.dictate")}
       title={t("voice.dictate")} disabled={!active || (busy && mode !== "recording")}
       onClick={() => mode === "recording" ? client.current?.stopDictation() : void client.current?.dictate()}>
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         {mode === "recording" ? <rect x="6" y="6" width="12" height="12" rx="2"/> : <><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></>}
       </svg>
     </button>
     <button type="button" style={iconStyle} aria-label={t("voice.call")} title={t(sessionId ? "voice.call" : "voice.savedSession")}
       disabled={!active || busy || !sessionId} onClick={() => sessionId && void client.current?.startCall(sessionId, leafId)}>
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M6 3H3c-1 8 10 19 18 18v-4l-5-2-2 2a18 18 0 0 1-7-7l2-2-3-5Z"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><path d="M3 10v4M7 7v10M12 3v18M17 7v10M21 10v4"/></svg>
     </button>
     {(busy || view?.notice) && <div className="voice-panel" role="region" aria-label={t("voice.panel")}>
       <div role="status" aria-live="polite">{busy && t(`voice.${mode}`)}{call && ` · ${Math.floor((view?.seconds ?? 0) / 60)}:${String((view?.seconds ?? 0) % 60).padStart(2, "0")}`}</div>

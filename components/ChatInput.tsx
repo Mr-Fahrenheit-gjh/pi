@@ -2532,8 +2532,8 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
           gap: 6,
         }}>
 
-          {/* LEFT: attach + model selector (idle) or steer/followup toggle (streaming) */}
-          <div style={{ flex: isMobile ? "1 1 auto" : "0 0 auto", minWidth: 0, display: "flex", alignItems: "center", gap: 2 }}>
+          {/* LEFT: separate, evenly spaced attachment and voice actions. */}
+          <div style={{ flex: isMobile ? "1 1 auto" : "0 0 auto", minWidth: 0, display: "flex", alignItems: "center", gap: 12 }}>
             {welcome ? welcomeToolbar : attachButton}
             {pageRuntime() === "pi" && <VoiceControls
               key={`${draftKey ?? ""}:${cwd ?? ""}:${voiceNavigation ?? 0}:${voiceEpoch}:${voiceActive}`}

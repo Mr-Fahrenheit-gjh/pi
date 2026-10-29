@@ -3,6 +3,24 @@ import assert from "node:assert/strict";
 import { prepareWorkspaceFixture } from "./workspace-design.mjs";
 export const prepareVoiceFixture = (agentDir) => prepareWorkspaceFixture(agentDir, { polishSibling: true });
 
+export async function checkVoiceLayout(page, { outputDir } = {}) {
+  const controls = page.getByTestId("voice-controls").first();
+  await controls.waitFor();
+  const boxes = await controls.evaluate((voice) => [voice.previousElementSibling, ...voice.querySelectorAll(":scope > button")].map((button) => {
+    const { x, y, width, height } = button.getBoundingClientRect();
+    return { x, y, width, height };
+  }));
+  assert.equal(boxes.length, 3, "Attachment, dictation and live call are separate controls");
+  for (const box of boxes) {
+    assert.equal(box.width, 32); assert.equal(box.height, 32);
+    assert.ok(Math.abs(box.y - boxes[0].y) < 1, "The three icons share a baseline");
+  }
+  const gaps = boxes.slice(1).map((box, i) => box.x - boxes[i].x - boxes[i].width);
+  for (const gap of gaps) assert.ok(Math.abs(gap - 12) < 1, "Each button has the same generous gap");
+  if (outputDir) await page.locator(".chat-input-shell").first().screenshot({ path: `${outputDir}/voice-controls.png` });
+  return { buttonSize: 32, gaps };
+}
+
 export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-design-fixture", outputDir }) {
   assert.notEqual(new URL(baseURL).port, "30141", "Never mock the formal user page");
   const errors = [], prompts = [], handoffs = [], calls = [];
@@ -80,6 +98,7 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
   await page.goto(`${baseURL}/?session=${sessionId}`, { waitUntil: "domcontentloaded" });
   await input.waitFor();
   assert.equal(await page.getByTestId("voice-controls").count(), 1);
+  const layout = await checkVoiceLayout(page, { outputDir });
   await page.locator('.chat-input-shell input[type="file"]').first().setInputFiles({ name: "voice-note.txt", mimeType: "text/plain", buffer: Buffer.from("fixture attachment") });
   const card = page.locator(".chat-input-shell .attachment-card"); await card.waitFor();
   await input.fill("existing draft");
@@ -178,7 +197,7 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
   await input.press("Enter"); await sent;
   assert.equal(prompts.length, 1, "Only the explicit keyboard send submits the draft");
   assert.deepEqual(errors, []);
-  return { passed: true, draftOnly: true, attachmentsPreserved: true, confirmedHandoff: true, matchedCompletion: true, deduplicated: true, cleanup: true, navigation: true, splitOwnership: true, legacyAbortSignals: true };
+  return { passed: true, layout, draftOnly: true, attachmentsPreserved: true, confirmedHandoff: true, matchedCompletion: true, deduplicated: true, cleanup: true, navigation: true, splitOwnership: true, legacyAbortSignals: true };
 }
 
 // Explicit opt-in paid transport probe. Use a synthetic session and audio only;
