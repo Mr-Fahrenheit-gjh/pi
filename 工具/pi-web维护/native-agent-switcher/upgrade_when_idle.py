@@ -11,6 +11,10 @@ import shutil
 import signal
 import stat
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
+import uuid
 
 HERE = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location('core', HERE/'deploy_when_idle.py')
@@ -32,6 +36,10 @@ CANDIDATE = Path(CONFIG['candidateDirectory']).expanduser().resolve()
 STATE = HERE/'upgrade-0.12-state.json'
 PLAN = HERE/'upgrade-0.12-plan.json'
 VERSION = CONFIG['targetVersion']
+# Derived from the SHA-512-verified original 1.4.0 archive, including every dist file.
+META_SDK_VERSION = '1.4.0'
+META_ORIGINAL_PACKAGE_SHA256 = 'df6883685382d6a914e5797232744c26579fe7db5576ea0e9c859d018ca2d54e'
+META_ORIGINAL_DIST_SHA256 = '7312715e575506b50279140f784ceb2ad55adcd83e2a2795ae9a2ea9551d2fe8'
 DEPLOY_LOCK = HERE.parent/'.deployment.lock'
 TIMING_ENABLED = False  # CLI only; library/unit-test imports stay side-effect free.
 
@@ -216,7 +224,103 @@ def replay_candidate_adapters(stage):
     return inputs
 
 
+def meta_original_digest(original):
+    digest = bundle.tree_digest(original)
+    for directory, _, files in os.walk(original, followlinks=False):
+        for name in files:
+            path = Path(directory)/name
+            if not path.is_symlink() and path.stat().st_nlink != 1:
+                raise RuntimeError('Pi Meta original SDK contains a hardlinked file')
+    for name in ['dist/cli.js', 'dist/bundle/cli.js']:
+        cli = original/name
+        if cli.is_symlink() or not cli.is_file() or not os.access(cli, os.X_OK):
+            raise RuntimeError('Pi Meta original SDK CLI is missing or not executable')
+    return digest
+
+
+def inspect_meta_original(root):
+    modules = root/'node_modules'
+    sdk = modules/'@earendil-works/pi-coding-agent'
+    original = modules/'.pi-meta-original'
+    metadata = sdk/'package.json'
+    original_metadata = original/'package.json'
+    if (modules.is_symlink() or sdk.is_symlink() or original.is_symlink() or metadata.is_symlink()
+            or original_metadata.is_symlink() or not modules.is_dir() or not sdk.is_dir()
+            or not original.is_dir() or not metadata.is_file() or not original_metadata.is_file()):
+        raise RuntimeError('Pi Meta requires independent candidate and staged SDK directories')
+    package = json.loads(metadata.read_text())
+    if package.get('name') != '@earendil-works/pi-coding-agent' or package.get('version') != META_SDK_VERSION:
+        raise RuntimeError('Pi Meta SDK version does not match the verified original')
+    entries = {path.name for path in original.iterdir()}
+    if not {'package.json', 'dist'} <= entries or entries - {'package.json', 'dist', 'node_modules'}:
+        raise RuntimeError('Pi Meta original SDK contains an unexpected root entry')
+    if (bundle.digest(original_metadata) != META_ORIGINAL_PACKAGE_SHA256
+            or bundle.tree_digest(original/'dist') != META_ORIGINAL_DIST_SHA256):
+        raise RuntimeError('Pi Meta original SDK fingerprint mismatch')
+    sdk_nested, original_nested = sdk/'node_modules', original/'node_modules'
+    has_sdk_nested = sdk_nested.exists() or sdk_nested.is_symlink()
+    has_original_nested = original_nested.exists() or original_nested.is_symlink()
+    if has_sdk_nested != has_original_nested:
+        raise RuntimeError('Pi Meta original SDK dependencies do not match the staged SDK')
+    if has_sdk_nested and bundle.tree_digest(sdk_nested) != bundle.tree_digest(original_nested):
+        raise RuntimeError('Pi Meta original SDK dependencies do not match the staged SDK')
+    return meta_original_digest(original)
+
+
+def stage_meta_original(stage):
+    """Add only the verified original SDK to the offline stage, never the live tree."""
+    source_marker = SOURCE/'bin/pi-meta-worker.cjs'
+    candidate_marker = CANDIDATE/'bin/pi-meta-worker.cjs'
+    staged_marker = stage/'bin/pi-meta-worker.cjs'
+    candidate_original = CANDIDATE/'node_modules/.pi-meta-original'
+    staged_original = stage/'node_modules/.pi-meta-original'
+    for marker in [candidate_marker, staged_marker]:
+        if marker.is_symlink() or (marker.exists() and not marker.is_file()):
+            raise RuntimeError('Pi Meta runtime marker is invalid')
+    if not candidate_marker.is_file() and not staged_marker.is_file():
+        if any(path.exists() or path.is_symlink() for path in [candidate_original, staged_original]):
+            raise RuntimeError('Pi Meta original SDK exists without its runtime marker')
+        return None
+    if source_marker.is_symlink() or (source_marker.exists() and not source_marker.is_file()):
+        raise RuntimeError('Pi Meta runtime marker is invalid')
+    if not all(marker.is_file() for marker in [source_marker, candidate_marker, staged_marker]):
+        raise RuntimeError('Pi Meta runtime markers do not match')
+    marker_digest = bundle.digest(source_marker)
+    if any(bundle.digest(marker) != marker_digest for marker in [candidate_marker, staged_marker]):
+        raise RuntimeError('Pi Meta runtime markers do not match')
+    expected = inspect_meta_original(CANDIDATE)
+    if staged_original.exists() or staged_original.is_symlink():
+        if inspect_meta_original(stage) != expected:
+            raise RuntimeError('Existing staged Pi Meta original differs from the candidate')
+    else:
+        core.command('/bin/cp', '-cR', str(candidate_original), str(staged_original), timeout=180)
+    if inspect_meta_original(CANDIDATE) != expected or inspect_meta_original(stage) != expected:
+        raise RuntimeError('Pi Meta original SDK changed during staging')
+    if any(bundle.digest(marker) != marker_digest for marker in [source_marker, candidate_marker, staged_marker]):
+        raise RuntimeError('Pi Meta runtime marker changed during staging')
+    return {'metaOriginalDigest': expected, 'metaWorkerDigest': marker_digest}
+
+
+def assert_meta_original_payload(plan, package_root=None):
+    root = Path(package_root) if package_root is not None else Path(plan['staged'])
+    marker = root/'bin/pi-meta-worker.cjs'
+    original = root/'node_modules/.pi-meta-original'
+    expected = plan.get('metaOriginalDigest')
+    marker_digest = plan.get('metaWorkerDigest')
+    if marker.is_symlink() or (marker.exists() and not marker.is_file()):
+        raise RuntimeError('Staged Pi Meta runtime marker is invalid')
+    if not marker.is_file():
+        if expected is not None or marker_digest is not None or original.exists() or original.is_symlink():
+            raise RuntimeError('Staged Pi Meta runtime marker is missing')
+        return
+    if not isinstance(marker_digest, str) or len(marker_digest) != 64 or bundle.digest(marker) != marker_digest:
+        raise RuntimeError('Staged Pi Meta runtime marker changed after preparation')
+    if not isinstance(expected, str) or len(expected) != 64 or meta_original_digest(original) != expected:
+        raise RuntimeError('Staged Pi Meta original SDK changed after preparation')
+
+
 def assert_runtime_payload(plan):
+    assert_meta_original_payload(plan)
     inputs = plan.get('runtimeAdapterInputs')
     if not inputs:
         return
@@ -271,6 +375,7 @@ def prepare(session_id, dependency_mode=None, ui_polish=False, design_deck=False
     timed_call('clone_dependencies', core.command, '/bin/cp', '-cR', str(dependency_source/'node_modules'), str(stage/'node_modules'), timeout=180)
     if (stage/'node_modules').is_symlink():
         raise RuntimeError('Staged dependencies must not point at the live package')
+    meta_payload = timed_call('stage_meta_original', stage_meta_original, stage)
     runtime_inputs = timed_call('replay_runtime_adapters', replay_candidate_adapters, stage)
     if payload:
         timed_call('clone_integrity', bundle.assert_fingerprint, stage, payload['fingerprint'])
@@ -293,6 +398,8 @@ def prepare(session_id, dependency_mode=None, ui_polish=False, design_deck=False
         'parentIdentity': parent_identity, 'managed': True}
     if fixture:
         plan['historyFixture'] = fixture
+    if meta_payload:
+        plan.update(meta_payload)
     if ui_polish:
         plan['uiPolish'] = True
     if payload:
@@ -304,6 +411,7 @@ def prepare(session_id, dependency_mode=None, ui_polish=False, design_deck=False
             plan['payloadFingerprint'] = bundle.fingerprint_after_retaining_assets(stage, runtime_fingerprint)
     if design_deck:
         plan['designDeck'] = timed_call('prepare_design_deck', deck.prepare, stage, SOURCE/'scripts/patch-design-deck.mjs')
+    assert_meta_original_payload(plan)
     core.save(PLAN, plan)
     state('prepared', **plan)
 
@@ -367,6 +475,88 @@ class ServiceStopIncomplete(RuntimeError):
     """A stop was requested successfully, but its completion remains unproven."""
 
 
+@contextmanager
+def meta_deployment_lease():
+    """Keep Meta and Web admission drained until the authorized stop has started."""
+    marker = LIVE/'bin/pi-meta-worker.cjs'
+    original = LIVE/'node_modules/.pi-meta-original'
+    if marker.is_symlink() or original.is_symlink():
+        raise RuntimeError('Pi Meta runtime identity is linked; refusing to stop')
+    if not marker.exists():
+        if original.exists():
+            raise RuntimeError('Pi Meta runtime marker is missing; refusing to stop')
+        yield None  # Existing Web versions do not yet contain Pi Meta.
+        return
+    if not marker.is_file():
+        raise RuntimeError('Pi Meta runtime marker is invalid; refusing to stop')
+    snapshot = core.api('/api/agent/running')
+    if type(snapshot.get('piMetaDeploymentLease')) is not int or snapshot['piMetaDeploymentLease'] != 1:
+        raise RuntimeError('Pi Meta deployment lease is unavailable; refusing to stop')
+    ids = snapshot.get('runningSessionIds')
+    other = snapshot.get('otherRuntimeRunningSessionIds', [])
+    if not isinstance(ids, list) or not isinstance(other, list) or any(not isinstance(item, str) for item in ids + other):
+        raise RuntimeError('Idle state is unknown: Malformed running snapshot; refusing a stop')
+    if blocking_sessions(ids + other):
+        raise ServiceBusy('A new prompt started; refusing to stop active work')
+    request = urllib.request.Request(
+        core.BASE+'/api/service/meta-deployment', data=b'{"confirmed":true}', method='POST',
+        headers={'Origin': core.BASE, 'Referer': core.BASE+'/', 'Content-Type': 'application/json'},
+    )
+    try:
+        response = urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request, timeout=15)
+    except urllib.error.HTTPError as error:
+        error.close()
+        if error.code == 409:
+            raise ServiceBusy('Pi Meta is busy; refusing to stop active work') from error
+        raise RuntimeError('Could not acquire Pi Meta deployment lease') from error
+    try:
+        line = response.readline(4096)
+        try:
+            result = json.loads(line)
+            if not isinstance(result, dict):
+                raise ValueError('invalid response')
+            lease_id = result['leaseId']
+            if result.get('ok') is not True or not isinstance(lease_id, str) or str(uuid.UUID(lease_id)) != lease_id:
+                raise ValueError('invalid lease')
+        except (ValueError, TypeError, KeyError) as error:
+            raise RuntimeError('Pi Meta deployment lease response is invalid') from error
+        yield lease_id
+    finally:
+        response.close()
+
+
+def assert_meta_lease_owned(lease_id):
+    reply = core.api('/api/service/meta-deployment?leaseId='+urllib.parse.quote(lease_id, safe=''))
+    if reply.get('owns') is not True:
+        raise RuntimeError('Pi Meta deployment lease was lost; refusing to stop')
+
+
+def meta_lease_action(lease_id, action):
+    if action not in {'commit', 'cancel'}:
+        raise ValueError('Invalid Pi Meta lease action')
+    body = json.dumps({'confirmed': True, 'action': action, 'leaseId': lease_id}).encode()
+    request = urllib.request.Request(
+        core.BASE+'/api/service/meta-deployment', data=body, method='POST',
+        headers={'Origin': core.BASE, 'Referer': core.BASE+'/', 'Content-Type': 'application/json'},
+    )
+    try:
+        with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request, timeout=15) as response:
+            reply = json.load(response)
+    except urllib.error.HTTPError as error:
+        error.close()
+        raise RuntimeError('Pi Meta deployment lease action was refused') from error
+    if not isinstance(reply, dict) or reply.get('ok') is not True:
+        raise RuntimeError('Pi Meta deployment lease action was not confirmed')
+
+
+def cancel_unsubmitted_meta_lease(lease_id):
+    # Safe only before a stop was submitted or after a definite spawn failure.
+    try:
+        meta_lease_action(lease_id, 'cancel')
+    except Exception:
+        pass  # Preserve the committed lease if cancellation is uncertain.
+
+
 def stop_idle_service(plan=None):
     global RESTART_SESSION_ID
     # Rollback uses this guard too: the one-shot restart waiver is already consumed.
@@ -379,17 +569,39 @@ def stop_idle_service(plan=None):
         raise ServiceBusy('Terminal sessions are still open; refusing to stop active work')
     if plan is not None:
         core.assert_baseline(plan)
-    if plan is not None and plan.get('managed') is False:
-        # Only refresh_owner can bind this exact CLI parent after an untouched
-        # failure; its lifecycle handler closes Next. Never signal the listener.
-        os.kill(plan['parent'], signal.SIGTERM)
-    else:
-        core.command('/bin/launchctl', 'bootout', core.SERVICE)
-    RESTART_SESSION_ID = None
-    try:
-        core.wait_stopped(plan)
-    except Exception as error:
-        raise ServiceStopIncomplete(str(error)) from error
+    with meta_deployment_lease() as lease_id:
+        if lease_id is not None:
+            assert_meta_lease_owned(lease_id)
+            # The marker is this updater's own drain, not another running session.
+            remaining = [item for item in running_session_ids() if item != 'service:restarting']
+            if blocking_sessions(remaining) or active_terminal_pids():
+                raise ServiceBusy('New work appeared during the Pi Meta drain')
+            assert_meta_lease_owned(lease_id)
+            try:
+                # After this commit, a lost stream must not reopen admission.
+                meta_lease_action(lease_id, 'commit')
+            except Exception:
+                cancel_unsubmitted_meta_lease(lease_id)
+                raise
+        try:
+            if plan is not None and plan.get('managed') is False:
+                # Only refresh_owner can bind this exact CLI parent after an untouched
+                # failure; its lifecycle handler closes Next. Never signal the listener.
+                os.kill(plan['parent'], signal.SIGTERM)
+            else:
+                core.command('/bin/launchctl', 'bootout', core.SERVICE)
+        except (FileNotFoundError, PermissionError):
+            if lease_id is not None: cancel_unsubmitted_meta_lease(lease_id)
+            raise
+        except Exception as error:
+            if lease_id is not None:
+                raise ServiceStopIncomplete('Stop request result is unknown; admission remains closed') from error
+            raise
+        RESTART_SESSION_ID = None
+        try:
+            core.wait_stopped(plan)
+        except Exception as error:
+            raise ServiceStopIncomplete(str(error)) from error
 
 
 def stop_with_idle_retry(plan=None):
@@ -460,6 +672,7 @@ def apply():
         shutil.move(str(LIVE), str(backup/'package'))
         shutil.move(str(stage), str(LIVE))
         installed = True
+        timed_call('installed_meta_original', assert_meta_original_payload, plan, LIVE)
         timed_call('service_start', core.start)
         timed_call('service_health', core.healthy)
         if plan.get('runtimeAdapterInputs'):

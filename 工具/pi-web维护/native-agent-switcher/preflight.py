@@ -30,7 +30,7 @@ def read_json(path):
 def runtime_files(root, include_docs=False):
     """Runtime inventory, or the broader check/fixture inventory when requested."""
     root = Path(root)
-    excluded = {'.git', 'node_modules', '.next', 'test-results', '__pycache__'}
+    excluded = {'.git', 'node_modules', '.next', '.next-pi-meta', 'test-results', '__pycache__'}
     generated = {'next-env.d.ts', 'tsconfig.tsbuildinfo', 'public/vendor/ghostty-web/0.4.0/ghostty-vt.wasm',
                  'public/vendor/ghostty-web/0.4.0/LICENSE', '.gitignore'}
     files = {}

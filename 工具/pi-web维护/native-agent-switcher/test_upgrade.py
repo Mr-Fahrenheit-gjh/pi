@@ -1,8 +1,11 @@
 import importlib.util
+from contextlib import contextmanager
 from pathlib import Path
 import unittest
 import tempfile
 import json
+import os
+import shutil
 import signal
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -10,6 +13,32 @@ from unittest.mock import patch
 spec = importlib.util.spec_from_file_location('upgrade', Path(__file__).with_name('upgrade_when_idle.py'))
 upgrade = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(upgrade)
+
+
+@contextmanager
+def meta_stage_fixture():
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        candidate, stage, source = root/'candidate', root/'stage', root/'source'
+        (source/'bin').mkdir(parents=True)
+        (source/'bin/pi-meta-worker.cjs').write_text('worker')
+        for package in [candidate, stage]:
+            (package/'bin').mkdir(parents=True)
+            (package/'bin/pi-meta-worker.cjs').write_text('worker')
+            sdk = package/'node_modules/@earendil-works/pi-coding-agent'
+            sdk.mkdir(parents=True)
+            (sdk/'package.json').write_text(json.dumps({'name': '@earendil-works/pi-coding-agent', 'version': upgrade.META_SDK_VERSION}))
+        original = candidate/'node_modules/.pi-meta-original'
+        (original/'dist/bundle').mkdir(parents=True)
+        (original/'package.json').write_text(json.dumps({'name': '@earendil-works/pi-coding-agent', 'version': upgrade.META_SDK_VERSION}))
+        for name in ['dist/cli.js', 'dist/bundle/cli.js']:
+            (original/name).write_text('verified fixture')
+            (original/name).chmod(0o755)
+        (original/'dist/cli.js.map').write_text('verified map')
+        with patch.object(upgrade, 'CANDIDATE', candidate), patch.object(upgrade, 'SOURCE', source), \
+             patch.object(upgrade, 'META_ORIGINAL_PACKAGE_SHA256', upgrade.bundle.digest(original/'package.json')), \
+             patch.object(upgrade, 'META_ORIGINAL_DIST_SHA256', upgrade.bundle.tree_digest(original/'dist')):
+            yield candidate, stage, original
 
 
 class UpgradeTests(unittest.TestCase):
@@ -64,6 +93,114 @@ class UpgradeTests(unittest.TestCase):
                     upgrade.assert_runtime_payload(plan)
                 command.assert_not_called()
 
+    def test_meta_original_is_copied_to_stage_and_bound_until_switch(self):
+        with meta_stage_fixture() as (candidate, stage, original):
+            proof = upgrade.stage_meta_original(stage)
+            staged = stage/'node_modules/.pi-meta-original'
+            self.assertEqual(proof['metaOriginalDigest'], upgrade.bundle.tree_digest(original))
+            self.assertEqual(proof['metaOriginalDigest'], upgrade.bundle.tree_digest(staged))
+            self.assertFalse((original/'package.json').samefile(staged/'package.json'))
+            plan = {'staged': str(stage), **proof}
+            upgrade.assert_runtime_payload(plan)
+            installed = stage.parent/'installed'
+            shutil.copytree(stage, installed)
+            upgrade.assert_meta_original_payload(plan, installed)
+            (installed/'node_modules/.pi-meta-original/dist/cli.js').chmod(0o600)
+            with self.assertRaisesRegex(RuntimeError, 'not executable'):
+                upgrade.assert_meta_original_payload(plan, installed)
+            (stage/'bin/pi-meta-worker.cjs').write_text('tampered marker')
+            with self.assertRaisesRegex(RuntimeError, 'runtime marker changed'):
+                upgrade.assert_runtime_payload(plan)
+            (stage/'bin/pi-meta-worker.cjs').write_text('worker')
+            (staged/'dist/cli.js').write_text('tampered after staging')
+            with self.assertRaisesRegex(RuntimeError, 'original SDK changed'):
+                upgrade.assert_runtime_payload(plan)
+            self.assertEqual((candidate/'node_modules/.pi-meta-original/dist/cli.js').read_text(), 'verified fixture')
+
+    def test_meta_original_staging_refuses_missing_mutated_linked_or_mismatched_inputs(self):
+        for case in ['missing', 'mutated', 'linked', 'hardlink', 'nested', 'existing', 'extra_root', 'extra_map', 'marker']:
+            with self.subTest(case=case), meta_stage_fixture() as (candidate, stage, original):
+                if case == 'missing':
+                    shutil.rmtree(original)
+                elif case == 'mutated':
+                    (original/'dist/cli.js').write_text('unverified')
+                elif case == 'linked':
+                    other = original.with_name('other')
+                    original.rename(other)
+                    original.symlink_to(other, target_is_directory=True)
+                elif case == 'hardlink':
+                    os.link(original/'dist/cli.js', candidate/'shared-original-cli')
+                elif case == 'nested':
+                    nested = stage/'node_modules/@earendil-works/pi-coding-agent/node_modules/pkg'
+                    nested.mkdir(parents=True)
+                    (nested/'file').write_text('different dependency')
+                elif case == 'extra_root':
+                    (original/'unverified-dependency').mkdir()
+                elif case == 'extra_map':
+                    (original/'dist/unverified.js.map').write_text('unexpected source map')
+                elif case == 'marker':
+                    (stage/'bin/pi-meta-worker.cjs').write_text('unverified marker')
+                else:
+                    staged = stage/'node_modules/.pi-meta-original'
+                    shutil.copytree(original, staged)
+                    (staged/'dist/cli.js').write_text('different existing SDK')
+                with self.assertRaises(RuntimeError):
+                    upgrade.stage_meta_original(stage)
+
+    def test_meta_original_requires_marker_and_prepared_digest(self):
+        with meta_stage_fixture() as (candidate, stage, original):
+            with self.assertRaisesRegex(RuntimeError, 'runtime marker changed'):
+                upgrade.assert_runtime_payload({'staged': str(stage)})
+            (candidate/'bin/pi-meta-worker.cjs').unlink()
+            (stage/'bin/pi-meta-worker.cjs').unlink()
+            self.assertTrue((upgrade.SOURCE/'bin/pi-meta-worker.cjs').is_file())
+            with self.assertRaisesRegex(RuntimeError, 'without its runtime marker'):
+                upgrade.stage_meta_original(stage)
+            shutil.rmtree(original)
+            self.assertIsNone(upgrade.stage_meta_original(stage))
+            upgrade.assert_runtime_payload({'staged': str(stage)})
+
+    def test_meta_marker_changed_during_copy_is_rejected(self):
+        with meta_stage_fixture() as (_, stage, _):
+            command = upgrade.core.command
+            def copy_then_change_marker(*args, **kwargs):
+                result = command(*args, **kwargs)
+                (stage/'bin/pi-meta-worker.cjs').write_text('changed while staging')
+                return result
+            with patch.object(upgrade.core, 'command', side_effect=copy_then_change_marker):
+                with self.assertRaisesRegex(RuntimeError, 'marker changed during staging'):
+                    upgrade.stage_meta_original(stage)
+
+    def test_installed_meta_check_failure_restores_previous_package_before_start(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            live, stage, backup = root/'live', root/'stage', root/'backup'
+            for package, build in [(live, 'old'), (stage, 'new')]:
+                (package/'.next').mkdir(parents=True)
+                (package/'.next/BUILD_ID').write_text(build)
+                (package/'package.json').write_text(json.dumps({'version': upgrade.VERSION}))
+            plan = {'buildId': 'new', 'oldBuild': 'old', 'staged': str(stage),
+                    'backup': str(backup), 'sessionId': 'fixture'}
+            plan_file, state_file = root/'plan.json', root/'state.json'
+            plan_file.write_text(json.dumps(plan))
+            state_file.write_text(json.dumps({'status': 'prepared', **plan}))
+            starts = []
+            with patch.multiple(upgrade, LIVE=live, PLAN=plan_file, STATE=state_file), \
+                 patch.object(upgrade, 'assert_history_fixture'), patch.object(upgrade, 'assert_runtime_payload'), \
+                 patch.object(upgrade, 'assert_meta_original_payload', side_effect=RuntimeError('installed Meta invalid')), \
+                 patch.object(upgrade, 'wait_idle'), patch.object(upgrade, 'stop_with_idle_retry'), \
+                 patch.object(upgrade.core, 'preflight_launchd'), patch.object(upgrade.core, 'assert_baseline'), \
+                 patch.object(upgrade.core, 'launchd_loaded', return_value=False), patch.object(upgrade.core, 'wait_stopped'), \
+                 patch.object(upgrade.core, 'start', side_effect=lambda: starts.append((live/'.next/BUILD_ID').read_text())), \
+                 patch.object(upgrade.core, 'healthy'), patch.object(upgrade.deck, 'assert_prepared'), \
+                 patch.object(upgrade.deck, 'activate'), patch.object(upgrade.deck, 'restore'):
+                with self.assertRaisesRegex(RuntimeError, 'installed Meta invalid'):
+                    upgrade.apply()
+            self.assertEqual(starts, ['old'])
+            self.assertEqual((live/'.next/BUILD_ID').read_text(), 'old')
+            self.assertEqual((backup/'withdrawn-package/.next/BUILD_ID').read_text(), 'new')
+            self.assertEqual(json.loads(state_file.read_text())['status'], 'rolled_back')
+
     def test_feynman_work_blocks_stop_even_with_current_pi_authorization(self):
         with patch.object(upgrade, 'RESTART_SESSION_ID', 'current'), \
              patch.object(upgrade.core, 'api', return_value={'runningSessionIds': ['current'], 'otherRuntimeRunningSessionIds': ['feynman:current']}), \
@@ -81,6 +218,124 @@ class UpgradeTests(unittest.TestCase):
             with patch.object(upgrade.core, 'api', return_value={'runningSessionIds': [], 'otherRuntimeRunningSessionIds': other}):
                 with self.assertRaises(RuntimeError):
                     upgrade.running_session_ids()
+
+    def test_meta_deployment_holds_lease_through_the_guarded_stop(self):
+        with tempfile.TemporaryDirectory() as directory:
+            live = Path(directory)/'live'
+            (live/'bin').mkdir(parents=True)
+            (live/'bin/pi-meta-worker.cjs').write_text('fixture')
+            (live/'node_modules/.pi-meta-original').mkdir(parents=True)
+            state = {'held': False, 'closed': False, 'events': []}
+            lease_id = '11111111-1111-4111-8111-111111111111'
+            class Response:
+                def readline(self, limit):
+                    self_limit = limit
+                    if self_limit != 4096:
+                        raise AssertionError('unexpected response limit')
+                    return json.dumps({'ok': True, 'leaseId': lease_id}).encode()+b'\n'
+                def close(self):
+                    state['held'] = False
+                    state['closed'] = True
+            def open_lease(request, timeout):
+                self.assertEqual(request.get_method(), 'POST')
+                self.assertEqual(json.loads(request.data), {'confirmed': True})
+                self.assertEqual(timeout, 15)
+                state['held'] = True
+                return Response()
+            def api(path):
+                if path.startswith('/api/service/meta-deployment?'):
+                    state['events'].append('verify')
+                    return {'owns': state['held']}
+                return {'runningSessionIds': [], 'otherRuntimeRunningSessionIds': ['service:restarting'] if state['held'] else [], 'piMetaDeploymentLease': 1}
+            def command(*args):
+                self.assertTrue(state['held'])
+                state['events'].append('stop')
+            with patch.object(upgrade, 'LIVE', live), patch.object(upgrade.core, 'api', side_effect=api), \
+                 patch.object(upgrade, 'active_terminal_pids', return_value=[]), \
+                 patch.object(upgrade.urllib.request, 'build_opener', return_value=SimpleNamespace(open=open_lease)), \
+                 patch.object(upgrade, 'meta_lease_action', side_effect=lambda _id, action: state['events'].append(action)), \
+                 patch.object(upgrade.core, 'command', side_effect=command), patch.object(upgrade.core, 'wait_stopped'):
+                upgrade.stop_idle_service()
+            self.assertEqual(state['events'], ['verify', 'verify', 'commit', 'stop'])
+            self.assertTrue(state['closed'])
+            self.assertFalse(state['held'])
+
+    def test_meta_lease_races_and_lost_leases_never_stop_work(self):
+        with tempfile.TemporaryDirectory() as directory:
+            live = Path(directory)/'live'
+            (live/'bin').mkdir(parents=True)
+            (live/'bin/pi-meta-worker.cjs').write_text('fixture')
+            (live/'node_modules/.pi-meta-original').mkdir(parents=True)
+            lease_id = '11111111-1111-4111-8111-111111111111'
+            class Response:
+                closed = False
+                def readline(self, _limit): return json.dumps({'ok': True, 'leaseId': lease_id}).encode()+b'\n'
+                def close(self): self.closed = True
+            for mode in ['late-work', 'lost-lease', 'missing-capability', 'meta-busy']:
+                with self.subTest(mode=mode):
+                    response = Response()
+                    held = {'value': False}
+                    def open_lease(request, timeout):
+                        if mode == 'meta-busy':
+                            raise upgrade.urllib.error.HTTPError(request.full_url, 409, 'busy', None, None)
+                        held['value'] = True
+                        return response
+                    def api(path):
+                        if path.startswith('/api/service/meta-deployment?'):
+                            return {'owns': mode != 'lost-lease' and held['value']}
+                        other = ['service:restarting', 'meta:session'] if held['value'] and mode == 'late-work' else []
+                        snapshot = {'runningSessionIds': [], 'otherRuntimeRunningSessionIds': other}
+                        if mode != 'missing-capability': snapshot['piMetaDeploymentLease'] = 1
+                        return snapshot
+                    with patch.object(upgrade, 'LIVE', live), patch.object(upgrade.core, 'api', side_effect=api), \
+                         patch.object(upgrade, 'active_terminal_pids', return_value=[]), \
+                         patch.object(upgrade.urllib.request, 'build_opener', return_value=SimpleNamespace(open=open_lease)), \
+                         patch.object(upgrade.core, 'command') as command:
+                        with self.assertRaises(RuntimeError): upgrade.stop_idle_service()
+                        command.assert_not_called()
+                        if held['value']: self.assertTrue(response.closed)
+
+    def test_meta_legacy_original_still_uses_a_deployment_lease(self):
+        with tempfile.TemporaryDirectory() as directory:
+            live = Path(directory)/'live'
+            (live/'bin').mkdir(parents=True)
+            (live/'bin/pi-meta-worker.cjs').write_text('fixture')
+            lease_id = '11111111-1111-4111-8111-111111111111'
+            class Response:
+                closed = False
+                def readline(self, _limit): return json.dumps({'ok': True, 'leaseId': lease_id}).encode()+b'\n'
+                def close(self): self.closed = True
+            response = Response()
+            snapshot = {'runningSessionIds': [], 'piMetaDeploymentLease': 1}
+            with patch.object(upgrade, 'LIVE', live), patch.object(upgrade.core, 'api', return_value=snapshot), \
+                 patch.object(upgrade.urllib.request, 'build_opener', return_value=SimpleNamespace(open=lambda _req, timeout: response)):
+                with upgrade.meta_deployment_lease() as actual:
+                    self.assertEqual(actual, lease_id)
+            self.assertTrue(response.closed)
+
+    def test_meta_commit_disconnect_and_uncertain_stop_keep_admission_safe(self):
+        lease_id = '11111111-1111-4111-8111-111111111111'
+        @contextmanager
+        def lease():
+            yield lease_id
+        for mode in ['disconnect-before-commit', 'unknown-stop', 'wait-failure', 'spawn-failure']:
+            with self.subTest(mode=mode), \
+                 patch.object(upgrade, 'meta_deployment_lease', side_effect=lease), \
+                 patch.object(upgrade, 'running_session_ids', side_effect=[[], ['service:restarting']]), \
+                 patch.object(upgrade, 'active_terminal_pids', return_value=[]), \
+                 patch.object(upgrade, 'assert_meta_lease_owned'), \
+                 patch.object(upgrade, 'meta_lease_action', side_effect=RuntimeError('disconnected') if mode == 'disconnect-before-commit' else None) as action, \
+                 patch.object(upgrade, 'cancel_unsubmitted_meta_lease') as cancel, \
+                 patch.object(upgrade.core, 'command', side_effect=RuntimeError('unknown') if mode == 'unknown-stop' else FileNotFoundError('spawn') if mode == 'spawn-failure' else None) as command, \
+                 patch.object(upgrade.core, 'wait_stopped', side_effect=RuntimeError('not stopped') if mode == 'wait-failure' else None):
+                with self.assertRaises(RuntimeError if mode != 'spawn-failure' else FileNotFoundError):
+                    upgrade.stop_idle_service()
+                action.assert_called_once_with(lease_id, 'commit')
+                if mode in ['disconnect-before-commit', 'spawn-failure']:
+                    cancel.assert_called_once_with(lease_id)
+                else:
+                    cancel.assert_not_called()
+                if mode == 'disconnect-before-commit': command.assert_not_called()
 
     def test_owner_refresh_accepts_only_an_unused_matching_backup_manifest(self):
         with tempfile.TemporaryDirectory() as directory:

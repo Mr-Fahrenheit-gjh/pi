@@ -419,6 +419,15 @@ class CandidateFlowTests(unittest.TestCase):
 
 
 class PreflightTests(unittest.TestCase):
+    def test_generated_meta_development_cache_is_not_source_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root/'app').mkdir()
+            (root/'app/page.tsx').write_text('source')
+            (root/'.next-pi-meta').mkdir()
+            (root/'.next-pi-meta/generated.js').write_text('generated')
+            self.assertEqual(set(preflight.runtime_files(root)), {'app/page.tsx'})
+
     def fixture(self, root):
         here = root / '工具/pi-web维护/native-agent-switcher'; here.mkdir(parents=True)
         source = here.parent / 'source'; source.mkdir(); candidate = root / 'candidate'; candidate.mkdir()
