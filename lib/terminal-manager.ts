@@ -52,6 +52,10 @@ function shellEnvironment(): Record<string, string> {
   }
   env.TERM = "xterm-256color";
   env.COLORTERM = "truecolor";
+  // This PTY is rendered by ghostty-web, not the server's launch terminal.
+  // TUI extensions use this identity to select their Nerd Font icon packs.
+  env.TERM_PROGRAM = "ghostty";
+  delete env.TERM_PROGRAM_VERSION;
   // Windows shells (Git Bash / MSYS2, cmd, PowerShell) otherwise inherit the
   // system ANSI codepage (e.g. GBK on zh-CN) and mangle non-ASCII filenames.
   if (!process.env.LANG && !process.env.LC_ALL && !process.env.LC_CTYPE) env.LANG = "C.UTF-8";
