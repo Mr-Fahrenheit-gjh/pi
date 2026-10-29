@@ -817,7 +817,12 @@ export class AgentSessionWrapper {
     }
   }
 
-  async send(command: Record<string, unknown>): Promise<unknown> {
+  /** Internal-only voice correlation; HTTP command bodies cannot install this callback. */
+  async send(command: Record<string, unknown>, voice?: {
+    expectedLeafId: string;
+    isCurrent: () => boolean;
+    onComplete: (entries: unknown[] | null) => void;
+  }): Promise<unknown> {
     const type = command.type as string;
     const admissionEpoch = this.interruptAdmissionEpoch;
     // A newer user action owns the conversation, even before it writes a message.
@@ -892,6 +897,18 @@ export class AgentSessionWrapper {
             throw new Error("Cannot send a prompt while a shell command is running");
           }
           const isContinuation = type === "continue_task";
+          const assertVoiceCurrent = () => {
+            if (!voice) return;
+            if (type !== "prompt" || command.streamingBehavior || !voice.isCurrent()
+              || continuationEpoch !== this.taskContinuationEpoch || !this.isAlive()
+              || voice.expectedLeafId !== this.inner.sessionManager.getLeafId()
+              || this.inner.isStreaming || this.inner.isCompacting || this.inner.isBashRunning
+              || isInterruptSteerBusy(this.inner) || this.inner.pendingMessageCount > 0) {
+              throw new Error("Voice handoff is stale or Pi is busy");
+            }
+          };
+          assertVoiceCurrent();
+          if (voice && this.pendingPromptCount > 0) throw new Error("Pi is busy");
           const assertContinuationCurrent = () => {
             if (!isContinuation) return;
             if (continuationEpoch !== this.taskContinuationEpoch || !this.isAlive()
@@ -983,6 +1000,7 @@ export class AgentSessionWrapper {
           try {
             // MCP preparation is async: Stop/new input may have superseded this click.
             assertContinuationCurrent();
+            assertVoiceCurrent();
             prompt = type === "steer"
               ? this.inner.steer(promptText, promptImages?.length ? promptImages : undefined)
                 .then(() => { acceptPreflight(); })
@@ -1003,10 +1021,13 @@ export class AgentSessionWrapper {
             // the internal callback. This waits for the run, but never acks early.
             acceptPreflight();
             finishPrompt();
+            voice?.onComplete(continuationEpoch === this.taskContinuationEpoch && this.isAlive()
+              && !this.lastRunAborted && voice.isCurrent() ? this.inner.sessionManager.getBranch() : null);
             if (!streamingBehavior) this.emit(this.promptDoneEvent());
           }, (error) => {
             rejectPreflight(error);
             finishPrompt();
+            voice?.onComplete(null);
             invalidateSessionListCache();
             // A preflight rejection is returned by the POST itself. Only an
             // unexpected failure after acceptance needs the asynchronous event.

@@ -6,6 +6,7 @@ import { getRpcSessionInfos, getRestartBlockingRpcSessionIds } from "./rpc-manag
 import { hasActiveSessionWorkProvider } from "./session-liveness";
 import { getActiveTerminalCount } from "./terminal-manager";
 import { serviceRestartState } from "./service-restart-state";
+import { activeVoiceWork } from "./voice-work";
 import { feynmanRestartBlockingIds } from "./feynman-rpc";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { piMetaControl, piMetaStartingOrUnresolved, shutdownPiMeta } from "./pi-meta-process.mjs";
@@ -41,7 +42,7 @@ export function restartBlockers(): { sessions: number; terminals: number } {
   for (const session of getRpcSessionInfos({ includeTransient: true })) {
     if (hasActiveSessionWorkProvider({ sessionId: session.id, sessionFile: session.path })) sessions.add(session.id);
   }
-  return { sessions: sessions.size + (globalThis.__piStartLocks?.size ?? 0) + (piMetaStartingOrUnresolved() ? 1 : 0), terminals: getActiveTerminalCount() };
+  return { sessions: sessions.size + activeVoiceWork() + (globalThis.__piStartLocks?.size ?? 0) + (piMetaStartingOrUnresolved() ? 1 : 0), terminals: getActiveTerminalCount() };
 }
 
 export async function serviceRestartStatus() {

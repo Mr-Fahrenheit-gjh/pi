@@ -308,7 +308,7 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
     handleRecallQueue,
     handleBuiltinSlashCommand,
     handleToolPresetChange, handleThinkingLevelChange, handleSetDefaultModel, handleSetDefaultThinkingLevel, loadSlashCommands, scrollUserMsgToTop,
-    loadContext, activeLeafId, scrollToBottom, scrollToMessage,
+    loadContext, activeLeafId, voiceNavigation, scrollToBottom, scrollToMessage,
   } = useAgentSession({
     session, sessionRunning, newSessionCwd, newSessionDraftKey, initialNewSessionChoices, onNewSessionChoicesChange, onAgentEnd: wrappedOnAgentEnd, onToolEnd, onAttentionNeeded, onSessionCreated, onSessionForked,
     modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSystemToolsChange, onSystemInfoLoaderChange, onSessionStatsPanelOpen,
@@ -1002,6 +1002,10 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
       contextUsage={contextUsage}
       onAudioUnlock={unlockAudio}
       draftKey={session?.id ?? newSessionDraftKey ?? undefined}
+      voiceSessionId={session?.id}
+      voiceLeafId={activeLeafId}
+      voiceNavigation={voiceNavigation}
+      voiceActive={globalEscapeEnabled}
       promptSuggestion={getPromptSuggestion(extensionWidgets, session?.id)}
       cwd={session?.cwd ?? newSessionCwd}
       onAttachFiles={onAttachFiles}

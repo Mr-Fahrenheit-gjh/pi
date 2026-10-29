@@ -12,6 +12,7 @@ import { feynmanRestartBlockingIds } from "@/lib/feynman-rpc";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { piMetaRestartBlockingIds } from "@/lib/pi-meta-process.mjs";
 import { serviceRestartState } from "@/lib/service-restart-state";
+import { activeVoiceWork } from "@/lib/voice-work";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export async function GET() {
       piMetaDeploymentLease: 1,
       otherRuntimeRunningSessionIds: [
         ...feynmanRestartBlockingIds(),
+        ...(activeVoiceWork() ? ["voice:active"] : []),
         ...(serviceRestartState().pending ? ["service:restarting"] : []),
         ...await piMetaRestartBlockingIds({ mainAgentDir: getAgentDir(), packageDir: process.cwd() }),
       ],

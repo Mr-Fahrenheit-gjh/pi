@@ -1,5 +1,6 @@
 "use client";
-import { runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
+import { runtimeFetch as fetch, pageRuntime } from "@/lib/runtime-client.mjs";
+import { VoiceControls } from "./VoiceControls";
 
 import React, { memo, useRef, useState, useCallback, useEffect, useLayoutEffect, useImperativeHandle, forwardRef, KeyboardEvent } from "react";
 import type { BuiltinSlashCommandResult, CompactResultInfo, QueuedMessages, SlashCommandInfo } from "@/hooks/useAgentSession";
@@ -109,6 +110,10 @@ interface Props {
   welcomeToolbar?: React.ReactNode;
   onAudioUnlock?: () => void;
   draftKey?: string;
+  voiceSessionId?: string;
+  voiceLeafId?: string | null;
+  voiceNavigation?: number;
+  voiceActive?: boolean;
   promptSuggestion?: PromptSuggestion;
   /** Session working directory — enables the @ file autocomplete menu */
   cwd?: string | null;
@@ -678,6 +683,10 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
   welcomeToolbar,
   onPromptWithStreamingBehavior,
   draftKey,
+  voiceSessionId,
+  voiceLeafId,
+  voiceNavigation,
+  voiceActive = true,
   promptSuggestion,
   cwd,
   onAttachFiles,
@@ -757,6 +766,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
   const historyItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const fileIndexMetaRef = useRef<{ cwd: string; fetchedAt: number } | null>(null);
   const fileIndexFetchingRef = useRef<string | null>(null);
+  const [voiceEpoch, setVoiceEpoch] = useState(0);
   const draftKeyRef = useRef(draftKey);
   const valueRef = useRef(value);
   const attachedImagesRef = useRef(attachedImages);
@@ -838,6 +848,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
           image.data === currentDraft.images[index]?.data
           && image.mimeType === currentDraft.images[index]?.mimeType
         ));
+      setVoiceEpoch((epoch) => epoch + 1);
       draftKeyRef.current = nextKey;
       if (unchanged) return;
 
@@ -1000,6 +1011,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
   }, []);
 
   const clearInput = useCallback(() => {
+    setVoiceEpoch((epoch) => epoch + 1);
     valueRef.current = "";
     setValue("");
     setAtQuery(null);
@@ -2523,6 +2535,15 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
           {/* LEFT: attach + model selector (idle) or steer/followup toggle (streaming) */}
           <div style={{ flex: isMobile ? "1 1 auto" : "0 0 auto", minWidth: 0, display: "flex", alignItems: "center", gap: 2 }}>
             {welcome ? welcomeToolbar : attachButton}
+            {pageRuntime() === "pi" && <VoiceControls
+              key={`${draftKey ?? ""}:${cwd ?? ""}:${voiceNavigation ?? 0}:${voiceEpoch}:${voiceActive}`}
+              active={voiceActive} sessionId={voiceSessionId} leafId={voiceLeafId}
+              appendDraft={(text) => {
+                const next = valueRef.current + (valueRef.current && !/\s$/.test(valueRef.current) ? " " : "") + text;
+                valueRef.current = next;
+                setText(next);
+              }}
+            />}
 
           </div>
 

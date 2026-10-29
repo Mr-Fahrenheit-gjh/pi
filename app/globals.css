@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./conversation-transition.css";
+@import "./voice.css";
 @import "./interface-fonts.css";
 /* demo/ is a separate project; keep its sources out of this app's class scan. */
 @source not "../demo";
