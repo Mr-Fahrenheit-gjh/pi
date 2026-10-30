@@ -76,10 +76,10 @@ export function VoiceControls({ active, sessionId, leafId, appendDraft, surface,
         <span role="status" aria-live="polite">{t(`voice.${mode}`)}</span>
         {call && <span className="voice-elapsed" aria-label={t("voice.elapsed")}>{Math.floor((view?.seconds ?? 0) / 60)}:{String((view?.seconds ?? 0) % 60).padStart(2, "0")}</span>}
       </div>
-      <Waveform levels={view?.levels} muted={view?.muted || mode === "ending"}/>
+      <Waveform levels={view?.levels} muted={view?.muted}/>
       {call ? <>
-        <button type="button" className="voice-capture-action" disabled={mode === "connecting" || mode === "ending"} aria-label={t(view?.muted ? "voice.unmute" : "voice.mute")} title={t(view?.muted ? "voice.unmute" : "voice.mute")} aria-pressed={view?.muted} onClick={() => client.current?.mute()}><MicrophoneIcon muted={view?.muted}/></button>
-        <button ref={cancelButton} type="button" className="voice-capture-action" disabled={mode === "ending"} aria-label={t("voice.hangup")} title={t("voice.hangup")} onClick={() => client.current?.hangup()}><CloseIcon/></button>
+        <button type="button" className="voice-capture-action" disabled={mode === "connecting"} aria-label={t(view?.muted ? "voice.unmute" : "voice.mute")} title={t(view?.muted ? "voice.unmute" : "voice.mute")} aria-pressed={view?.muted} onClick={() => client.current?.mute()}><MicrophoneIcon muted={view?.muted}/></button>
+        <button ref={cancelButton} type="button" className="voice-capture-action" aria-label={t("voice.hangup")} title={t("voice.hangup")} onClick={() => client.current?.hangup()}><CloseIcon/></button>
       </> : <>
         <button ref={cancelButton} type="button" className="voice-capture-action" aria-label={t("voice.cancel")} title={t("voice.cancel")} onClick={() => client.current?.cancel()}><CloseIcon/></button>
         <button type="button" className="voice-capture-action" disabled={mode !== "recording"} aria-label={t("voice.stopRecording")} title={t("voice.stopRecording")} onClick={() => client.current?.stopDictation()}>
