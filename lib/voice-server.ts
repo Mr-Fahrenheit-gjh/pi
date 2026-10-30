@@ -7,7 +7,7 @@ import { holdVoiceWork, activeVoiceWork } from "./voice-work";
 import { getRpcSession, startRpcSession, type AgentSessionWrapper } from "./rpc-manager";
 import { resolveSessionPath } from "./session-reader";
 import { registerSessionLivenessProvider } from "./session-liveness";
-import { audioExtension, record, VOICE_AUDIO_BYTES, VOICE_CALL_MS, voiceContext, voiceFinalAnswer, VoiceOperationLedger } from "./voice-protocol";
+import { audioExtension, record, VOICE_AUDIO_BYTES, VOICE_CALL_MS, VOICE_RECORD_MS, voiceContext, voiceFinalAnswer, VoiceOperationLedger } from "./voice-protocol";
 
 class VoiceError extends Error {
   constructor(readonly code: string, readonly status = 400) { super(code); }
@@ -23,6 +23,7 @@ declare global {
   var __piVoiceCalls: Map<string, Call> | undefined;
   var __piVoiceStarts: number[] | undefined;
   var __piVoiceStartingSessions: Set<string> | undefined;
+  var __piVoiceDictations: Map<string, () => void> | undefined;
 }
 const calls = () => globalThis.__piVoiceCalls ??= new Map<string, Call>();
 function sweep() {
@@ -73,9 +74,10 @@ export async function boundedVoiceBody(body: ReadableStream<Uint8Array> | null, 
     return bytes;
   } finally { signal.removeEventListener("abort", abort); await reader.cancel().catch(() => {}); }
 }
-async function upstream(modelId: "gpt-live-1" | "gpt-transcribe", body: FormData | string, signal: AbortSignal, onAttempt?: () => void) {
+async function upstream(modelId: "gpt-live-1" | "gpt-transcribe" | "dictation", body: FormData | string, signal: AbortSignal, onAttempt?: () => void) {
   const runtime = await initializeVoice(() => getModelRuntimeWithExtensions(), signal);
-  const model = runtime.getModel("openai", modelId);
+  // Reuse the existing official transcription provider credential; no registry/config mutation.
+  const model = runtime.getModel("openai", modelId === "dictation" ? "gpt-transcribe" : modelId);
   if (!model) throw new VoiceError("not-configured", 503);
   const auth = await initializeVoice(() => runtime.getAuth(model), signal);
   if (!auth?.auth.apiKey) throw new VoiceError("not-configured", 503);
@@ -90,7 +92,8 @@ async function upstream(modelId: "gpt-live-1" | "gpt-transcribe", body: FormData
   headers.delete("host"); headers.delete("content-length"); headers.delete("content-type");
   if (typeof body === "string") headers.set("Content-Type", "application/json");
   signal.throwIfAborted(); onAttempt?.();
-  const response = await fetch(`https://api.openai.com/v1/${modelId === "gpt-live-1" ? "live/sessions" : "audio/transcriptions"}`, {
+  const endpoint = modelId === "dictation" ? "realtime/client_secrets" : modelId === "gpt-live-1" ? "live/sessions" : "audio/transcriptions";
+  const response = await fetch(`https://api.openai.com/v1/${endpoint}`, {
     method: "POST", headers, body, signal, redirect: "error", cache: "no-store",
   });
   if (!response.ok) { await response.body?.cancel(); throw new VoiceError("upstream-failed", 502); }
@@ -139,6 +142,31 @@ async function handle(req: Request, action: string, signal: AbortSignal): Promis
   const bytes = await boundedVoiceBody(req.body, 80_000, signal);
   let body: Record<string, unknown>;
   try { body = record(JSON.parse(new TextDecoder().decode(bytes))); } catch { throw new VoiceError("invalid-request"); }
+  if (action === "dictation-start") {
+    admitStart();
+    const token = randomUUID(); const release = holdVoiceWork(token, VOICE_RECORD_MS + 30_000);
+    try {
+      const data = await upstream("dictation", JSON.stringify({
+        expires_after: { anchor: "created_at", seconds: 60 },
+        session: { type: "transcription", audio: { input: {
+          format: { type: "audio/pcm", rate: 24000 },
+          transcription: { model: "gpt-live-transcribe", delay: "low" }, turn_detection: null,
+        } } },
+      }), signal);
+      if (typeof data.value !== "string" || !data.value.startsWith("ek_") || data.value.length > 4096) throw new VoiceError("upstream-failed", 502);
+      const dictations = globalThis.__piVoiceDictations ??= new Map<string, () => void>();
+      const finish = () => { clearTimeout(timer); release(); dictations.delete(token); };
+      const timer = setTimeout(finish, VOICE_RECORD_MS + 30_000); timer.unref();
+      dictations.set(token, finish);
+      return { secret: data.value, token };
+    } catch (error) { release(); throw error; }
+  }
+  if (action === "dictation-end") {
+    const token = field(body, "token");
+    // A failed close/abandoned page retains the bounded work hold; no false closure proof.
+    if (body.confirmed === true) globalThis.__piVoiceDictations?.get(token)?.();
+    return { ended: true };
+  }
   if (action === "start") {
     const sessionId = field(body, "sessionId");
     admitStart(); const token = randomUUID(); let releaseWork = holdVoiceWork(token, 65_000);

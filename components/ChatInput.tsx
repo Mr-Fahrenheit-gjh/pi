@@ -2543,8 +2543,8 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
               active={voiceActive} sessionId={voiceSessionId} leafId={voiceLeafId}
               surface={voiceSurface} onSurfaceActive={setVoiceSurfaceActive}
               restoreDraftFocus={() => textareaRef.current?.focus({ preventScroll: true })}
-              appendDraft={(text) => {
-                const next = valueRef.current + (valueRef.current && !/\s$/.test(valueRef.current) ? " " : "") + text;
+              updateDraft={(update) => {
+                const next = update(valueRef.current);
                 valueRef.current = next;
                 setText(next);
               }}

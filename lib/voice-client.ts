@@ -1,7 +1,8 @@
-import { audioExtension, commentaryChunks, record, VoiceTranscript, VOICE_AUDIO_BYTES, VOICE_RECORD_MS, VOICE_CALL_MS } from "./voice-protocol";
+import { commentaryChunks, record, VoiceTranscript, VOICE_CALL_MS } from "./voice-protocol";
+import { RealtimeDictation } from "./voice-dictation";
 
 export interface VoiceView {
-  mode: "idle" | "permission" | "recording" | "transcribing" | "connecting" | "live" | "delegating" | "ending" | "error";
+  mode: "idle" | "permission" | "recording" | "paused" | "transcribing" | "connecting" | "live" | "delegating" | "ending" | "error";
   notice: string; muted: boolean; audioBlocked: boolean; seconds: number; usage?: number; finalUsage: boolean;
   user: string; assistant: string; levels: number[]; task?: { id: string; text: string }; operation?: string;
 }
@@ -32,12 +33,10 @@ export class VoiceClient {
   private generation = 0;
   private busy = false;
   private stream?: MediaStream;
-  private recorder?: MediaRecorder;
-  private abort?: AbortController;
-  private recordingTimer?: ReturnType<typeof setTimeout>;
+  private dictation?: RealtimeDictation;
   private call?: Call;
   private meter?: { context: AudioContext; source: MediaStreamAudioSourceNode; analyser: AnalyserNode; frame: number };
-  constructor(private changed: (view: VoiceView) => void, private appendDraft: (text: string) => void) {}
+  constructor(private changed: (view: VoiceView) => void, private updateDraft: (id: string, text: string) => void) {}
   private update(patch: Partial<VoiceView>) { this.view = { ...this.view, ...patch }; this.changed(this.view); }
   private fail(error: unknown) {
     this.update({ mode: "error", notice: error instanceof DOMException && error.name === "NotAllowedError" ? "permissionDenied" : error instanceof Error && error.message === "unsupported" ? "unsupported" : "failed" });
@@ -89,64 +88,29 @@ export class VoiceClient {
   }
   private stopTracks() { this.stream?.getTracks().forEach((t) => t.stop()); this.stream = undefined; }
   private clearRecording() {
-    this.stopMeter();
-    clearTimeout(this.recordingTimer); this.recordingTimer = undefined;
-    if (this.recorder) {
-      this.recorder.ondataavailable = null; this.recorder.onstop = null; this.recorder.onerror = null;
-      if (this.recorder.state !== "inactive") this.recorder.stop();
-    }
-    this.recorder = undefined; this.stopTracks();
+    this.dictation?.close(); this.dictation = undefined;
+    this.stopMeter(); this.stopTracks();
   }
   cancel() {
-    ++this.generation; this.abort?.abort(); this.abort = undefined; this.clearRecording();
+    ++this.generation; this.clearRecording();
     if (this.call) { this.hangup(); return; }
     this.busy = false; this.update({ mode: "idle", notice: "" });
   }
   async dictate() {
+    if (this.dictation && this.view.mode === "paused") { await this.dictation.start(); return; }
     if (this.busy) return;
-    this.busy = true; const generation = ++this.generation;
+    this.busy = true; ++this.generation;
     this.update({ ...initial(), mode: "permission" });
-    try {
-      this.supported(false);
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (generation !== this.generation) { stream.getTracks().forEach((t) => t.stop()); return; }
-      this.stream = stream;
-      const mimeType = ["audio/webm;codecs=opus", "audio/mp4"].find((m) => MediaRecorder.isTypeSupported(m));
-      if (!mimeType) throw new Error("unsupported");
-      const recorder = this.recorder = new MediaRecorder(stream, { mimeType });
-      const chunks: Blob[] = []; let bytes = 0;
-      recorder.ondataavailable = (event) => {
-        if (generation !== this.generation) return;
-        bytes += event.data.size;
-        if (bytes > VOICE_AUDIO_BYTES) { this.cancel(); this.update({ mode: "error", notice: "limit" }); return; }
-        if (event.data.size) chunks.push(event.data);
-      };
-      recorder.onerror = () => { this.cancel(); this.update({ mode: "error", notice: "failed" }); };
-      recorder.onstop = () => {
-        if (generation !== this.generation) return;
-        const mime = recorder.mimeType;
-        this.clearRecording();
-        void this.transcribe(new Blob(chunks, { type: mime }), generation);
-      };
-      recorder.start(500);
-      this.startMeter(stream);
-      this.update({ mode: "recording" });
-      this.recordingTimer = setTimeout(() => this.stopDictation(), VOICE_RECORD_MS);
-    } catch (error) { if (generation === this.generation) { this.clearRecording(); this.busy = false; this.fail(error); } }
+    const owned = new RealtimeDictation({
+      mode: (mode) => { if (this.dictation === owned) this.update({ mode }); },
+      transcript: (id, text) => { if (this.dictation === owned) this.updateDraft(id, text); },
+      capture: (stream) => { this.stopMeter(); if (stream) this.startMeter(stream); },
+      error: (error) => { if (this.dictation === owned) { this.dictation = undefined; this.busy = false; this.fail(error); } },
+    });
+    this.dictation = owned;
+    await owned.start();
   }
-  stopDictation() { if (this.recorder?.state === "recording") this.recorder.stop(); }
-  private async transcribe(blob: Blob, generation: number) {
-    this.update({ mode: "transcribing" });
-    const abort = this.abort = new AbortController();
-    try {
-      if (!blob.size || !audioExtension(blob.type)) throw new Error("empty-audio");
-      const { response, data } = await voiceJson("/api/voice/transcribe", { method: "POST", body: blob }, abort.signal);
-      if (!response.ok || typeof data.text !== "string" || !data.text.trim() || data.text.length > 12_000) throw new Error("transcribe-failed");
-      if (generation !== this.generation) return;
-      this.appendDraft(data.text); this.update({ mode: "idle", notice: "draftReady" });
-    } catch (error) { if (generation === this.generation) this.fail(error); }
-    finally { if (generation === this.generation) { this.busy = false; this.abort = undefined; } }
-  }
+  stopDictation() { this.dictation?.pause(); }
   private timer(call: Call, fn: () => void, ms: number) {
     const id = setTimeout(() => { call.timers.delete(id); fn(); }, ms); call.timers.add(id); return id;
   }
