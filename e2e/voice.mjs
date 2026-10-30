@@ -56,7 +56,7 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
         queueMicrotask(() => { this.readyState = 1; this.onopen?.(); queueMicrotask(() => this.event({ type: 'session.updated' })); });
       }
       send(value) { this.sent.push(JSON.parse(value)); }
-      event(value) { this.onmessage?.({ data: JSON.stringify(value) }); }
+      event(value) { this.onmessage?.({ data: JSON.stringify(value) }); if (value.type === 'session.updated') this.sessionReady = true; }
       close() { this.readyState = 3; this.onclose?.({ wasClean: true }); }
     };
     fixture.transcript = (event) => fixture.sockets.at(-1)?.event(event);
@@ -131,6 +131,7 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
   assert.deepEqual(await page.locator('[data-composer-send][data-voice-stop]').first().boundingBox(), sendBox, 'Only the send icon changes; the stop control occupies its exact place');
   assert.equal(await page.getByRole('button', { name: 'Pause dictation', exact: true }).locator('rect').count(), 2, 'The right-side control is a two-bar pause icon, not a stop square');
   assert.equal(await page.locator('.voice-dictation-status').count(), 0, 'No permission/listening/paused text changes the toolbar layout');
+  await page.waitForFunction(() => window.__voice.sockets.at(-1)?.sessionReady);
   await page.evaluate(() => window.__voice.transcript({ type: 'conversation.item.input_audio_transcription.delta', item_id: 'a', delta: 'dictated' }));
   await page.waitForFunction(() => document.querySelector('.chat-input-textarea')?.value === 'existing draft dictated');
   assert.equal(await page.evaluate(() => window.__voice.tracks.at(-1).stopped), false, 'Text arrives before the microphone is stopped');
