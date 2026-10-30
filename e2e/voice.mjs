@@ -165,6 +165,9 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
   if (outputDir) await page.screenshot({ path: `${outputDir}/voice.png` });
   const revoked = page.waitForRequest((request) => request.url().endsWith("/api/voice/revoke"));
   await page.getByRole("button", { name: "Hang up", exact: true }).click(); await revoked;
+  await input.waitFor({ state: "visible" });
+  assert.equal(await page.locator(".voice-capture-row").count(), 0, "End restores the draft without waiting for remote usage");
+  assert.equal(await page.evaluate(() => window.__voice.tracks.every((track) => track.stopped)), true);
   assert.equal(await page.evaluate(() => window.__voice.peers.at(-1).closed), false);
   await event({ type: "session.closed", usage: { seconds: 12 } });
   await page.waitForFunction(() => window.__voice.peers.at(-1).closed && window.__voice.tracks.every((t) => t.stopped));

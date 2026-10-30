@@ -41,7 +41,7 @@ export function VoiceControls({ active, sessionId, leafId, appendDraft, surface,
     surfaceActive.current(false);
     const owned = new VoiceClient((value) => {
       if (!mounted) return;
-      const next = !["idle", "error"].includes(value.mode);
+      const next = !["idle", "error", "ending"].includes(value.mode);
       if (shown && !next && document.activeElement?.closest(".voice-inline")) focusDraft.current = true;
       setView(value);
       if (shown !== next) { shown = next; surfaceActive.current(next); }
@@ -57,20 +57,21 @@ export function VoiceControls({ active, sessionId, leafId, appendDraft, surface,
   }, []);
   const mode = view?.mode ?? "idle";
   const busy = !["idle", "error"].includes(mode);
-  const call = ["connecting", "live", "delegating", "ending"].includes(mode);
+  const capturing = busy && mode !== "ending";
+  const call = ["connecting", "live", "delegating"].includes(mode);
   useEffect(() => {
     // Only transfer focus from our own trigger/controls, never from another editor.
-    if (busy && !priorBusy.current && focusCapture.current) { focusCapture.current = false; cancelButton.current?.focus({ preventScroll: true }); }
-    if (!busy && focusDraft.current && active) { focusDraft.current = false; focus.current(); }
-    priorBusy.current = busy;
-  }, [busy, active]);
+    if (capturing && !priorBusy.current && focusCapture.current) { focusCapture.current = false; cancelButton.current?.focus({ preventScroll: true }); }
+    if (!capturing && focusDraft.current && active) { focusDraft.current = false; focus.current(); }
+    priorBusy.current = capturing;
+  }, [capturing, active]);
   const iconStyle = { width: 32, height: 32, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", borderRadius: 9 };
   const visibleNotice = view?.notice && view.notice !== "draftReady" && view.notice !== "review";
   const inline = <div className="voice-inline" data-mode={mode} onKeyDown={(event) => {
-    if (event.key !== "Escape" || event.nativeEvent.isComposing || !busy) return;
+    if (event.key !== "Escape" || event.nativeEvent.isComposing || !capturing) return;
     event.preventDefault(); event.stopPropagation(); client.current?.cancel();
   }}>
-    {busy && <div className="voice-capture-row" role="region" aria-label={t(call ? "voice.call" : "voice.dictate")} title={call ? undefined : t("voice.recordingLimit")}>
+    {capturing && <div className="voice-capture-row" role="region" aria-label={t(call ? "voice.call" : "voice.dictate")} title={call ? undefined : t("voice.recordingLimit")}>
       <div className="voice-capture-label">
         <span role="status" aria-live="polite">{t(`voice.${mode}`)}</span>
         {call && <span className="voice-elapsed" aria-label={t("voice.elapsed")}>{Math.floor((view?.seconds ?? 0) / 60)}:{String((view?.seconds ?? 0) % 60).padStart(2, "0")}</span>}
@@ -106,6 +107,7 @@ export function VoiceControls({ active, sessionId, leafId, appendDraft, surface,
         {view?.usage !== undefined && <p>{t(view.finalUsage ? "voice.finalUsage" : "voice.usage", { seconds: Math.ceil(view.usage) })}</p>}
       </details>
     </>}
+    {mode === "ending" && <p className="voice-inline-status" role="status">{t("voice.ending")}</p>}
     {visibleNotice && <div className="voice-inline-notice">
       <span role="status">{t(`voice.${view.notice}`)}{!busy && view?.usage !== undefined && ` ${t(view.finalUsage ? "voice.finalUsage" : "voice.usage", { seconds: Math.ceil(view.usage) })}`}</span>
       {!busy && <button type="button" className="voice-text-action" aria-label={t("voice.dismiss")} onClick={() => client.current?.dismissNotice()}><CloseIcon/></button>}

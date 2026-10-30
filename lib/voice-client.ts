@@ -178,6 +178,8 @@ export class VoiceClient {
       this.call = call; this.stream = undefined;
       this.startMeter(stream);
       const owned = call;
+      // Include ICE and the upstream start request in the connection deadline.
+      this.timer(call, () => { if (!owned.started) this.hangup("connectTimeout"); }, 20_000);
       this.timer(call, () => this.hangup("limit"), VOICE_CALL_MS);
       peer.ontrack = (event) => {
         audio.srcObject = event.streams[0] ?? new MediaStream([event.track]);
@@ -201,7 +203,6 @@ export class VoiceClient {
       call.token = data.token; call.liveId = data.liveId; call.leafId = data.leafId;
       if (this.call !== call || call.closing) { void this.api("end", call, { confirmed: false }, new AbortController().signal).catch(() => {}); return; }
       await peer.setRemoteDescription({ type: "answer", sdp: data.sdp });
-      this.timer(call, () => { if (!owned.started) this.hangup("connectTimeout"); }, 20_000);
       void this.poll(call);
     } catch (error) {
       if (call && this.call === call) this.releaseCall(call, false, "unknownUsage");
@@ -328,12 +329,13 @@ export class VoiceClient {
     if (!call) { this.cancel(); return; }
     if (call.closing) return;
     this.stopMeter();
-    call.closing = true; call.stream.getTracks().forEach((track) => { track.enabled = false; });
+    call.closing = true; call.stream.getTracks().forEach((track) => { track.enabled = false; track.stop(); });
     call.audio.muted = true;
     // Admission revocation must not wait for the remote close/usage drain.
     if (call.token) void this.api("revoke", call, {}, new AbortController().signal).catch(() => {});
     this.update({ mode: "ending", task: undefined, notice });
     this.send(call, { type: "session.close" });
+    if (!call.started) call.abort.abort();
     this.timer(call, () => this.releaseCall(call, false, notice || "unknownUsage"), 15_000);
   }
   private releaseCall(call: Call, confirmed: boolean, notice: string) {
