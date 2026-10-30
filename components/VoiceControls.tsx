@@ -21,9 +21,9 @@ function Waveform({ levels = [], muted = false }: { levels?: number[]; muted?: b
   </div>;
 }
 
-export function VoiceControls({ active, sessionId, leafId, updateDraft, surface, onSurfaceActive, onDictationChange, restoreDraftFocus }: {
+export function VoiceControls({ active, sessionId, leafId, updateDraft, surface, waveformSurface, onSurfaceActive, onDictationChange, restoreDraftFocus }: {
   active: boolean; sessionId?: string; leafId?: string | null; updateDraft: (update: (value: string) => string) => void;
-  surface: HTMLElement | null; onSurfaceActive: (active: boolean) => void;
+  surface: HTMLElement | null; waveformSurface: HTMLElement | null; onSurfaceActive: (active: boolean) => void;
   onDictationChange: (active: boolean, pause: () => void) => void; restoreDraftFocus: () => void;
 }) {
   const { t } = useI18n();
@@ -131,5 +131,6 @@ export function VoiceControls({ active, sessionId, leafId, updateDraft, surface,
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><path d="M3 10v4M7 7v10M12 3v18M17 7v10M21 10v4"/></svg>
     </button>
     {surface && createPortal(inline, surface)}
+    {waveformSurface && mode === "recording" && createPortal(<Waveform levels={view?.levels}/>, waveformSurface)}
   </div>;
 }

@@ -768,6 +768,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
   const fileIndexFetchingRef = useRef<string | null>(null);
   const [voiceEpoch, setVoiceEpoch] = useState(0);
   const [voiceSurface, setVoiceSurface] = useState<HTMLDivElement | null>(null);
+  const [voiceWaveformSurface, setVoiceWaveformSurface] = useState<HTMLDivElement | null>(null);
   const [voiceSurfaceActive, setVoiceSurfaceActive] = useState(false);
   const [voiceDictating, setVoiceDictating] = useState(false);
   const pauseDictation = useRef<() => void>(() => {});
@@ -2515,6 +2516,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
               {promptSuggestionPlaceholder}
             </div>
           )}
+          {!compact && pageRuntime() === "pi" && <div className="voice-dictation-waveform-slot" ref={setVoiceWaveformSurface} aria-hidden="true"/>}
           {(!welcome || compact) && sendButton}
 
 
@@ -2544,7 +2546,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
             {pageRuntime() === "pi" && <VoiceControls
               key={`${draftKey ?? ""}:${cwd ?? ""}:${voiceNavigation ?? 0}:${voiceEpoch}:${voiceActive}`}
               active={voiceActive} sessionId={voiceSessionId} leafId={voiceLeafId}
-              surface={voiceSurface} onSurfaceActive={setVoiceSurfaceActive}
+              surface={voiceSurface} waveformSurface={voiceWaveformSurface} onSurfaceActive={setVoiceSurfaceActive}
               onDictationChange={(listening, pause) => { pauseDictation.current = pause; setVoiceDictating(listening); }}
               restoreDraftFocus={() => textareaRef.current?.focus({ preventScroll: true })}
               updateDraft={(update) => {

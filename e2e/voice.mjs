@@ -119,6 +119,7 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
   await page.locator('.chat-input-shell input[type="file"]').first().setInputFiles({ name: "voice-note.txt", mimeType: "text/plain", buffer: Buffer.from("fixture attachment") });
   const card = page.locator(".chat-input-shell .attachment-card"); await card.waitFor();
   await input.fill("existing draft");
+  assert.equal(await page.locator('.voice-dictation-waveform-slot .voice-waveform').count(), 0);
   const leftIcons = await page.getByTestId('voice-controls').locator('button svg').evaluateAll((icons) => icons.map((icon) => icon.outerHTML));
   const sendBox = await page.locator('[data-composer-send]').first().boundingBox();
   await page.getByRole("button", { name: "Dictate to draft", exact: true }).click();
@@ -131,6 +132,10 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
   assert.deepEqual(await page.locator('[data-composer-send][data-voice-stop]').first().boundingBox(), sendBox, 'Only the send icon changes; the stop control occupies its exact place');
   assert.equal(await page.getByRole('button', { name: 'Pause dictation', exact: true }).locator('rect').count(), 2, 'The right-side control is a two-bar pause icon, not a stop square');
   assert.equal(await page.locator('.voice-dictation-status').count(), 0, 'No permission/listening/paused text changes the toolbar layout');
+  await page.locator('.voice-dictation-waveform-slot .voice-waveform').waitFor();
+  await page.waitForFunction(() => [...document.querySelectorAll('.voice-dictation-waveform-slot .voice-waveform span')].length === 24 && [...document.querySelectorAll('.voice-dictation-waveform-slot .voice-waveform span')].every((bar) => parseFloat(bar.style.height) === 3));
+  await page.evaluate(() => { window.__voice.amplitude = 16; });
+  await page.waitForFunction(() => [...document.querySelectorAll('.voice-dictation-waveform-slot .voice-waveform span')].some((bar) => parseFloat(bar.style.height) > 3));
   await page.waitForFunction(() => window.__voice.sockets.at(-1)?.sessionReady);
   await page.evaluate(() => window.__voice.transcript({ type: 'conversation.item.input_audio_transcription.delta', item_id: 'a', delta: 'dictated' }));
   await page.waitForFunction(() => document.querySelector('.chat-input-textarea')?.value === 'existing draft dictated');
@@ -142,11 +147,16 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
     return { width: box.width, right: box.right, scroll: row.scrollWidth, client: row.clientWidth };
   });
   assert.ok(inlineMobile.right <= 390 && inlineMobile.scroll <= inlineMobile.client, "Inline recording fits mobile without clipping its actions");
+  const waveBox = await page.locator('.voice-dictation-waveform-slot .voice-waveform').boundingBox();
+  const pauseBox = await page.locator('[data-composer-send][data-voice-stop]').first().boundingBox();
+  const draftBox = await input.boundingBox();
+  assert.ok(draftBox.x + draftBox.width <= waveBox.x && waveBox.x + waveBox.width <= pauseBox.x, 'Mobile draft, waveform and pause control never overlap');
   if (outputDir) await page.locator('.chat-input-shell').first().screenshot({ path: `${outputDir}/voice-recording-mobile.png` });
   await page.setViewportSize({ width: 1440, height: 950 });
   await page.getByRole('button', { name: 'Pause dictation', exact: true }).click();
   await page.getByRole('button', { name: 'Dictate to draft', exact: true }).waitFor();
   await page.locator('[data-composer-send]:not([data-voice-stop])').first().waitFor();
+  assert.equal(await page.locator('.voice-dictation-waveform-slot .voice-waveform').count(), 0, 'Pause removes waveform without replacing the microphone');
   assert.deepEqual(await page.getByTestId('voice-controls').locator('button svg').evaluateAll((icons) => icons.map((icon) => icon.outerHTML)), leftIcons);
   assert.equal(await input.inputValue(), 'existing draft dictated');
   assert.ok(await page.evaluate(() => window.__voice.tracks.every((track) => track.stopped)));
@@ -249,7 +259,7 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
   await input.press("Enter"); await sent;
   assert.equal(prompts.length, 1, "Only the explicit keyboard send submits the draft");
   assert.deepEqual(errors, []);
-  return { passed: true, layout, inlineCapture: true, mobileCapture: true, realtimeDraft: true, sendArrowStop: true, unchangedMicrophone: true, noDictationStatusText: true, pausePreservesDraft: true, inlineCall: true, draftOnly: true, attachmentsPreserved: true, confirmedHandoff: true, matchedCompletion: true, deduplicated: true, cleanup: true, navigation: true, splitOwnership: true, legacyAbortSignals: true };
+  return { passed: true, layout, inlineCapture: true, mobileCapture: true, realtimeDraft: true, sendArrowStop: true, unchangedMicrophone: true, noDictationStatusText: true, measuredDictationWaveform: true, waveformClearedOnPause: true, pausePreservesDraft: true, inlineCall: true, draftOnly: true, attachmentsPreserved: true, confirmedHandoff: true, matchedCompletion: true, deduplicated: true, cleanup: true, navigation: true, splitOwnership: true, legacyAbortSignals: true };
 }
 
 // Explicit opt-in paid transport probe. Use a synthetic session and audio only;

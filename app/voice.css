@@ -17,6 +17,8 @@
 .voice-inline[data-mode="recording"] .voice-capture-label > [role="status"] { font-style: italic; }
 .voice-elapsed { font-size: 11px; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .voice-waveform { display: flex; align-items: center; justify-content: flex-end; gap: 4px; height: 26px; width: 164px; flex: 0 1 164px; overflow: hidden; color: var(--text-muted); }
+.voice-dictation-waveform-slot { flex: 0 0 auto; min-width: 0; pointer-events: none; }
+.voice-dictation-waveform-slot:empty { display: none; }
 .voice-waveform span { display: block; flex: 0 0 3px; border-radius: 3px; background: currentColor; }
 .voice-waveform[data-muted] { opacity: .35; }
 .voice-capture-action {
