@@ -118,9 +118,11 @@ export async function resolveVisibleModels(
   patterns: string[] | undefined,
 ): Promise<ModelScopeResult> {
   const cleaned = (patterns ?? []).map((pattern) => pattern.trim()).filter(Boolean);
-  // /models imports can contain Image, Audio, Embedding and classifier IDs.
-  // They need their own API adapters, not a chat completion request.
-  const available: readonly Model<Api>[] = (await modelRuntime.getAvailable()).filter(isChatModel);
+  // ID-only /models imports may describe non-chat endpoints. Validate their
+  // references against the full snapshot before projecting chat selection;
+  // otherwise a registered image model becomes a false no-match warning.
+  const catalog: readonly Model<Api>[] = await modelRuntime.getAvailable();
+  const available = catalog.filter(isChatModel);
   if (cleaned.length === 0) {
     return {
       visible: available,
@@ -130,11 +132,14 @@ export async function resolveVisibleModels(
     };
   }
 
-  assertNoAmbiguousExactPatterns(cleaned, available);
+  assertNoAmbiguousExactPatterns(cleaned, catalog);
   const snapshotRuntime = {
-    getAvailable: async () => available,
+    getAvailable: async () => catalog,
   } as ModelRuntime;
-  const { scopedModels, diagnostics } = await resolveModelScopeWithDiagnostics(cleaned, snapshotRuntime);
+  const { scopedModels: resolvedModels, diagnostics } = await resolveModelScopeWithDiagnostics(cleaned, snapshotRuntime);
+  // Never pass Image/Audio/Embedding/classifier IDs to AgentSession, even if
+  // their enabled reference is valid. An image-only scope uses the chat fallback.
+  const scopedModels = resolvedModels.filter((scoped) => isChatModel(scoped.model));
   // A leftover valid glob after a model was removed is not a chat-level problem
   // when other enabledModels entries still matched. Keep exact and malformed
   // pattern warnings, and keep all no-match warnings for a total miss, where

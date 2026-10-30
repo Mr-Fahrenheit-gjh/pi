@@ -25,13 +25,21 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
   assert.notEqual(new URL(baseURL).port, "30141", "Never mock the formal user page");
   const errors = [], prompts = [], handoffs = [], calls = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  let operation = null, deferTranscribe = false, finishTranscribe;
+  let operation = null, deferTranscribe = false, finishTranscribe, transcriptions = 0;
   await page.setViewportSize({ width: 1440, height: 950 });
   await page.addInitScript(() => {
     localStorage.setItem("pi-locale", "en"); localStorage.setItem("pi-ui-language-version", "english-interface-v1"); localStorage.setItem("pi-sidebar-open", "true");
+    localStorage.setItem("pi-theme", "claude-white");
     Object.defineProperty(AbortSignal, "any", { configurable: true, value: undefined });
     Object.defineProperty(AbortSignal, "timeout", { configurable: true, value: undefined });
-    const fixture = window.__voice = { tracks: [], peers: [], sources: [], permission: null, captures: 0 };
+    const fixture = window.__voice = { tracks: [], peers: [], sources: [], contexts: [], amplitude: 0, permission: null, captures: 0 };
+    window.AudioContext = class {
+      state = "running";
+      constructor() { fixture.contexts.push(this); }
+      createMediaStreamSource() { return { connect() {}, disconnect() {} }; }
+      createAnalyser() { return { fftSize: 512, getByteTimeDomainData(data) { data.fill(128 + fixture.amplitude); }, disconnect() {} }; }
+      close() { this.state = "closed"; return Promise.resolve(); }
+    };
     const stream = () => { const track = { enabled: true, stopped: false, stop() { this.stopped = true; } }; fixture.tracks.push(track); return { getTracks: () => [track], getAudioTracks: () => [track] }; };
     Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { getUserMedia: () => { fixture.captures++; return fixture.permission ? new Promise((resolve) => { fixture.resolvePermission = () => resolve(stream()); }) : Promise.resolve(stream()); } } });
     window.MediaRecorder = class {
@@ -75,6 +83,7 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
   await page.route("**/api/voice/*", async (route) => {
     const action = new URL(route.request().url()).pathname.split("/").at(-1);
     if (action === "transcribe") {
+      transcriptions++;
       assert.match(route.request().headers()["content-type"], /^audio\/webm/);
       if (deferTranscribe) await new Promise((resolve) => { finishTranscribe = resolve; });
       return route.fulfill({ json: { text: "dictated words" } }).catch(() => {});
@@ -104,13 +113,35 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
   await input.fill("existing draft");
   await page.getByRole("button", { name: "Dictate to draft", exact: true }).click();
   await page.getByRole("button", { name: "Stop and transcribe", exact: true }).waitFor();
-  await input.fill("edited while recording");
+  await page.waitForFunction(() => document.querySelector('.voice-inline[data-mode="recording"]'));
+  assert.equal(await input.isVisible(), false, "Recording replaces the draft surface, not a floating popup");
+  assert.equal(await page.locator('.composer-surface .voice-capture-row').count(), 1);
+  assert.equal(await page.locator('.voice-panel, .voice-inline [role="dialog"]').count(), 0);
+  await page.waitForFunction(() => [...document.querySelectorAll('.voice-waveform span')].every((bar) => parseFloat(bar.style.height) === 3));
+  await page.evaluate(() => { window.__voice.amplitude = 16; });
+  await page.waitForFunction(() => [...document.querySelectorAll('.voice-waveform span')].some((bar) => parseFloat(bar.style.height) > 3));
+  if (outputDir) await page.locator('.chat-input-shell').first().screenshot({ path: `${outputDir}/voice-recording.png` });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const inlineMobile = await page.locator('.voice-capture-row').evaluate((row) => {
+    const box = row.getBoundingClientRect();
+    return { width: box.width, right: box.right, scroll: row.scrollWidth, client: row.clientWidth };
+  });
+  assert.ok(inlineMobile.right <= 390 && inlineMobile.scroll <= inlineMobile.client, "Inline recording fits mobile without clipping its actions");
+  if (outputDir) await page.locator('.chat-input-shell').first().screenshot({ path: `${outputDir}/voice-recording-mobile.png` });
+  await page.setViewportSize({ width: 1440, height: 950 });
+  await page.keyboard.press('Escape');
+  await input.waitFor({ state: 'visible' });
+  assert.equal(await input.inputValue(), 'existing draft'); assert.equal(transcriptions, 0, "Cancel never transcribes or sends");
+  assert.ok(await page.evaluate(() => window.__voice.contexts.every((context) => context.state === 'closed')));
+  await page.getByRole("button", { name: "Dictate to draft", exact: true }).click();
   await page.getByRole("button", { name: "Stop and transcribe", exact: true }).click();
-  await page.waitForFunction(() => document.querySelector(".chat-input-textarea")?.value === "edited while recording dictated words");
+  await page.waitForFunction(() => document.querySelector(".chat-input-textarea")?.value === "existing draft dictated words");
+  await input.waitFor({ state: 'visible' });
   assert.equal(prompts.length, 0); assert.equal(await card.count(), 1);
-  await page.getByRole("button", { name: "Dismiss", exact: true }).click();
 
   await startCall();
+  assert.equal(await page.locator('.composer-surface .voice-capture-row').count(), 1);
+  assert.equal(await page.locator('.voice-call-details').getAttribute('open'), null, 'Call details stay collapsed until requested');
   await event({ type: "session.input_transcript.delta", event_id: "u1", delta: "inspect the current task", start_ms: 1, end_ms: 10 });
   const delegation = { type: "session.delegation.created", event_id: "d-event", offset_ms: 12, delegation: { id: "d1", target: "client" } };
   await event(delegation); await event(delegation);
@@ -118,7 +149,7 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
   assert.equal(handoffs.length, 0); assert.equal(await task.inputValue(), "inspect the current task");
   await task.fill("inspect without changing files");
   await page.getByRole("button", { name: "Hand to Pi", exact: true }).dblclick();
-  await page.waitForFunction(() => document.querySelector(".voice-panel")?.textContent.includes("Pi accepted the request"));
+  await page.waitForFunction(() => document.querySelector(".voice-inline")?.textContent.includes("Pi accepted the request"));
   assert.equal(handoffs.length, 1); assert.equal(handoffs[0].sessionId, sessionId);
   assert.equal(handoffs[0].text, "inspect without changing files");
   operation = { id: "unrelated", status: "completed", text: "WRONG ANSWER" };
@@ -128,7 +159,7 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
   await page.waitForFunction(() => window.__voice.peers.at(-1).channel.sent.some((e) => e.content === "Matched Pi final answer"));
   await page.waitForResponse((response) => response.url().endsWith("/api/voice/poll"));
   assert.equal(await page.evaluate(() => window.__voice.peers.at(-1).channel.sent.filter((e) => e.content === "Matched Pi final answer").length), 1);
-  assert.equal(await input.inputValue(), "edited while recording dictated words"); assert.equal(await card.count(), 1);
+  assert.equal(await input.inputValue(), "existing draft dictated words"); assert.equal(await card.count(), 1);
   await page.getByRole("button", { name: "Mute mic", exact: true }).click();
   assert.equal(await page.evaluate(() => window.__voice.tracks.at(-1).enabled), false);
   if (outputDir) await page.screenshot({ path: `${outputDir}/voice.png` });
@@ -197,7 +228,7 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
   await input.press("Enter"); await sent;
   assert.equal(prompts.length, 1, "Only the explicit keyboard send submits the draft");
   assert.deepEqual(errors, []);
-  return { passed: true, layout, draftOnly: true, attachmentsPreserved: true, confirmedHandoff: true, matchedCompletion: true, deduplicated: true, cleanup: true, navigation: true, splitOwnership: true, legacyAbortSignals: true };
+  return { passed: true, layout, inlineCapture: true, mobileCapture: true, measuredWaveform: true, cancelPreservesDraft: true, inlineCall: true, draftOnly: true, attachmentsPreserved: true, confirmedHandoff: true, matchedCompletion: true, deduplicated: true, cleanup: true, navigation: true, splitOwnership: true, legacyAbortSignals: true };
 }
 
 // Explicit opt-in paid transport probe. Use a synthetic session and audio only;

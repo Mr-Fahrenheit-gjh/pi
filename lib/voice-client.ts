@@ -3,9 +3,9 @@ import { audioExtension, commentaryChunks, record, VoiceTranscript, VOICE_AUDIO_
 export interface VoiceView {
   mode: "idle" | "permission" | "recording" | "transcribing" | "connecting" | "live" | "delegating" | "ending" | "error";
   notice: string; muted: boolean; audioBlocked: boolean; seconds: number; usage?: number; finalUsage: boolean;
-  user: string; assistant: string; task?: { id: string; text: string }; operation?: string;
+  user: string; assistant: string; levels: number[]; task?: { id: string; text: string }; operation?: string;
 }
-const initial = (): VoiceView => ({ mode: "idle", notice: "", muted: false, audioBlocked: false, seconds: 0, finalUsage: false, user: "", assistant: "" });
+const initial = (): VoiceView => ({ mode: "idle", notice: "", muted: false, audioBlocked: false, seconds: 0, finalUsage: false, user: "", assistant: "", levels: [] });
 interface Call {
   peer: RTCPeerConnection; channel: RTCDataChannel; audio: HTMLAudioElement; stream: MediaStream;
   started: boolean; closing: boolean; sessionId: string; token?: string; liveId?: string; leafId?: string;
@@ -36,6 +36,7 @@ export class VoiceClient {
   private abort?: AbortController;
   private recordingTimer?: ReturnType<typeof setTimeout>;
   private call?: Call;
+  private meter?: { context: AudioContext; source: MediaStreamAudioSourceNode; analyser: AnalyserNode; frame: number };
   constructor(private changed: (view: VoiceView) => void, private appendDraft: (text: string) => void) {}
   private update(patch: Partial<VoiceView>) { this.view = { ...this.view, ...patch }; this.changed(this.view); }
   private fail(error: unknown) {
@@ -44,8 +45,51 @@ export class VoiceClient {
   private supported(rtc: boolean) {
     if (!globalThis.isSecureContext || !navigator.mediaDevices?.getUserMedia || (rtc ? typeof RTCPeerConnection === "undefined" : typeof MediaRecorder === "undefined")) throw new Error("unsupported");
   }
+  private startMeter(stream: MediaStream) {
+    // Optional, local-only analysis of the already-owned microphone. No destination
+    // connection (feedback), extra capture, synthetic movement or audio upload.
+    const AudioContextClass = globalThis.AudioContext ?? (globalThis as typeof globalThis & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass || typeof requestAnimationFrame !== "function") return;
+    let context: AudioContext | undefined, source: MediaStreamAudioSourceNode | undefined, analyser: AnalyserNode | undefined;
+    try {
+      context = new AudioContextClass(); source = context.createMediaStreamSource(stream); analyser = context.createAnalyser();
+      analyser.fftSize = 512; source.connect(analyser);
+      const meter = this.meter = { context, source, analyser, frame: 0 };
+      const data = new Uint8Array(analyser.fftSize); let sampledAt = -Infinity;
+      const sample = (now: number) => {
+        if (this.meter !== meter) return;
+        if (now - sampledAt >= 70) {
+          sampledAt = now;
+          meter.analyser.getByteTimeDomainData(data);
+          const audible = stream.getAudioTracks().some((track) => track.enabled && !track.muted);
+          const levels = Array.from({ length: 24 }, (_, index) => {
+            let sum = 0;
+            const start = Math.floor(index * data.length / 24), end = Math.floor((index + 1) * data.length / 24);
+            for (let i = start; i < end; i++) sum += ((data[i] - 128) / 128) ** 2;
+            return audible ? Math.min(1, Math.sqrt(sum / (end - start)) * 4) : 0;
+          });
+          this.update({ levels });
+        }
+        meter.frame = requestAnimationFrame(sample);
+      };
+      if (context.state === "suspended") void context.resume().catch(() => {});
+      meter.frame = requestAnimationFrame(sample);
+    } catch {
+      source?.disconnect(); analyser?.disconnect();
+      if (context) void context.close().catch(() => {});
+      this.meter = undefined; // Meter failure must not fail recording or a call.
+    }
+  }
+  private stopMeter() {
+    const meter = this.meter; this.meter = undefined;
+    if (!meter) return;
+    cancelAnimationFrame(meter.frame); meter.source.disconnect(); meter.analyser.disconnect();
+    void meter.context.close().catch(() => {});
+    this.update({ levels: [] });
+  }
   private stopTracks() { this.stream?.getTracks().forEach((t) => t.stop()); this.stream = undefined; }
   private clearRecording() {
+    this.stopMeter();
     clearTimeout(this.recordingTimer); this.recordingTimer = undefined;
     if (this.recorder) {
       this.recorder.ondataavailable = null; this.recorder.onstop = null; this.recorder.onerror = null;
@@ -85,6 +129,7 @@ export class VoiceClient {
         void this.transcribe(new Blob(chunks, { type: mime }), generation);
       };
       recorder.start(500);
+      this.startMeter(stream);
       this.update({ mode: "recording" });
       this.recordingTimer = setTimeout(() => this.stopDictation(), VOICE_RECORD_MS);
     } catch (error) { if (generation === this.generation) { this.clearRecording(); this.busy = false; this.fail(error); } }
@@ -131,6 +176,7 @@ export class VoiceClient {
       call = { peer, channel, audio, stream, started: false, closing: false, sessionId, transcript: new VoiceTranscript(),
         delegations: new Set(), completed: new Set(), offset: -1, timers: new Set(), abort: new AbortController(), polling: false, startedAt: Date.now() };
       this.call = call; this.stream = undefined;
+      this.startMeter(stream);
       const owned = call;
       this.timer(call, () => this.hangup("limit"), VOICE_CALL_MS);
       peer.ontrack = (event) => {
@@ -281,6 +327,7 @@ export class VoiceClient {
     const call = this.call;
     if (!call) { this.cancel(); return; }
     if (call.closing) return;
+    this.stopMeter();
     call.closing = true; call.stream.getTracks().forEach((track) => { track.enabled = false; });
     call.audio.muted = true;
     // Admission revocation must not wait for the remote close/usage drain.
@@ -291,6 +338,7 @@ export class VoiceClient {
   }
   private releaseCall(call: Call, confirmed: boolean, notice: string) {
     if (this.call !== call) return;
+    this.stopMeter();
     this.call = undefined; call.closing = true; call.abort.abort();
     call.timers.forEach(clearTimeout); call.timers.clear();
     call.stream.getTracks().forEach((track) => track.stop());

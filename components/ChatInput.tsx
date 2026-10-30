@@ -767,6 +767,8 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
   const fileIndexMetaRef = useRef<{ cwd: string; fetchedAt: number } | null>(null);
   const fileIndexFetchingRef = useRef<string | null>(null);
   const [voiceEpoch, setVoiceEpoch] = useState(0);
+  const [voiceSurface, setVoiceSurface] = useState<HTMLDivElement | null>(null);
+  const [voiceSurfaceActive, setVoiceSurfaceActive] = useState(false);
   const draftKeyRef = useRef(draftKey);
   const valueRef = useRef(value);
   const attachedImagesRef = useRef(attachedImages);
@@ -2035,7 +2037,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
             {onDismissCompactError && <DismissButton onClick={onDismissCompactError} title={t("chat.dismissCompactError")} />}
           </div>
         )}
-        <div className={compact ? undefined : "composer-card"}>
+        <div className={compact ? undefined : "composer-card"} data-voice-active={voiceSurfaceActive || undefined}>
         <div className={compact ? undefined : "composer-surface"}>
         {/* Attachment previews share the text-entry surface, above the draft. */}
         {(attachedFiles.length > 0 || attachedImages.length > 0) && (
@@ -2072,8 +2074,9 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
           </div>
         )}
 
-        {/* Main input */}
-        <div style={{ position: "relative", minWidth: 0 }}>
+        {!compact && pageRuntime() === "pi" && <div className="voice-surface-slot" ref={setVoiceSurface} />}
+        {/* Keep the draft mounted and unchanged while inline capture occupies its surface. */}
+        <div className={compact ? undefined : "composer-draft"} style={{ position: "relative", minWidth: 0 }}>
           {historyMenuOpen && inputHistory.length > 0 && (
             <div
               ref={historyMenuRef}
@@ -2538,6 +2541,8 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
             {pageRuntime() === "pi" && <VoiceControls
               key={`${draftKey ?? ""}:${cwd ?? ""}:${voiceNavigation ?? 0}:${voiceEpoch}:${voiceActive}`}
               active={voiceActive} sessionId={voiceSessionId} leafId={voiceLeafId}
+              surface={voiceSurface} onSurfaceActive={setVoiceSurfaceActive}
+              restoreDraftFocus={() => textareaRef.current?.focus({ preventScroll: true })}
               appendDraft={(text) => {
                 const next = valueRef.current + (valueRef.current && !/\s$/.test(valueRef.current) ? " " : "") + text;
                 valueRef.current = next;
