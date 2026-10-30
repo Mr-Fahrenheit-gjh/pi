@@ -129,7 +129,7 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
   assert.equal(await page.locator('.voice-panel, .voice-inline [role="dialog"]').count(), 0);
   assert.deepEqual(await page.getByTestId('voice-controls').locator('button svg').evaluateAll((icons) => icons.map((icon) => icon.outerHTML)), leftIcons, 'Microphone and call icons stay unchanged');
   assert.deepEqual(await page.locator('[data-composer-send][data-voice-stop]').first().boundingBox(), sendBox, 'Only the send icon changes; the stop control occupies its exact place');
-  assert.equal(await page.getByRole('button', { name: 'Pause dictation', exact: true }).locator('rect').count(), 1);
+  assert.equal(await page.getByRole('button', { name: 'Pause dictation', exact: true }).locator('rect').count(), 2, 'The right-side control is a two-bar pause icon, not a stop square');
   assert.equal(await page.locator('.voice-dictation-status').count(), 0, 'No permission/listening/paused text changes the toolbar layout');
   await page.evaluate(() => window.__voice.transcript({ type: 'conversation.item.input_audio_transcription.delta', item_id: 'a', delta: 'dictated' }));
   await page.waitForFunction(() => document.querySelector('.chat-input-textarea')?.value === 'existing draft dictated');

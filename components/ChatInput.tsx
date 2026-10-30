@@ -1875,7 +1875,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
               aria-keyshortcuts={!voiceDictating && isStreaming && runningSendAction === "followup" ? isMobile ? "Control+Alt+Enter Meta+Alt+Enter" : "Alt+Enter" : undefined}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                {voiceDictating ? <rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" stroke="none"/> : <path d="m9 10-5 5 5 5M4 15h13a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3h-4" />}
+                {voiceDictating ? <g fill="currentColor" stroke="none"><rect x="7" y="5" width="3" height="14" rx="0.7"/><rect x="14" y="5" width="3" height="14" rx="0.7"/></g> : <path d="m9 10-5 5 5 5M4 15h13a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3h-4" />}
               </svg>
             </button>
           );
