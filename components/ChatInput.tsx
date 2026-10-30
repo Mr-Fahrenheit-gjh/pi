@@ -769,6 +769,8 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
   const [voiceEpoch, setVoiceEpoch] = useState(0);
   const [voiceSurface, setVoiceSurface] = useState<HTMLDivElement | null>(null);
   const [voiceSurfaceActive, setVoiceSurfaceActive] = useState(false);
+  const [voiceDictating, setVoiceDictating] = useState(false);
+  const pauseDictation = useRef<() => void>(() => {});
   const draftKeyRef = useRef(draftKey);
   const valueRef = useRef(value);
   const attachedImagesRef = useRef(attachedImages);
@@ -1860,19 +1862,20 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
             </button>
   );
 
-  const sendButton = (!isStreaming || onSteer || onFollowUp) && (
+  const sendButton = (voiceDictating || !isStreaming || onSteer || onFollowUp) && (
             <button
               type="button"
               className="composer-send-button"
               data-composer-send
-              onClick={() => isStreaming ? sendQueued(runningSendAction) : handleSend()}
-              disabled={isStreaming ? !canQueueStreamingMessage : !value.trim() && !attachedImages.length && !attachedFiles.length}
-              title={isStreaming ? runningSendAction === "steer" ? t("chat.steerHint") : `${t("chat.followUpHint")} (${isMobile ? "Ctrl/Cmd+" : ""}Alt/Option+Enter)` : t("chat.send")}
-              aria-label={isStreaming ? t(runningSendAction === "steer" ? "chat.steer" : "chat.followUp") : t("chat.send")}
-              aria-keyshortcuts={isStreaming && runningSendAction === "followup" ? isMobile ? "Control+Alt+Enter Meta+Alt+Enter" : "Alt+Enter" : undefined}
+              data-voice-stop={voiceDictating || undefined}
+              onClick={() => voiceDictating ? pauseDictation.current() : isStreaming ? sendQueued(runningSendAction) : handleSend()}
+              disabled={!voiceDictating && (isStreaming ? !canQueueStreamingMessage : !value.trim() && !attachedImages.length && !attachedFiles.length)}
+              title={voiceDictating ? t("voice.pauseDictation") : isStreaming ? runningSendAction === "steer" ? t("chat.steerHint") : `${t("chat.followUpHint")} (${isMobile ? "Ctrl/Cmd+" : ""}Alt/Option+Enter)` : t("chat.send")}
+              aria-label={voiceDictating ? t("voice.pauseDictation") : isStreaming ? t(runningSendAction === "steer" ? "chat.steer" : "chat.followUp") : t("chat.send")}
+              aria-keyshortcuts={!voiceDictating && isStreaming && runningSendAction === "followup" ? isMobile ? "Control+Alt+Enter Meta+Alt+Enter" : "Alt+Enter" : undefined}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="m9 10-5 5 5 5M4 15h13a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3h-4" />
+                {voiceDictating ? <rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" stroke="none"/> : <path d="m9 10-5 5 5 5M4 15h13a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3h-4" />}
               </svg>
             </button>
           );
@@ -2542,6 +2545,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
               key={`${draftKey ?? ""}:${cwd ?? ""}:${voiceNavigation ?? 0}:${voiceEpoch}:${voiceActive}`}
               active={voiceActive} sessionId={voiceSessionId} leafId={voiceLeafId}
               surface={voiceSurface} onSurfaceActive={setVoiceSurfaceActive}
+              onDictationChange={(listening, pause) => { pauseDictation.current = pause; setVoiceDictating(listening); }}
               restoreDraftFocus={() => textareaRef.current?.focus({ preventScroll: true })}
               updateDraft={(update) => {
                 const next = update(valueRef.current);

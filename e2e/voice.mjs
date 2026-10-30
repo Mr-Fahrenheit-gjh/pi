@@ -119,13 +119,18 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
   await page.locator('.chat-input-shell input[type="file"]').first().setInputFiles({ name: "voice-note.txt", mimeType: "text/plain", buffer: Buffer.from("fixture attachment") });
   const card = page.locator(".chat-input-shell .attachment-card"); await card.waitFor();
   await input.fill("existing draft");
+  const leftIcons = await page.getByTestId('voice-controls').locator('button svg').evaluateAll((icons) => icons.map((icon) => icon.outerHTML));
+  const sendBox = await page.locator('[data-composer-send]').first().boundingBox();
   await page.getByRole("button", { name: "Dictate to draft", exact: true }).click();
   await page.getByRole("button", { name: "Pause dictation", exact: true }).waitFor();
   await page.waitForFunction(() => document.querySelector('.voice-inline[data-mode="recording"]'));
   assert.equal(await input.isVisible(), true, "The actual draft stays visible during realtime recognition");
   assert.equal(await page.locator('.composer-surface .voice-capture-row').count(), 0);
   assert.equal(await page.locator('.voice-panel, .voice-inline [role="dialog"]').count(), 0);
-  assert.equal(await page.getByTestId('voice-controls').locator('button:enabled').count(), 1, 'Dictation has only one active pause control');
+  assert.deepEqual(await page.getByTestId('voice-controls').locator('button svg').evaluateAll((icons) => icons.map((icon) => icon.outerHTML)), leftIcons, 'Microphone and call icons stay unchanged');
+  assert.deepEqual(await page.locator('[data-composer-send][data-voice-stop]').first().boundingBox(), sendBox, 'Only the send icon changes; the stop control occupies its exact place');
+  assert.equal(await page.getByRole('button', { name: 'Pause dictation', exact: true }).locator('rect').count(), 1);
+  assert.equal(await page.locator('.voice-dictation-status').count(), 0, 'No permission/listening/paused text changes the toolbar layout');
   await page.evaluate(() => window.__voice.transcript({ type: 'conversation.item.input_audio_transcription.delta', item_id: 'a', delta: 'dictated' }));
   await page.waitForFunction(() => document.querySelector('.chat-input-textarea')?.value === 'existing draft dictated');
   assert.equal(await page.evaluate(() => window.__voice.tracks.at(-1).stopped), false, 'Text arrives before the microphone is stopped');
@@ -139,14 +144,16 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
   if (outputDir) await page.locator('.chat-input-shell').first().screenshot({ path: `${outputDir}/voice-recording-mobile.png` });
   await page.setViewportSize({ width: 1440, height: 950 });
   await page.getByRole('button', { name: 'Pause dictation', exact: true }).click();
-  await page.getByRole('button', { name: 'Resume dictation', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Dictate to draft', exact: true }).waitFor();
+  await page.locator('[data-composer-send]:not([data-voice-stop])').first().waitFor();
+  assert.deepEqual(await page.getByTestId('voice-controls').locator('button svg').evaluateAll((icons) => icons.map((icon) => icon.outerHTML)), leftIcons);
   assert.equal(await input.inputValue(), 'existing draft dictated');
   assert.ok(await page.evaluate(() => window.__voice.tracks.every((track) => track.stopped)));
   assert.ok(await page.evaluate(() => window.__voice.contexts.every((context) => context.state === 'closed')));
   await page.evaluate(() => window.__voice.transcript({ type: 'conversation.item.input_audio_transcription.completed', item_id: 'a', transcript: 'dictated words' }));
   await page.waitForFunction(() => document.querySelector('.chat-input-textarea')?.value === 'existing draft dictated words');
   const capturesBeforeResume = await page.evaluate(() => window.__voice.captures);
-  await page.getByRole('button', { name: 'Resume dictation', exact: true }).click();
+  await page.getByRole('button', { name: 'Dictate to draft', exact: true }).click();
   await page.waitForFunction((count) => window.__voice.captures > count && !window.__voice.tracks.at(-1).stopped && document.querySelector('.voice-inline[data-mode="recording"]'), capturesBeforeResume);
   await page.getByRole('button', { name: 'Pause dictation', exact: true }).click();
   assert.equal(prompts.length, 0); assert.equal(await card.count(), 1);
@@ -241,7 +248,7 @@ export async function runVoiceChecks(page, { baseURL, sessionId = "workspace-des
   await input.press("Enter"); await sent;
   assert.equal(prompts.length, 1, "Only the explicit keyboard send submits the draft");
   assert.deepEqual(errors, []);
-  return { passed: true, layout, inlineCapture: true, mobileCapture: true, realtimeDraft: true, singlePauseResume: true, pausePreservesDraft: true, inlineCall: true, draftOnly: true, attachmentsPreserved: true, confirmedHandoff: true, matchedCompletion: true, deduplicated: true, cleanup: true, navigation: true, splitOwnership: true, legacyAbortSignals: true };
+  return { passed: true, layout, inlineCapture: true, mobileCapture: true, realtimeDraft: true, sendArrowStop: true, unchangedMicrophone: true, noDictationStatusText: true, pausePreservesDraft: true, inlineCall: true, draftOnly: true, attachmentsPreserved: true, confirmedHandoff: true, matchedCompletion: true, deduplicated: true, cleanup: true, navigation: true, splitOwnership: true, legacyAbortSignals: true };
 }
 
 // Explicit opt-in paid transport probe. Use a synthetic session and audio only;

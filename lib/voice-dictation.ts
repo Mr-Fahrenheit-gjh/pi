@@ -58,27 +58,37 @@ export class RealtimeDictation {
   private ready?: Promise<void>;
   private stopping: Promise<void> = Promise.resolve();
   private connectionTimer?: ReturnType<typeof setTimeout>;
+  private preparingTimer?: ReturnType<typeof setTimeout>;
   private limitTimer?: ReturnType<typeof setTimeout>;
   private idleTimer?: ReturnType<typeof setTimeout>;
   private items = new Map<string, { text: string; done: boolean }>();
   private events = new Set<string>();
   private samples = 0;
+  private connected = false;
+  private outgoing: string[] = [];
+  private outgoingBytes = 0;
+  private pumpTimer?: ReturnType<typeof setTimeout>;
   private prefix = crypto.randomUUID();
   constructor(private sink: Sink) {}
   async start() {
     if (this.closed || this.starting || !this.paused) return;
     const generation = ++this.generation; this.starting = true; this.paused = false;
     clearTimeout(this.idleTimer); this.sink.mode("permission");
+    const deadline = this.preparingTimer = setTimeout(() => {
+      if (generation === this.generation) this.fail(new Error("connectTimeout"));
+    }, 20_000);
     let stream: MediaStream | undefined, context: AudioContext | undefined;
     try {
       if (!globalThis.isSecureContext || !navigator.mediaDevices?.getUserMedia || typeof AudioWorkletNode === "undefined" || typeof WebSocket === "undefined") throw new Error("unsupported");
+      // Both tasks begin only on the user's click. Capture early and buffer locally
+      // while the token/handshake runs, rather than making the user wait in silence.
+      if (!this.ready) this.ready = this.connect();
+      const ready = this.ready;
+      void ready.catch((error) => { if (generation === this.generation && !this.closed) this.fail(error); });
       stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
       if (generation !== this.generation || this.closed) return;
       this.pendingStream = stream;
       await this.stopping;
-      if (generation !== this.generation || this.closed) return;
-      if (!this.socket) this.ready = this.connect();
-      await this.ready;
       if (generation !== this.generation || this.closed) return;
       const Context = globalThis.AudioContext ?? (globalThis as typeof globalThis & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!Context) throw new Error("unsupported");
@@ -95,11 +105,10 @@ export class RealtimeDictation {
         if (this.closed || this.capture !== owned) return;
         if (data.type === "flushed") { owned.finish(); return; }
         if (data.type !== "audio" || !(data.samples instanceof ArrayBuffer)) return;
-        if (!this.socket || this.socket.readyState !== 1 || this.socket.bufferedAmount > 256_000) { this.fail(new Error("disconnected")); return; }
         const bytes = new Uint8Array(data.samples);
         if (!bytes.length || bytes.length > 12_000 || bytes.length % 2) return;
         let binary = ""; for (const byte of bytes) binary += String.fromCharCode(byte);
-        this.send({ type: "input_audio_buffer.append", audio: btoa(binary) });
+        this.enqueue({ type: "input_audio_buffer.append", audio: btoa(binary) });
         this.samples += bytes.length / 2;
         if (this.samples >= 24000 * 15) this.commit();
       };
@@ -107,8 +116,11 @@ export class RealtimeDictation {
       this.sink.capture(stream); this.sink.mode("recording");
       this.pendingStream = undefined; this.pendingContext = undefined;
       stream = undefined; context = undefined; // Ownership transferred to capture.
+      await ready;
     } catch (error) { if (generation === this.generation && !this.closed) this.fail(error); }
     finally {
+      clearTimeout(deadline);
+      if (this.preparingTimer === deadline) this.preparingTimer = undefined;
       stream?.getTracks().forEach((track) => track.stop());
       if (this.pendingStream === stream) this.pendingStream = undefined;
       if (context && context.state !== "closed") void context.close().catch(() => {});
@@ -136,8 +148,9 @@ export class RealtimeDictation {
         try {
           const event = record(JSON.parse(data));
           if (event.type === "session.updated") {
-            clearTimeout(this.connectionTimer); abort.signal.removeEventListener("abort", cancel); resolve();
+            clearTimeout(this.connectionTimer); abort.signal.removeEventListener("abort", cancel);
             this.limitTimer ??= setTimeout(() => this.fail(new Error("limit")), VOICE_RECORD_MS);
+            this.connected = true; this.pump(); resolve();
           } else if (event.type === "error" || event.type === "conversation.item.input_audio_transcription.failed") {
             reject(new Error("transcribe-failed")); this.fail(new Error("transcribe-failed"));
           } else this.transcript(event);
@@ -173,16 +186,38 @@ export class RealtimeDictation {
     if ([...this.items.values()].reduce((n, item) => n + item.text.length, 0) > 12_000) throw new Error("limit");
     this.sink.transcript(`${this.prefix}:${event.item_id}`, item.text);
   }
-  private send(event: object) { if (this.socket?.readyState === 1) this.socket.send(JSON.stringify(event)); }
+  private send(event: object) {
+    try { if (this.socket?.readyState === 1) this.socket.send(JSON.stringify(event)); }
+    catch { this.fail(new Error("disconnected")); }
+  }
+  private enqueue(event: object) {
+    if (this.closed) return;
+    const message = JSON.stringify(event);
+    // About 20 seconds of PCM including base64/JSON overhead; never grow unbounded.
+    if (this.outgoingBytes + message.length > 1_500_000) { this.fail(new Error("connectTimeout")); return; }
+    this.outgoing.push(message); this.outgoingBytes += message.length; this.pump();
+  }
+  private pump() {
+    if (this.closed || !this.connected || !this.socket || this.socket.readyState !== 1) return;
+    clearTimeout(this.pumpTimer); this.pumpTimer = undefined;
+    try {
+      while (this.outgoing.length && this.socket.bufferedAmount < 256_000) {
+        const message = this.outgoing.shift()!;
+        this.outgoingBytes -= message.length; this.socket.send(message);
+      }
+      if (this.outgoing.length) this.pumpTimer = setTimeout(() => this.pump(), 20);
+    } catch { this.fail(new Error("disconnected")); }
+  }
   private commit() {
     if (!this.samples) return;
     // The API requires at least 100ms. Pad only a very short, explicitly paused tail.
-    if (this.samples < 2400) this.send({ type: "input_audio_buffer.append", audio: btoa("\0".repeat((2400 - this.samples) * 2)) });
-    this.send({ type: "input_audio_buffer.commit" }); this.samples = 0;
+    if (this.samples < 2400) this.enqueue({ type: "input_audio_buffer.append", audio: btoa("\0".repeat((2400 - this.samples) * 2)) });
+    this.enqueue({ type: "input_audio_buffer.commit" }); this.samples = 0;
   }
   pause() {
     if (this.closed || this.paused) return;
     this.paused = true; this.starting = false; ++this.generation;
+    clearTimeout(this.preparingTimer); this.preparingTimer = undefined;
     this.pendingStream?.getTracks().forEach((track) => track.stop());
     if (this.pendingContext && this.pendingContext.state !== "closed") void this.pendingContext.close().catch(() => {});
     this.sink.capture(); this.sink.mode("paused");
@@ -210,6 +245,8 @@ export class RealtimeDictation {
   }
   private closeSocket() {
     const socket = this.socket, token = this.token; this.socket = undefined; this.token = undefined; this.ready = undefined;
+    this.connected = false; this.outgoing = []; this.outgoingBytes = 0;
+    clearTimeout(this.pumpTimer); this.pumpTimer = undefined;
     if (socket) {
       socket.onopen = null; socket.onmessage = null; socket.onerror = null;
       socket.onclose = (event) => { if (token) this.end(token, event.wasClean === true); };
@@ -222,7 +259,7 @@ export class RealtimeDictation {
   close() {
     if (this.closed) return;
     this.closed = true; ++this.generation; this.abort?.abort();
-    clearTimeout(this.idleTimer);
+    clearTimeout(this.idleTimer); clearTimeout(this.preparingTimer); this.preparingTimer = undefined;
     this.pendingStream?.getTracks().forEach((track) => track.stop());
     if (this.pendingContext && this.pendingContext.state !== "closed") void this.pendingContext.close().catch(() => {});
     const capture = this.capture;
