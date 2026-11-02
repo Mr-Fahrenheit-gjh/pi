@@ -24,11 +24,11 @@ class PrepareOriginalTests(unittest.TestCase):
         self.candidate = self.root / "candidate"
         self.sdk = self.candidate / "node_modules/@earendil-works/pi-coding-agent"
         (self.sdk / "node_modules/example").mkdir(parents=True)
-        (self.sdk / "package.json").write_text(json.dumps({"name": "@earendil-works/pi-coding-agent", "version": "1.4.0"}))
+        (self.sdk / "package.json").write_text(json.dumps({"name": "@earendil-works/pi-coding-agent", "version": "1.5.0"}))
         (self.sdk / "node_modules/example/index.js").write_text("fixture\n")
         source = self.root / "original"
         (source / "dist/bundle").mkdir(parents=True)
-        (source / "package.json").write_text(json.dumps({"name": "@earendil-works/pi-coding-agent", "version": "1.4.0"}))
+        (source / "package.json").write_text(json.dumps({"name": "@earendil-works/pi-coding-agent", "version": "1.5.0"}))
         (source / "dist/cli.js").write_text("// cli\n")
         (source / "dist/bundle/cli.js").write_text("// bundle\n")
         (source / "dist/cli.js").chmod(0o755)
@@ -92,7 +92,7 @@ class PrepareOriginalTests(unittest.TestCase):
                 module.prepare(self.candidate, malicious)
         self.assertFalse((self.root / "outside").exists())
 
-    @unittest.skipUnless(os.environ.get("PI_META_TEST_ARCHIVE"), "requires the verified local 1.4.0 archive")
+    @unittest.skipUnless(os.environ.get("PI_META_TEST_ARCHIVE"), "requires the verified local 1.5.0 archive")
     def test_real_original_archive_matches_the_pinned_fingerprint(self):
         self.hashes.stop()
         archive = Path(os.environ["PI_META_TEST_ARCHIVE"])

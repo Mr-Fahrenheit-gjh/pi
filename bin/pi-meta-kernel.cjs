@@ -1,7 +1,7 @@
 "use strict";
 /* eslint-disable @typescript-eslint/no-require-imports -- Node preloads this CommonJS file before the SDK. */
 
-// These fingerprints are from the cached, unmodified npm 1.4.0 tarballs. A
+// These fingerprints are from the cached, unmodified npm 1.5.0 tarballs. A
 // version update must be reviewed rather than silently mixing incompatible SDKs.
 if (process.env.PI_META_PROCESS === "1") {
   const fs = require("node:fs");
@@ -12,15 +12,16 @@ if (process.env.PI_META_PROCESS === "1") {
   const { fileURLToPath, pathToFileURL } = require("node:url");
 
   const fingerprints = {
-    "pi-coding-agent": "8b2ae2b3da46f7a6e026e6753b4c9b48ac3c724b6e1444ae942ff7f5272aff6a",
-    "pi-agent-core": "5e27b82a809bc1b2d20a0eac8e6fb383d5c02d0eb828ed06c462272966d4a203",
-    "pi-ai": "501444d13628fe2a4f6b47fdce8323a575177ca77b892159744cfc032b3e88ce",
-    "pi-codemode": "8fadac715929a074c017295b2ee44472e9c4e27b594f9d1860bfe8e6264652ea",
-    "pi-mcp": "672999c3304f2546ded358b741f9ed687cdeffa6db7b16a23f3b0e67924c6cf7",
-    "pi-telemetry": "7313b8ff7f7e50b362dbcdd6b506f5f13b40a5d1d5a862680377d677e5fc0be4",
-    "pi-tui": "ef2b4bcab99bda8d528c9975b0c9033bddfc439ef5420cac6803825aac96b3d5",
+      "pi-coding-agent": "0463ddef82f5c00526efd1cc8286732f0d6f6e5f83cf05663d860bedc2b236f0",
+      "pi-agent-core": "1e1cbe1f1e10af214dba286c498ff09b61b0b5371752f85af1e2eaf6674f35c5",
+      "pi-ai": "a555b4349ac1b2e75a7b6dd5a767914878e934a89d10fe25b32134af35e460f1",
+      "pi-codemode": "aab382520c774070bdbb348ed1368a07d398527e20e1a4ffe0fcb38806d6be5b",
+      "pi-mcp": "87e4e5f4634c0277fa002cdc3bd10ef1d88580124a1eb708e993e3c66ec15371",
+      "pi-telemetry": "00474a3ef53873987d57e1aa8a02f06a951985276ff3e076a3b0b69683721953",
+      "pi-tui": "9e263463fcf983fcb1e97c4c634dabbda41267dececcf6b21e98405cea2a7252",
+      "pi-schema": "4da7a29940ac73ce52e365213db07796416c3d1656344c179c6b7b874bf56f74"
   };
-  const webSdkFingerprint = "02256fb904a895ee3546ba3d9cac28632ea07bfc26231a78a02bc1a55060ca1c";
+  const webSdkFingerprint = "ee70da3bcc7096537baa01877a0580e1c6704ccd1e1bac8fa00c8f8c3b062e33";
   const skipWebSdkFile = name => name.startsWith("dist/bundle/") ||
     name.startsWith("dist/pi-interrupt-backup/") ||
     name === "dist/core/agent-session.js" || name === "dist/pi-interrupt-engine.mjs";
@@ -83,7 +84,7 @@ if (process.env.PI_META_PROCESS === "1") {
     // The source and all of its imports were checked above. Preserve the Web
     // module URL, so every Web SDK importer keeps the same class identity.
     const source = fs.readFileSync(originalSession, "utf8");
-    if (createHash("sha256").update(source).digest("hex") !== "436e8be3bbab2db475ce30bb5d0bb30f0046b19a3476f8cd57b8133e68891162") {
+    if (createHash("sha256").update(source).digest("hex") !== "1941d9608c98a3638825a8d10b5443ff7c06f96b3ae370bb37269f3a574ede65") {
       throw new Error("original AgentSession integrity mismatch");
     }
     // Unbundled Pi is byte-for-byte original and lets the auth preload wrap its

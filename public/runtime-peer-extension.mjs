@@ -1,4 +1,4 @@
-import { Type } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 
 /** Copied only into the independent Feynman agent directory; inert outside Web launches. */
 export default function runtimePeer(api) {

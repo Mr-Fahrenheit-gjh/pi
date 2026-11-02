@@ -10,9 +10,9 @@ import shutil
 import tarfile
 import tempfile
 
-VERSION = "1.4.0"
-ARCHIVE_SHA512 = "Z41LpZ3yYHSC/UUps6Mr39UMFPwH8elhJBG9DY1P7kuzsE5qSK/6eMj2EHzO5evJRQWLbKSqUMw+4nCNtIyiQg=="
-ORIGINAL_FINGERPRINT = "8b2ae2b3da46f7a6e026e6753b4c9b48ac3c724b6e1444ae942ff7f5272aff6a"
+VERSION = "1.5.0"
+ARCHIVE_SHA512 = "xNDZ5kqowO6Z03FS2gwAkPEGk1ssxVcYKQ6qZId84mFEvwACvvyc2l0vAMOS+c5zvxLRMLBE9r4y44IGYkMJaQ=="
+ORIGINAL_FINGERPRINT = "0463ddef82f5c00526efd1cc8286732f0d6f6e5f83cf05663d860bedc2b236f0"
 LIVE = Path("/opt/homebrew/lib/node_modules/@agegr/pi-web")
 
 
