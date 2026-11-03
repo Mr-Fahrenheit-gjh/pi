@@ -12,6 +12,8 @@ import { checkComposerFocus } from './composer-focus.mjs';
 import { checkQuickActionShortcuts } from './quick-actions-shortcuts.mjs';
 import { selectedAnswer, installSelectedRoutes, checkSelectedUi } from './upstream-selected.mjs';
 const selectedUpstream = process.env.PI_WEB_TEST_UPSTREAM_SELECTED === '1';
+import { installSidebarActionRoutes, checkSidebarActions } from './sidebar.mjs';
+const sidebarActions = process.env.PI_WEB_TEST_SIDEBAR_ACTIONS === '1';
 
 const source = dirname(dirname(fileURLToPath(import.meta.url)));
 const root = process.env.PI_WEB_CHAT_PACKAGE_ROOT || source;
@@ -103,6 +105,7 @@ try {
   await page.route(`**/api/sessions/${sid}/state`, route => route.fulfill({ json: state() }));
   await page.route(`**/api/agent/${sid}`, route => route.fulfill({ json: state() }));
   const selectedRoutes = selectedUpstream ? await installSelectedRoutes(page, project) : null;
+  const sidebarRoutes = sidebarActions ? await installSidebarActionRoutes(page, project) : null;
   await page.goto(`${base}/?session=${sid}`, { waitUntil: 'networkidle' });
   await page.getByText('正式回答可见', { exact: true }).waitFor();
   await page.getByText('过程中的说明始终可见', { exact: true }).waitFor();
@@ -123,6 +126,7 @@ try {
   await page.getByText(/fetch failed: 403 forbidden/).waitFor();
   await page.getByText(/输出在生成正文前就达到了上限/).waitFor();
   if (selectedRoutes) await checkSelectedUi(page, project, selectedRoutes);
+  if (sidebarRoutes) await checkSidebarActions(page, project, sidebarRoutes);
   live = true;
   await page.evaluate(() => window.__feed({ type: 'agent_start' }));
   const active = page.locator('[data-process-details][data-running]');
@@ -275,7 +279,7 @@ try {
   await page.keyboard.press('Escape');
   await settings.waitFor({ state: 'hidden' });
   assert.deepEqual(errors, []);
-  const result = { passed: true, buildId: readFileSync(join(root, '.next/BUILD_ID'), 'utf8').trim(), packageRoot: root, isolatedAgentDir: agentDir, desktopAndMobile: process.env.PI_WEB_TEST_MOBILE === '1', tested: ['finished history process controls absent', 'live collapse', 'running expand and collapse', 'streaming reasoning hidden', 'streaming answer visible', 'tool failure summary absent; running details available when expanded', 'provider error visible', 'extension confirm visible', 'completion removes process controls', 'fetch failed history/no-content/final-error hidden; running details expandable', 'partial answer with fetch failure visible', 'retry success keeps fetch errors hidden', 'other model failures and truncation visible', 'quoted glued bracket display math renders boxed integral test without errors and preserves following prose', ...focusChecks, ...shortcutChecks, 'system prompt: last settings tab, equal English navigation gaps, shared header, full-width aligned body, single inner scroll, exact text and refresh'], timestamp: new Date().toISOString() };
+  const result = { passed: true, buildId: readFileSync(join(root, '.next/BUILD_ID'), 'utf8').trim(), packageRoot: root, isolatedAgentDir: agentDir, desktopAndMobile: process.env.PI_WEB_TEST_MOBILE === '1', tested: ['finished history process controls absent', 'live collapse', 'running expand and collapse', 'streaming reasoning hidden', 'streaming answer visible', 'tool failure summary absent; running details available when expanded', 'provider error visible', 'extension confirm visible', 'completion removes process controls', 'fetch failed history/no-content/final-error hidden; running details expandable', 'partial answer with fetch failure visible', 'retry success keeps fetch errors hidden', 'other model failures and truncation visible', 'quoted glued bracket display math renders boxed integral test without errors and preserves following prose', ...focusChecks, ...shortcutChecks, ...(sidebarActions ? ['direct Finder and menu Git actions', 'footer fits sidebar 180/220/260/320/420px with visible release count'] : []), 'system prompt: last settings tab, equal English navigation gaps, shared header, full-width aligned body, single inner scroll, exact text and refresh'], timestamp: new Date().toISOString() };
   writeFileSync(join(out, 'result.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
 } finally {

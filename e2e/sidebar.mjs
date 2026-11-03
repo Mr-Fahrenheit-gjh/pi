@@ -1,5 +1,91 @@
 import assert from "node:assert/strict";
 
+/** Isolated fixtures: never launch Finder or touch the real release registry. */
+export async function installSidebarActionRoutes(page, project) {
+  const opened = [];
+  let failOpen = false;
+  const entries = Array.from({ length: 15 }, (_, index) => ({
+    schemaVersion: 1, id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+    revision: 1, scope: "web", title: `Fixture ${index}`, summary: "Layout fixture", status: "pending",
+    sourceSessions: ["fixture"], codeLocations: ["fixture"], verification: ["fixture"],
+    releaseSteps: ["fixture"], rollback: ["fixture"], dependencies: [], createdAt: "2026-11-03T00:00:00.000Z",
+  }));
+  await page.route("**/api/pending-releases", route => route.fulfill({ json: { entries, warnings: [], pendingCount: 15 } }));
+  await page.route("**/api/open-in-explorer", route => {
+    if (route.request().method() === "GET") return route.fulfill({ json: { supported: true, platform: "darwin" } });
+    opened.push(route.request().postDataJSON().cwd);
+    return route.fulfill({ status: failOpen ? 500 : 200, json: failOpen ? { error: "open_failed" } : { ok: true } });
+  });
+  await page.route("**/api/git/status?**", route => route.fulfill({ json: {
+    isGitRepository: true, repositoryRoot: project, additions: 1, deletions: 0,
+    files: [
+      { filePath: `${project}/sidebar-fixture.txt`, status: "untracked", code: "U", indexStatus: "?", worktreeStatus: "?" },
+      { filePath: `${project}/second-fixture.txt`, status: "untracked", code: "U", indexStatus: "?", worktreeStatus: "?" },
+    ],
+  } }));
+  return { opened, failOpen: value => { failOpen = value; } };
+}
+
+/** Direct Finder, secondary Git, and a footer responsive to sidebar—not viewport—width. */
+export async function checkSidebarActions(page, project, routes) {
+  // Exercise the normal English chrome; quiet-tools resumes in its explicit test locale.
+  await page.evaluate(() => localStorage.setItem("pi-locale", "en"));
+  await page.reload({ waitUntil: "networkidle" });
+  const sidebar = page.locator("#session-sidebar");
+  if (!await page.locator("#session-sidebar.sidebar-open").count()) await page.locator("[data-sidebar-toggle]").first().click();
+  const files = page.locator("#session-sidebar-panel-files");
+  const finder = files.getByRole("button", { name: "Open in Finder", exact: true });
+  await finder.click();
+  assert.deepEqual(routes.opened, [project]);
+  assert.equal(await files.getByRole("button", { name: "2 changed files", exact: true }).count(), 0);
+  await files.locator(".sidebar-file-options").click();
+  const menu = page.getByRole("menu");
+  assert.equal(await menu.getByText("Open in Finder", { exact: true }).count(), 0);
+  await menu.getByRole("menuitemcheckbox", { name: "2 changed files", exact: true }).click();
+  await files.locator(`.file-explorer-row[title="${project}/sidebar-fixture.txt"]`).waitFor();
+  await files.locator(".sidebar-file-options").click();
+  assert.equal(await menu.getByRole("menuitemcheckbox", { name: "2 changed files", exact: true }).getAttribute("aria-checked"), "true");
+  await menu.press("Escape");
+  const toggle = files.locator(".sidebar-files-section-toggle");
+  await toggle.click();
+  routes.failOpen(true);
+  await finder.click();
+  await files.getByRole("alert").waitFor();
+  assert.equal(await toggle.getAttribute("aria-expanded"), "true", "Finder failure reveals the folded files section");
+  routes.failOpen(false);
+
+  const footer = sidebar.locator(".workspace-settings-entry");
+  await footer.locator(".pending-release-count").getByText("15", { exact: true }).waitFor();
+  const viewport = page.viewportSize();
+  const originalWidth = await sidebar.evaluate(el => el.style.getPropertyValue("--sidebar-width"));
+  for (const width of [180, 220, 260, 320, 420]) {
+    await sidebar.evaluate((el, value) => { el.style.setProperty("--sidebar-width", `${value}px`); el.style.transition = "none"; }, width);
+    const geometry = await footer.evaluate(el => {
+      const rect = node => { const r = node.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; };
+      return { box: rect(el), buttons: [...el.querySelectorAll(":scope > button")].map(button => ({
+        box: rect(button), title: button.title, label: button.getAttribute("aria-label"),
+        textVisible: getComputedStyle(button.querySelector("span:not(.pending-release-count)")).display !== "none",
+        parts: [...button.querySelectorAll(":scope > svg, :scope > span")].filter(part => getComputedStyle(part).display !== "none").map(rect),
+      })) };
+    });
+    assert.equal(geometry.buttons.length, 3);
+    for (const [index, button] of geometry.buttons.entries()) {
+      assert.ok(button.title && button.label, "Icon-only controls retain their names/tooltips");
+      assert.equal(button.textVisible, width >= 320, `Text visibility at sidebar ${width}`);
+      assert.ok(button.box.left >= geometry.box.left && button.box.right <= geometry.box.right, `Button stays inside footer at ${width}`);
+      if (index) assert.ok(button.box.left >= geometry.buttons[index - 1].box.right, "Buttons never overlap");
+      for (const part of button.parts) assert.ok(part.left >= button.box.left - 0.5 && part.right <= button.box.right + 0.5, `Content fits its button at ${width}`);
+      for (let i = 1; i < button.parts.length; i++) assert.ok(button.parts[i].left >= button.parts[i - 1].right - 0.5, `Icon, label and count never overlap at ${width}`);
+    }
+    assert.equal(await footer.locator(".pending-release-count").isVisible(), true);
+    assert.deepEqual(page.viewportSize(), viewport);
+  }
+  await sidebar.evaluate((el, value) => { el.style.setProperty("--sidebar-width", value); el.style.removeProperty("transition"); }, originalWidth);
+  await page.evaluate(() => localStorage.setItem("pi-locale", "zh-CN"));
+  await page.reload({ waitUntil: "networkidle" });
+  console.log("PASS: direct Finder, Git in More actions, error reveal, footer 180/220/260/320/420px without content overlap");
+}
+
 /*
  * The sidebar's sessions and files in either layout: on a desktop the files
  * sit below the sessions by default (both in view; the files section may be

@@ -2458,20 +2458,16 @@ export function SessionSidebar({ conversationVisible = true, selectedSessionId, 
 
   const explorerCwd = selectedCwd ?? selectedCwdProp ?? null;
   const changedFilesTitle = explorerCwd && changesCount > 0 ? t("sidebar.changedFiles", { count: changesCount }) : undefined;
-  // The changes view's key turns disabled once nothing is changed (a
-  // commit, a revert), under a keyboard user too. The browser blurs it to
-  // the page only at its next rendering update (current Chromium), after
-  // this effect, and that blur clears the root's note, so nothing would try
-  // again: while the note still names the key, its focus goes now to the
-  // nearest key still enabled (the file search after it below the
-  // sessions, the ignored-files switch before it in the tab).
-  const changesKeyRef = useRef<HTMLButtonElement>(null);
-  const changesKeyDisabled = !explorerCwd || changesCount === 0;
+  // Availability may settle while this key owns keyboard focus. Hand it
+  // to a nearby enabled key before Chromium blurs the disabled control.
+  const fileManagerKeyRef = useRef<HTMLButtonElement>(null);
+  const fileManagerKeyDisabled = !explorerCwd || fileManagerUnavailable;
+  const changesUnavailable = !explorerCwd || changesCount === 0;
   useLayoutEffect(() => {
-    const key = changesKeyRef.current;
-    if (!changesKeyDisabled || !key || sidebarFocusRef.current !== key) return;
+    const key = fileManagerKeyRef.current;
+    if (!fileManagerKeyDisabled || !key || sidebarFocusRef.current !== key) return;
     handOffDisabledKeyFocus(document, key, selectedTabButton());
-  }, [changesKeyDisabled, selectedTabButton]);
+  }, [fileManagerKeyDisabled, selectedTabButton]);
   // The toolbar row's search button searches the files on the files tab:
   // the head has no search of its own. Below the sessions it is the
   // sessions' search alone; the files section's header has the files'.
@@ -2509,8 +2505,13 @@ export function SessionSidebar({ conversationVisible = true, selectedSessionId, 
       mobile={isMobile}
       disabled={!explorerCwd}
       items={[
-        { type: "item", id: "file-manager", label: fileManagerLabel, icon: <FolderIcon />, disabled: fileManagerUnavailable, disabledReason: fileManagerUnavailable ? t(fileManager?.reason === "remote" ? "sidebar.openInExplorerRemoteOnly" : "sidebar.openInExplorerUnsupported") : undefined, onSelect: () => {
-          void openInFileManager().then((failed) => { if (failed && stacked) setFilesSectionCollapsed(false); });
+        { type: "item", id: "changes", label: t("sidebar.changedFiles", { count: changesCount }), icon: <ChangesIcon />, disabled: changesUnavailable, checked: !changesUnavailable && !changesCollapsed, checkType: "checkbox", onSelect: () => {
+          if (stacked && filesCollapsed) {
+            setFilesSectionCollapsed(false);
+            setChangesCollapsed(false);
+            return;
+          }
+          setChangesCollapsed((collapsed) => !collapsed);
         } },
         { type: "item", id: "upload", label: t("sidebar.uploadFilesTitle"), icon: <UploadIcon />, disabled: explorerUploadBusy, onSelect: () => {
           // Keep the explorer mounted, but reveal its upload progress if folded.
@@ -2535,26 +2536,16 @@ export function SessionSidebar({ conversationVisible = true, selectedSessionId, 
       {explorerRefreshDone ? <CheckIcon size={keyIconSize} /> : undefined}
     </ActionMenuButton>
   );
-  // The tree's second view, its changes: there without changes too,
-  // disabled, so nothing moves as an agent edits files and commits.
-  const changesButton = (
+  const fileManagerButton = (
     <ToolbarIconButton
-      ref={changesKeyRef}
+      ref={fileManagerKeyRef}
       onClick={() => {
-        // Below the sessions this key is in the header row, there while the
-        // section is folded too: a folded section opens on the changes.
-        if (stacked && filesCollapsed) {
-          setFilesSectionCollapsed(false);
-          setChangesCollapsed(false);
-          return;
-        }
-        setChangesCollapsed((collapsed) => !collapsed);
+        void openInFileManager().then((failed) => { if (failed && stacked) setFilesSectionCollapsed(false); });
       }}
-      disabled={changesKeyDisabled}
-      title={t("sidebar.changedFiles", { count: changesCount })}
-      pressed={!changesKeyDisabled && !changesCollapsed}
+      disabled={fileManagerKeyDisabled}
+      title={fileManagerUnavailable ? `${fileManagerLabel} — ${t(fileManager?.reason === "remote" ? "sidebar.openInExplorerRemoteOnly" : "sidebar.openInExplorerUnsupported")}` : fileManagerLabel}
     >
-      <ChangesIcon size={keyIconSize} />
+      <FolderIcon size={keyIconSize} />
     </ToolbarIconButton>
   );
 
@@ -2829,7 +2820,7 @@ export function SessionSidebar({ conversationVisible = true, selectedSessionId, 
             </button>
             <div className="sidebar-files-keys" role="group" aria-label={t("sidebar.fileActions")}>
               {terminalButton}
-              {changesButton}
+              {fileManagerButton}
               {fileOptions}
               <ToolbarIconButton
                 onClick={() => {
@@ -2897,7 +2888,7 @@ export function SessionSidebar({ conversationVisible = true, selectedSessionId, 
             {!stacked && explorerCwd && (
               <div className="sidebar-files-actions" role="group" aria-label={t("sidebar.fileActions")}>
                 {onOpenTerminal && terminalButton}
-                {changesButton}
+                {fileManagerButton}
                 {fileOptions}
               </div>
             )}

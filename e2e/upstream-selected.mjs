@@ -93,7 +93,8 @@ export async function checkSelectedUi(page, project, routes) {
   const sectionToggle = files.locator(".sidebar-files-section-toggle");
   if (await sectionToggle.count() && await sectionToggle.getAttribute("aria-expanded") !== "true") await sectionToggle.click();
   // Changes is an existing alternate view, collapsed by default in the custom sidebar.
-  await files.getByRole("button", { name: "2 个变更文件", exact: true }).click();
+  await files.locator(".sidebar-file-options").click();
+  await page.getByRole("menuitemcheckbox", { name: "2 个变更文件", exact: true }).click();
   const tree = files.getByRole("button", { name: "树状视图", exact: true });
   await tree.waitFor();
   await tree.click();

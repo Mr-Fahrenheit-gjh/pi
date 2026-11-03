@@ -73,21 +73,21 @@ test("the tabs layout renders its tabs, no brand and no files section header", (
   assert.doesNotMatch(html, /aria-controls="file-search-input"/);
 });
 
-test("the files tab keeps terminal and changes direct and secondary actions in one menu", () => {
+test("the files tab keeps terminal and file manager direct and secondary actions in one menu", () => {
   const row = actionsRow(render({ selectedCwd: "/work/alpha", onOpenTerminal: noop }));
   assert.match(row, /^<div class="sidebar-files-actions" role="group" aria-label="File actions">/);
   assert.deepEqual(keyLabels(row), [
     "Open workspace terminal",
-    "0 changed files (disabled) pressed=false",
+    "Open in file manager",
     "More file actions expanded=false",
   ]);
   assert.match(row, /aria-haspopup="menu"/);
-  assert.doesNotMatch(row, /aria-label="(?:Open in file manager|Upload files to project root|Refresh file list|Show ignored files)"/);
+  assert.doesNotMatch(row, /aria-label="(?:\d+ changed files|Upload files to project root|Refresh file list|Show ignored files)"/);
   assert.deepEqual([...row.matchAll(/<svg width="(\d+)" height="(\d+)"/g)].map((match) => `${match[1]}x${match[2]}`), ["14x14", "14x14", "16x16"]);
 
-  // Without a terminal handler the changes and options stay.
+  // Without a terminal handler the file manager and options stay.
   assert.deepEqual(keyLabels(actionsRow(render({ selectedCwd: "/work/alpha" }))), [
-    "0 changed files (disabled) pressed=false",
+    "Open in file manager",
     "More file actions expanded=false",
   ]);
   assert.doesNotMatch(render(), /sidebar-files-actions/);

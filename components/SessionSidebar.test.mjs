@@ -220,18 +220,18 @@ function filesInsetRight(scrollbar) {
 test("below the sessions the section's header row holds the files' keys in the files tab's order, the search last", () => {
   const html = render({ selectedCwd: "/work/alpha", onOpenTerminal: noop });
   const keys = sectionKeys(html);
-  // Keep terminal, changed files and search direct. Secondary file actions
+  // Keep terminal, file manager and search direct. Secondary file actions
   // share one accessible menu instead of competing with the folder label.
   assert.match(keys, /^<div class="sidebar-files-keys" role="group" aria-label="File actions">/);
   assert.deepEqual(keyLabels(keys), [
     "Open workspace terminal",
-    "0 changed files (disabled) pressed=false",
+    "Open in file manager",
     "More file actions expanded=false",
     "Search files expanded=false",
   ]);
   assert.equal((keys.match(/<button /g) ?? []).length, 4);
   assert.match(keys, /aria-haspopup="menu"/);
-  assert.doesNotMatch(keys, /aria-label="(?:Open in file manager|Upload files to project root|Refresh file list|Show ignored files)"/);
+  assert.doesNotMatch(keys, /aria-label="(?:\d+ changed files|Upload files to project root|Refresh file list|Show ignored files)"/);
   assert.deepEqual([...keys.matchAll(/<svg width="(\d+)" height="(\d+)"[^>]*stroke-width="(\d+)"/g)].map((match) => match.slice(1).join(",")), Array(3).fill("13,13,2"));
   // The head under the row is the picker alone: no second row of keys, no
   // search in the toolbar row's place.
@@ -241,13 +241,13 @@ test("below the sessions the section's header row holds the files' keys in the f
   // terminal without a handler, where the files tab leaves it out.
   assert.deepEqual(keyLabels(sectionKeys(render())), [
     "Open workspace terminal (disabled)",
-    "0 changed files (disabled) pressed=false",
+    "Open in file manager (disabled)",
     "More file actions (disabled) expanded=false",
     "Search files (disabled) expanded=false",
   ]);
   assert.deepEqual(keyLabels(sectionKeys(render({ selectedCwd: "/work/alpha" }))).slice(0, 3), [
     "Open workspace terminal (disabled)",
-    "0 changed files (disabled) pressed=false",
+    "Open in file manager",
     "More file actions expanded=false",
   ]);
 

@@ -155,6 +155,7 @@
   font-family: inherit;
 }
 .workspace-settings-entry {
+  container: sidebar-actions / inline-size;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -176,8 +177,20 @@
   line-height: 16px;
   white-space: nowrap;
 }
-.workspace-settings-entry > button > svg {
+.workspace-settings-entry > button > svg,
+.workspace-settings-entry .pending-release-count {
   flex-shrink: 0;
+}
+@container sidebar-actions (max-width: 280px) {
+  .workspace-settings-entry > button > span:not(.pending-release-count) {
+    display: none;
+  }
+  .workspace-settings-entry > button {
+    gap: 4px;
+  }
+  .workspace-settings-entry .pending-release-count {
+    margin-left: 0;
+  }
 }
 .sidebar-quick-actions {
   font-family: var(--font-ui-default);
