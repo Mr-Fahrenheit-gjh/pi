@@ -244,14 +244,19 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
   const [greeting, setGreeting] = useState("");
   useEffect(() => {
     if (session || packageTarget) return;
-    const refreshGreeting = () => setGreeting(newSessionGreeting());
-    refreshGreeting();
-    const timer = window.setInterval(refreshGreeting, 60_000);
-    window.addEventListener("focus", refreshGreeting);
-    return () => {
-      window.clearInterval(timer);
-      window.removeEventListener("focus", refreshGreeting);
-    };
+    let previous = "";
+    try {
+      previous = window.localStorage.getItem("pi:last-new-session-greeting") ?? "";
+    } catch {
+      // Random greetings still work when browser storage is unavailable.
+    }
+    const next = newSessionGreeting(new Date(), previous);
+    setGreeting(next);
+    try {
+      window.localStorage.setItem("pi:last-new-session-greeting", next);
+    } catch {
+      // Remembering the last greeting is optional.
+    }
   }, [session, packageTarget]);
   const completionNotificationsEnabled = session?.relation?.kind !== "subagent";
   const viewingPackageChild = Boolean(packageTarget);
