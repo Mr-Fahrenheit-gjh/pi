@@ -13,6 +13,8 @@ export interface ModelsData {
   modelError?: string;
   /** Warnings from resolving the `enabledModels` scope (e.g. a pattern matched nothing). */
   modelScopeWarnings?: string[];
+  /** Whether enabledModels activates a narrower selector scope. */
+  isScoped?: boolean;
 }
 
 interface ModelsCacheState {

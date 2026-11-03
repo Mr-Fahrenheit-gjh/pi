@@ -198,6 +198,11 @@ The current local composition is specified in [local-workspace.md](local-workspa
 
 - `normalizeDisplayMath()` normalizes each explicit blockquote container with the same fenced/inline/indented/raw-code protections as root Markdown, restoring its prefixes. Both detached and glued `\\[`/`\\]` display delimiters become standalone `$$` lines; unmatched formulas never pair across quote-depth changes, new formula openers or sibling Markdown blocks. Keep the real KaTeX pipeline and normalized streaming-prefix regressions passing; no client regex lookbehind.
 
+## SVG fences, math copying and custom-message text
+- `svg` fences use `SvgBlock`: source while streaming, then preview/source, download and the existing diagram viewer. `lib/svg-image.ts` validates XML and sanitizes with the installed DOMPurify, removes active/CSS/external resource references, and uses only an `<img>` data URL (also in zoom). Downloads contain the sanitized SVG; do not inline raw SVG or relax resource permissions.
+- Display math gets its original LaTeX from a post-sanitizer, pre-KaTeX wrapper and a Copy button outside the formula scroller. Inline math and file-preview/minimap pipelines are unchanged; user HTML cannot forge the source attribute.
+- Only custom extension messages opt into `keepTextLayout`: keep line breaks and paragraph indents, render raw HTML as text, and retain monospace spaces. Preserve the local message collapse and quiet footer.
+
 ## Exported session HTML
 - `/api/sessions/[id]/export` delegates to pi's export helper, then makes the generated HTML's recursive tree helpers iterative, so very deep linear sessions do not overflow the browser call stack.
 

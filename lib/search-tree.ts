@@ -21,10 +21,13 @@ export function buildSearchTree(paths: string[]): SearchTreeNode[] {
     let currentPath = "";
     for (let i = 0; i < segments.length; i++) {
       currentPath = currentPath ? `${currentPath}/${segments[i]}` : segments[i];
-      let node = byPath.get(currentPath);
+      const isDir = i < segments.length - 1;
+      // Git changes can contain a deleted file and a new directory at the same path.
+      const key = JSON.stringify([currentPath, isDir]);
+      let node = byPath.get(key);
       if (!node) {
-        node = { name: segments[i], path: currentPath, isDir: i < segments.length - 1, children: [] };
-        byPath.set(currentPath, node);
+        node = { name: segments[i], path: currentPath, isDir, children: [] };
+        byPath.set(key, node);
         current.push(node);
       }
       current = node.children;

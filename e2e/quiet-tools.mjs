@@ -10,6 +10,8 @@ import { chromium } from 'playwright';
 import { createServer } from 'node:net';
 import { checkComposerFocus } from './composer-focus.mjs';
 import { checkQuickActionShortcuts } from './quick-actions-shortcuts.mjs';
+import { selectedAnswer, installSelectedRoutes, checkSelectedUi } from './upstream-selected.mjs';
+const selectedUpstream = process.env.PI_WEB_TEST_UPSTREAM_SELECTED === '1';
 
 const source = dirname(dirname(fileURLToPath(import.meta.url)));
 const root = process.env.PI_WEB_CHAT_PACKAGE_ROOT || source;
@@ -44,6 +46,10 @@ add({ role: 'user', content: '历史重要错误', timestamp: Date.now() });
 add(assistant([], { stopReason: 'error', errorMessage: 'fetch failed: 403 forbidden' }));
 add({ role: 'user', content: '历史截断提示', timestamp: Date.now() });
 add(assistant([], { stopReason: 'length' }));
+if (selectedUpstream) {
+  add({ role: 'user', content: 'Selected upstream features', timestamp: Date.now() });
+  add(assistant([{ type: 'text', text: selectedAnswer }]));
+}
 add({ role: 'user', content: '正在执行的测试任务', timestamp: Date.now() });
 add(assistant([{ type: 'toolCall', id: 'call2', name: 'read', arguments: { path: 'HIDDEN_PATH' } }]));
 add({ role: 'toolResult', toolCallId: 'call2', toolName: 'read', content: [{ type: 'text', text: 'HIDDEN_FAILURE_DETAIL' }], isError: true, timestamp: Date.now() });
@@ -96,6 +102,7 @@ try {
   const state = () => ({ running: live, state: { isStreaming: live, isPromptRunning: live, messages: [], thinkingLevel: 'off', extensionStatuses: [], extensionWidgets: [] } });
   await page.route(`**/api/sessions/${sid}/state`, route => route.fulfill({ json: state() }));
   await page.route(`**/api/agent/${sid}`, route => route.fulfill({ json: state() }));
+  const selectedRoutes = selectedUpstream ? await installSelectedRoutes(page, project) : null;
   await page.goto(`${base}/?session=${sid}`, { waitUntil: 'networkidle' });
   await page.getByText('正式回答可见', { exact: true }).waitFor();
   await page.getByText('过程中的说明始终可见', { exact: true }).waitFor();
@@ -115,6 +122,7 @@ try {
   await page.getByText('历史重试成功回答', { exact: true }).waitFor();
   await page.getByText(/fetch failed: 403 forbidden/).waitFor();
   await page.getByText(/输出在生成正文前就达到了上限/).waitFor();
+  if (selectedRoutes) await checkSelectedUi(page, project, selectedRoutes);
   live = true;
   await page.evaluate(() => window.__feed({ type: 'agent_start' }));
   const active = page.locator('[data-process-details][data-running]');

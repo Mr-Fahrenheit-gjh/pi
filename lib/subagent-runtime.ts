@@ -25,6 +25,7 @@ import {
   SUBAGENT_STATUS_TYPE,
   SUBAGENT_RESULT_TYPE,
   selectSubagentExtensionTools,
+  settleOrphanedSubagentStatus,
   subagentExtensionLoaderOptions,
   subagentToolOptions,
   withSubagentExtensionTools,
@@ -81,6 +82,8 @@ export interface SubagentController {
   get(sessionId: string): Promise<SubagentRunInfo | null>;
   steer(sessionId: string, message: string): Promise<void>;
   abort(sessionId: string): Promise<void>;
+  /** A turn in a child's own chat ended: settles the run a restart cut off, if that is what the file holds. */
+  settleDirectTurn(sessionId: string, aborted: boolean): void;
 }
 
 type StoredSubagentExecution = {
@@ -98,6 +101,7 @@ declare global {
   var __piSubagentRuns: Map<string, StoredSubagentExecution> | undefined;
   var __piSubagentQueue: SubagentQueue<SubagentRunInfo> | undefined;
   var __piSubagentConsumedResults: Map<string, string> | undefined;
+  var __piSubagentParentNotifications: Set<Pick<SubagentRunInfo, "sessionId" | "parentSessionId">> | undefined;
 }
 const SUBAGENT_CONTEXT_LIMIT = 50_000;
 const PARENT_IDLE_POLL_MS = 200;
@@ -152,6 +156,35 @@ function getSubagentRuns(): Map<string, StoredSubagentExecution> {
   return globalThis.__piSubagentRuns;
 }
 
+/**
+ * Background runs whose completion `notifyParent()` is still delivering: the run has left the
+ * run map, but the parent's turn starts only once the parent is ready and idle.
+ */
+function getParentNotifications(): Set<Pick<SubagentRunInfo, "sessionId" | "parentSessionId">> {
+  globalThis.__piSubagentParentNotifications ??= new Set();
+  return globalThis.__piSubagentParentNotifications;
+}
+
+/**
+ * Whether a subagent run under this session, at any depth, is still unsettled: its end can
+ * start a turn there (`notifyParent()`, `triggerTurn`). A run counts from dispatch until its
+ * result is written (the run map), then until its parent notification is delivered or fails.
+ * A hidden page keeps the session's event stream while this holds (#1283).
+ */
+export function hasUnsettledSubagentRun(sessionId: string): boolean {
+  const runs = [...[...getSubagentRuns().values()].map((stored) => stored.run), ...getParentNotifications()];
+  const family = new Set([sessionId]);
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const run of runs) {
+      if (!family.has(run.parentSessionId) || family.has(run.sessionId)) continue;
+      family.add(run.sessionId);
+      grew = true;
+    }
+  }
+  return family.size > 1;
+}
+
 function getSubagentQueue(): SubagentQueue<SubagentRunInfo> {
   if (!globalThis.__piSubagentQueue) globalThis.__piSubagentQueue = new SubagentQueue();
   return globalThis.__piSubagentQueue;
@@ -197,7 +230,12 @@ function takeResultConsumed(run: SubagentRunIdentity): boolean {
  * `resume` can pick the session up again.
  */
 function settleOrphanedRun(run: SubagentRunInfo): SubagentRunInfo {
-  return run.status === "running" || run.status === "queued" ? { ...run, status: "interrupted" } : run;
+  return { ...run, status: settleOrphanedSubagentStatus(run.status) };
+}
+
+/** The status of a run this process still holds, so a listing does not have to guess from its file. */
+export function getLiveSubagentStatus(sessionId: string): SubagentRunInfo["status"] | undefined {
+  return getSubagentRuns().get(sessionId)?.run.status;
 }
 
 function findSubagentModel(runtime: ModelRuntime, reference: string) {
@@ -792,6 +830,16 @@ export function createSubagentController(
   }
 
   async function notifyParent(run: SubagentRunInfo): Promise<void> {
+    const pending = { sessionId: run.sessionId, parentSessionId: run.parentSessionId };
+    getParentNotifications().add(pending);
+    try {
+      await deliverParentNotification(run);
+    } finally {
+      getParentNotifications().delete(pending);
+    }
+  }
+
+  async function deliverParentNotification(run: SubagentRunInfo): Promise<void> {
     if (takeResultConsumed(run)) return;
     let parent = dependencies.getSession(run.parentSessionId);
     if (!parent?.isAlive()) {
@@ -837,10 +885,31 @@ export function createSubagentController(
     await wrapper.inner.abort();
   }
 
+  function settleDirectTurn(sessionId: string, aborted: boolean): void {
+    // A run in the map records its own result, and a settled run keeps its report.
+    if (getSubagentRuns().has(sessionId)) return;
+    const wrapper = dependencies.getSession(sessionId);
+    if (!wrapper?.isAlive()) return;
+    const manager = wrapper.inner.sessionManager;
+    const run = readSubagentRun(manager.getEntries() as unknown as SessionEntry[], sessionId, wrapper.sessionFile);
+    if (!run || (run.status !== "running" && run.status !== "queued")) return;
+    const text = wrapper.inner.getLastAssistantText()?.trim();
+    const stop = aborted ? undefined : lastAssistantStop(manager);
+    manager.appendCustomEntry(SUBAGENT_RESULT_TYPE, {
+      version: 1,
+      status: aborted || stop?.aborted ? "aborted" : stop?.error ? "failed" : "completed",
+      completedAt: new Date().toISOString(),
+      ...(text ? { result: text } : {}),
+      ...(stop?.error ? { error: stop.error } : {}),
+    });
+    dependencies.invalidateSessionList();
+  }
+
   return {
     extensionRuntime: { start, resume, get, steer, notifyParent, markResultConsumed },
     get,
     steer,
     abort,
+    settleDirectTurn,
   };
 }

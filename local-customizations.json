@@ -12,6 +12,8 @@
     "@earendil-works/pi-telemetry": "1.5.0",
     "@earendil-works/pi-tui": "1.5.0",
     "ghostty-web": "0.4.0",
+    "next": "16.4.4",
+    "undici": "8.12.3",
     "@xterm/addon-fit": null,
     "@xterm/xterm": null
   },

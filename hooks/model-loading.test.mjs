@@ -36,13 +36,13 @@ function setup(fetchImpl) {
     controller: new AbortController(),
     newSessionCwd: "/project", session: null, isNew: true,
     sessionIdRef: { current: null }, thinkingLevelOverrideRef: { current: null }, newSessionModelOverrideRef: { current: null },
-    thinkingLevelPinsRef: { current: {} }, defaultThinkingLevelRef: { current: null },
+    thinkingLevelPinsRef: { current: {} }, defaultThinkingLevelRef: { current: null }, allModelsLoadRef: { current: null },
     asConcreteThinkingLevel: (value) => (!value || value === "auto" ? null : value),
     fetch: fetchImpl,
     MODELS_RETRY_DELAYS_MS: script(schedule.initializer.getText(source)).runInNewContext(),
     delay: async (ms) => { delays.push(ms); },
   };
-  for (const name of ["ModelError", "ModelNames", "ModelScopeWarnings", "ModelThinkingLevels", "ModelThinkingLevelMaps", "ModelList", "NewSessionDefaultModel", "NewSessionDefaultThinkingLevel", "SavedDefaultThinkingLevel", "NewSessionModel"]) {
+  for (const name of ["ModelError", "ModelNames", "ModelScopeWarnings", "IsModelScopeActive", "AllModelList", "ModelThinkingLevels", "ModelThinkingLevelMaps", "ModelList", "NewSessionDefaultModel", "NewSessionDefaultThinkingLevel", "SavedDefaultThinkingLevel", "NewSessionModel"]) {
     context[`set${name}`] = (value) => writes.push([name, value]);
   }
   context.loadModels = loadScript.runInNewContext(context);
@@ -140,6 +140,14 @@ test("a picked model the folder offers keeps its pinned reasoning level; one it 
   assert.equal(missing.context.newSessionModelOverrideRef.current, null);
   assert.ok(missing.writes.some(([name, value]) => name === "NewSessionModel" && value === null));
   assert.ok(missing.writes.some(([name, value]) => name === "NewSessionDefaultThinkingLevel" && value === "high"));
+
+  // An intentional pick outside enabledModels stays selected, without changing the default.
+  const outsideScope = setup(async () => Response.json({ ...catalog, isScoped: true }));
+  const outside = { provider: "other", modelId: "available" };
+  outsideScope.context.newSessionModelOverrideRef.current = outside;
+  await outsideScope.run();
+  assert.equal(outsideScope.context.newSessionModelOverrideRef.current, outside);
+  assert.ok(!outsideScope.writes.some(([name]) => name === "NewSessionModel"));
 
   // A failed load answers 200 with no models (withSafeModelLoadFailure): nothing to compare with, the pick stays.
   const failed = setup(async () => Response.json({ models: {}, modelList: [], defaultModel: null, modelError: "Models could not be loaded" }));

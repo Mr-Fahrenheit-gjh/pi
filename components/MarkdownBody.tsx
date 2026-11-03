@@ -1,14 +1,17 @@
 "use client";
 
-import { createContext, memo, useContext, useMemo, type ComponentProps, type MouseEvent } from "react";
+import { createContext, memo, useContext, useMemo, useState, type ComponentProps, type MouseEvent, type ReactNode } from "react";
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
+import { useI18n } from "@/hooks/useI18n";
+import { copyText } from "@/lib/clipboard";
 import { parsePdfPageFragment, resolveLocalFileHref, shouldOpenLocalFileInApp } from "@/lib/file-links";
 import { encodeFilePathForApi } from "@/lib/file-paths";
 import { runtimeApi } from "@/lib/runtime-client.mjs";
-import { markdownAppUrlTransform, markdownRehypePlugins, markdownRemarkPlugins, markdownUrlTransform, markdownUserRemarkPlugins, normalizeDisplayMath } from "@/lib/markdown";
+import { markdownAppUrlTransform, markdownRehypePlugins, markdownRemarkPlugins, markdownTextLayoutRemarkPlugins, markdownUrlTransform, markdownUserRemarkPlugins, normalizeDisplayMath } from "@/lib/markdown";
 import { splitMarkdownBlocks } from "@/lib/markdown-blocks";
 import { ImagePreview } from "./ImagePreview";
 import { MermaidBlock, CodeBlock } from "./MermaidBlock";
+import { SvgBlock } from "./SvgBlock";
 import { InlineVisualBlock, useInlineVisualValues, type VisualValueCache } from "./InlineVisual";
 import { INLINE_VISUAL_LANGUAGE, isClosedVisualFence } from "@/lib/inline-visual";
 
@@ -30,6 +33,7 @@ function MarkdownCode({ className, children, node, ...props }: ComponentProps<"c
         isStreaming={source.isStreaming} cache={source.visualValues}
         cacheKey={`${source.offset + (start ?? 0)}:${code}`} />;
     }
+    if (lang === "svg") return <SvgBlock code={code} isStreaming={source?.isStreaming} />;
     if (lang === "mermaid") return <MermaidBlock code={code} isStreaming={source?.isStreaming} defaultPreview />;
     return <CodeBlock code={code} lang={lang} isStreaming={source?.isStreaming} />;
   }
@@ -44,6 +48,8 @@ interface MarkdownBodyProps {
   onOpenFile?: (filePath: string, page?: number) => void;
   /** Render every line ending as a line break, for text the user typed. */
   keepLineBreaks?: boolean;
+  /** Keep an extension message’s terminal-style paragraph indents and spaces. */
+  keepTextLayout?: boolean;
   /** Only assistant answer blocks opt in; quoted/user/tool content stays code. */
   allowInlineVisuals?: boolean;
 }
@@ -69,6 +75,30 @@ function MarkdownImage({
     <ImagePreview src={imageSrc} alt={alt ?? ""} className="markdown-image">
       {image}
     </ImagePreview>
+  );
+}
+
+/**
+ * A display formula with a Copy button for its LaTeX, as code fences have
+ * (#1380). The button sits outside KaTeX's scroller, so it stays put while a
+ * wide formula scrolls; it shows on hover where there is one (app/globals.css).
+ */
+function MathDisplay({ source, children }: { source: string; children: ReactNode }) {
+  const { t } = useI18n();
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    copyText(source).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <div className="markdown-math-display">
+      {children}
+      <button type="button" onClick={copy} className="markdown-code-action markdown-math-copy">
+        {copied ? t("i18n.copied") : t("i18n.copy")}
+      </button>
+    </div>
   );
 }
 
@@ -100,7 +130,7 @@ const MarkdownBlock = memo(function MarkdownBlock({ markdown, remarkPlugins, url
   );
 });
 
-export const MarkdownBody = memo(function MarkdownBody({ children, className, isStreaming = false, cwd, onOpenFile, keepLineBreaks, allowInlineVisuals = false }: MarkdownBodyProps) {
+export const MarkdownBody = memo(function MarkdownBody({ children, className, isStreaming = false, cwd, onOpenFile, keepLineBreaks, keepTextLayout, allowInlineVisuals = false }: MarkdownBodyProps) {
   const visualValues = useInlineVisualValues();
   const normalizedMarkdown = useMemo(() => normalizeDisplayMath(children), [children]);
   // A streaming reply grows by a few characters per chunk; parsing all of it
@@ -157,6 +187,11 @@ export const MarkdownBody = memo(function MarkdownBody({ children, className, is
       const digits = String(Math.abs((start ?? 1) + Math.max(items, 1) - 1)).length;
       return <ol start={start} style={{ ...style, ["--ol-marker-digits" as string]: Math.max(digits, 2) }} {...props} />;
     },
+    div({ node, children, ...props }) {
+      const source = node?.properties?.dataMathSource;
+      if (typeof source === "string") return <MathDisplay source={source}>{children}</MathDisplay>;
+      return <div {...props}>{children}</div>;
+    },
     table({ children }) {
       return (
         <div className="markdown-table-wrap">
@@ -179,7 +214,7 @@ export const MarkdownBody = memo(function MarkdownBody({ children, className, is
           isStreaming={isStreaming}
           allowInlineVisuals={allowInlineVisuals}
           visualValues={visualValues}
-          remarkPlugins={keepLineBreaks ? markdownUserRemarkPlugins : markdownRemarkPlugins}
+          remarkPlugins={keepTextLayout ? markdownTextLayoutRemarkPlugins : keepLineBreaks ? markdownUserRemarkPlugins : markdownRemarkPlugins}
           urlTransform={onOpenFile ? markdownUrlTransform : markdownAppUrlTransform}
           components={components}
         />;

@@ -23,7 +23,7 @@ function setup() {
     agentRunningRef: { current: true }, sdkAgentActiveRef: { current: true }, sessionIdRef: { current: null },
     interruptReplacementSessionRef: { current: null },
     setRetryInfo: (value) => { banner.current = value; },
-    cancelEventStreamGrace() {}, setAgentRunning() {}, setAgentPhase() {}, dispatch() {}, refreshRunEnd() {},
+    cancelEventStreamGrace() {}, setAgentRunning() {}, setAgentPhase() {}, dispatch() {}, refreshRunEnd() {}, markPromptLanded() {},
   });
   return { handle: handler.runInContext(context), banner };
 }

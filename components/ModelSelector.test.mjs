@@ -63,6 +63,17 @@ test('composer derives fast mode from the live extension status, not arbitrary s
   assert.match(input, /fastMode=\{fastMode\}/);
 });
 
+test('names a selected model outside the scope from the on-demand full list', () => {
+  const html = render({
+    options: [{ provider: 'anthropic', modelId: 'claude', name: 'Scoped Claude' }],
+    allOptions: [{ provider: 'openai', modelId: 'gpt-6-luna', name: 'GPT-6 Luna' }],
+    value: { provider: 'openai', modelId: 'gpt-6-luna' },
+    onShowAll() {},
+  });
+  assert.match(html, /GPT-6 Luna/);
+  assert.doesNotMatch(html, />gpt-6-luna</);
+});
+
 test('no selected model keeps the generic icon and empty label', () => {
   const html = render({ value: null, emptyLabel: 'Select a model' });
   assert.ok(html.includes('Select a model'));

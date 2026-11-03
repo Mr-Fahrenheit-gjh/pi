@@ -1190,14 +1190,58 @@ pre, code {
 .markdown-body .katex {
   font-size: 1.05em;
 }
+/* A display formula's Copy button (MarkdownBody's MathDisplay): on hover or
+   keyboard focus where the pointer can hover, always shown on touch screens. */
+.markdown-math-display {
+  position: relative;
+}
+.markdown-math-copy {
+  position: absolute;
+  top: 2px;
+  right: 0;
+}
+@media (hover: hover) {
+  .markdown-math-copy {
+    opacity: 0;
+    transition: opacity 0.12s ease;
+  }
+  .markdown-math-display:hover .markdown-math-copy,
+  .markdown-math-copy:focus-visible {
+    opacity: 1;
+  }
+}
 .markdown-user-message p {
   white-space: pre-wrap;
 }
 
+/* The page's mono font ships Latin and Cyrillic only, so arrows, box drawing and
+   blocks fell back to glyphs 12-17px wide in a 7.8px column. These faces take
+   those characters from a system mono font, sized to the 0.6em column. */
+@font-face {
+  font-family: "Terminal Drawing";
+  src: local("Menlo Regular"), local("Menlo-Regular"), local("DejaVu Sans Mono");
+  unicode-range: U+2190-21FF, U+2500-259F;
+  size-adjust: 99.67%;
+}
+@font-face {
+  font-family: "Terminal Drawing Windows";
+  src: local("Consolas");
+  unicode-range: U+2190-21FF, U+2500-259F;
+  size-adjust: 109.09%;
+}
+
+/* Monospace with kept spaces, as an extension's text is laid out for pi's TUI:
+   a status box and its bars only line up in columns. */
 .markdown-custom-message {
+  font-family: "Terminal Drawing", "Terminal Drawing Windows", var(--font-mono);
+  font-size: calc(13px + var(--chat-font-size-offset, 0px));
   line-height: 1.32;
 }
-.markdown-custom-message p { margin: 0; }
+.markdown-custom-message p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.markdown-custom-message p + p { margin-top: 1.32em; }
 .markdown-custom-message h1,
 .markdown-custom-message h2,
 .markdown-custom-message h3,
@@ -1376,6 +1420,31 @@ pre, code {
 .mermaid-preview-button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
+}
+
+/* A ```svg fence's <img> (components/SvgBlock.tsx). An SVG with neither a
+   viewBox nor a width and height has no size of its own: is-unsized gives it one. */
+.svg-block-image,
+.svg-zoom-image {
+  display: block;
+  height: auto;
+}
+/* An SVG with only a viewBox has a ratio but no size, so it would fill the
+   column: cap its height like a diagram's. */
+.svg-block-image {
+  width: auto;
+  max-width: 100%;
+  max-height: min(360px, 50dvh);
+}
+.svg-block-image.is-unsized {
+  width: 100%;
+  height: 240px;
+}
+.svg-zoom-image {
+  width: 100%;
+}
+.svg-zoom-image.is-unsized {
+  aspect-ratio: 2 / 1;
 }
 
 .image-preview-dialog {
