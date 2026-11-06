@@ -44,7 +44,9 @@ test("single Settings action keeps a visible label and aligned navigation typogr
   const workspace = await read("../app/workspace.css");
   const footer = workspace.match(/\.workspace-settings-entry > button \{([^}]+)\}/)?.[1] ?? "";
   assert.match(footer, /font-family: var\(--font-sidebar\)/);
-  assert.match(footer, /font-size: 16px/);
+  assert.match(footer, /font-size: 14px/);
+  assert.match(footer, /font-weight: 435/);
+  assert.match(footer, /min-height: 32px/);
   assert.match(footer, /justify-content: flex-start/);
   assert.match(footer, /width: 100%/);
   assert.doesNotMatch(workspace, /@container sidebar-actions/);
