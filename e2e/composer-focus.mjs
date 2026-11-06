@@ -38,11 +38,14 @@ export async function checkComposerFocus(page, { base, sessionId }) {
   }
   checks.push("composer: window/tab return handlers restore idle focus and preserve selection");
 
-  const search = page.locator("#session-search-input");
+  await page.locator('.sidebar-quick-search').click();
+  const searchDialog = page.locator('.quick-actions-surface[data-mode="chat"]');
+  const search = searchDialog.locator('input[role="combobox"]');
   await search.focus();
   await returnEvents();
   assert.equal(await search.evaluate(node => document.activeElement === node), true);
   await page.keyboard.press("Escape");
+  await searchDialog.waitFor({ state: "hidden" });
   await page.getByRole("button", { name: "设置", exact: true }).click();
   const dialog = page.locator('[role="dialog"]:visible').first();
   await dialog.waitFor();
