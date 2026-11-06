@@ -41,17 +41,27 @@
 
 .sidebar-container {
   background: color-mix(in srgb, var(--bg-panel) 42%, var(--bg)) !important;
-  --font-sidebar: 'Claude Interface Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-sidebar: 'Claude Interface Sans', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   font-family: var(--font-sidebar);
   font-optical-sizing: auto;
+  font-variation-settings: 'GRAD' 0;
   font-weight: 400;
+}
+/* Sidebar-only neutral hierarchy: do not recolor messages or warm/dark themes. */
+:root:not(.dark):not([data-theme]) .sidebar-container,
+[data-theme="light"] .sidebar-container,
+[data-theme="claude-white"] .sidebar-container {
+  --text: #262626;
+  --text-muted: #666666;
+  --text-dim: #737373;
 }
 .sidebar-container .sidebar-brand {
   font-family: 'Claude Interface Serif', var(--font-answer-default);
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 400;
+  font-variation-settings: normal;
   line-height: 26px;
-  letter-spacing: -.025em;
+  letter-spacing: -.015em;
 }
 .todo-workspace {
   height: 100%;
@@ -156,7 +166,7 @@
 }
 .sidebar-container .sidebar-project-title { font-family: inherit; }
 /* Claude's navigation scale: 14/21 content, 12/20 section labels, 20px icons.
-   Keep project children on the text column; fork guides retain their own lane. */
+   Ordinary conversations use the left text edge; only real forks indent. */
 .sidebar-container .session-tree-scroll {
   --session-tree-inset-left: 8px;
   --session-tree-inset-right: max(0px, calc(8px - var(--session-tree-scrollbar, 0px)));
@@ -172,15 +182,22 @@
 .session-tree-project-icon { flex: none; }
 .sidebar-container .session-tree-group-toggle > .session-tree-chevron { margin-left: -4px; }
 .sidebar-container .session-tree-session {
-  padding-left: calc(36px + min(var(--session-branch-depth, 0), 8) * 16px);
+  padding-left: calc(10px + min(var(--session-branch-depth, 0), 8) * 16px);
 }
 .sidebar-container .session-tree-session.is-standalone-pin { padding-left: 10px; }
-.sidebar-container .session-tree-branch-toggle,
+/* A real fork's collapse control trails the link, rather than reserving an
+   empty icon column in every conversation. Never nest a button in the link. */
+.sidebar-container .session-tree-branch-toggle {
+  position: static;
+  flex: none;
+  width: 20px;
+  height: 100%;
+}
 .sidebar-container .session-tree-branch-connector {
-  left: calc(17px + min(var(--session-branch-depth, 0), 8) * 16px);
+  left: calc(10px + (min(var(--session-branch-depth, 1), 8) - 1) * 16px);
 }
 .sidebar-container .session-tree-branch-guide {
-  left: calc(17px + min(var(--session-guide-depth), 8) * 16px);
+  left: calc(10px + min(var(--session-guide-depth), 8) * 16px);
 }
 .sidebar-container .session-tree-pinned-toggle {
   gap: 5px;
@@ -200,16 +217,17 @@
 .sidebar-container .sidebar-files-section-toggle > .session-tree-chevron { order: 1; }
 .sidebar-container .sidebar-files-section-count { order: 2; }
 .sidebar-container .session-tree-more,
-.sidebar-container .session-tree-group-empty { padding-left: 44px; font-size: 12px; }
+.sidebar-container .session-tree-group-empty { padding-left: 18px; font-size: 12px; }
 .sidebar-container .session-tree-more-toggle { font-size: 12px; }
 .sidebar-container .session-tree-footer-button {
+  color: var(--text);
   gap: 8px;
   padding-left: 8px;
   font-size: 14px;
   line-height: 21px;
 }
-.sidebar-container .session-tree-footer-button > svg:first-child { width: 20px; height: 20px; stroke-width: 1.7; }
-.sidebar-container .session-tree-archive-group { padding-left: 44px; }
+.sidebar-container .session-tree-footer-button > svg:first-child { width: 20px; height: 20px; stroke-width: 1.6; }
+.sidebar-container .session-tree-archive-group { padding-left: 18px; }
 
 .workspace-settings-entry {
   display: flex;
@@ -265,7 +283,7 @@
   flex: none;
   width: 20px;
   height: 20px;
-  stroke-width: 1.7;
+  stroke-width: 1.6;
 }
 .session-tree.is-mobile .sidebar-quick-actions > button { min-height: 44px; }
 @media (max-width: 640px) { .workspace-settings-entry > button { min-height: 44px; } }

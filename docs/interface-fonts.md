@@ -1,25 +1,27 @@
 # 界面参考字体
 
-用户明确要求全站界面使用 Claude 的字体，同时保持当前消息正文不变。UI、输入框、弹窗与工具栏默认使用官方字体文件中的 **Anthropic Sans Web Text**；首页问候和 Pi Web 品牌使用 **Anthropic Serif Web Text**。不改正文、代码与终端的字族、字号、字重设置。
+用户要求界面采用 Claude 应用的字体，消息正文、代码与终端不变。界面使用独立别名 **Claude Interface Sans**；首页问候和 Pi Web 品牌使用 **Claude Interface Serif**。
 
-## 来源与身份
+## 真实应用来源
 
-来自公开官方 `https://claude.com/` 页面引用的字体，而非根据截图猜测或第三方重新封装。对应官方声明：`https://claude.com/_next/static/chunks/e5def80c1c13272b.css`。
+本轮在已登录的 `https://claude.ai/new` 读取实际 `@font-face`、computed styles，并核对原始 WOFF2 的 name/fvar 表。上轮采用 `claude.com` 营销官网的 26.043.1 字体，虽为官方文件，但不是应用当前字形，不能凭相同字重数值就声称应用效果一致。本轮已替换为应用实际引用的以下文件。
 
-| 本地文件（`public/fonts/`） | 官方文件（`https://claude.com/_next/static/media/`） | SHA-256 |
-| --- | --- | --- |
-| claude-interface-sans-roman.woff2 | AnthropicSans_Roman_Web-s.p.050e7498.woff2 | 1b75c8ee81a05fa77331366e9602b82072bb5223593c928a6488dfe6fd023f1b |
-| claude-interface-sans-italic.woff2 | AnthropicSans_Italic_Web-s.p.6550bf15.woff2 | ffcf21c4e9a729cbf4710401760434bb1d10bc7db244540e4af796d182c6817d |
-| claude-interface-serif-roman.woff2 | AnthropicSerif_Roman_Web-s.p.c28786b4.woff2 | e96fe97bb7ba2190a9a227d27380e0c79894408bfc6acea5a511774d93a16f69 |
+官方目录：`https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/`。
 
-读取原文件name/fvar表确认：sans正体与斜体均为 `Anthropic Sans Web Text`（默认400）；serif正体为 `Anthropic Serif Web Text Light`（默认300）。三者均含 `wght=300..800` 与 `opsz=16..48`，CSS声明真实可变字重范围，不依赖浏览器合成粗体。
+| 本地文件（`public/fonts/`） | 应用引用文件 | 实际名称 / 版本 | SHA-256 |
+| --- | --- | --- | --- |
+| claude-interface-sans-roman.woff2 | cb48c413e-yAna2Le1.woff2 | Anthropic Sans Beta 26-245-1 Text / 26.245.1 | 5161b683881e79149ff06ace3256e704b920839885032afba6b1a874895e1ced |
+| claude-interface-sans-italic.woff2 | c9d3a3a49-CJtkx3-S.woff2 | Anthropic Sans Variable Text Italic / 26.179.2 | ad89863fd0eb36e001166ea2a51e5102d18ffbbe4a0b321291a94d3739a5696b |
+| claude-interface-serif-roman.woff2 | c66fc489e-2VcCjn5t.woff2 | Anthropic Serif Variable Text / 26.179.2 | ac9c19c70558c5152b92119f83ca37dded627b524d75552a26fcda015d4106be |
 
-原字体元数据版权：**Copyright 2025-2026 Anthropic PBC**。文件未附开放许可，不将其视为开源字体；本次为用户明确要求的本地私有定制，不推送或对外分发。公开发布或再分发前须另行核实字体授权，不因可公开下载就推断许可。
+三者均支持 `wght=300..800`。Sans 正体另含 `GRAD=-200..200`（默认 0）、`opsz=12..16`；斜体和 Serif 的实际轴以源文件元数据为准，不用字体 CSS 名字推断。侧栏使用正常光学字号及 `GRAD=0`，不通过浏览器合成粗体模拟参考字形。
 
-## 正文隔离
+版权归 Anthropic。文件未附开放许可，不视为开源；仅供用户明确要求的本地私有定制，不推送或对外分发。公开发布或再分发前须另行核实字体授权，公开可下载不代表许可。
 
-`app/interface-fonts.css` 使用独立别名 `Claude Interface Sans` / `Claude Interface Serif`。后者故意不注册为 `Anthropic Serif`，以免使现有 `--font-answer-default` 的首选字族突然生效，改变用户确认正确的消息正文。只更新 `--font-ui-default`，原 `--font-answer-default`、`--font-mono-default` 与存储偏好不变。用户手动字体覆盖能力仍保留。
+## 正文隔离与渲染验证
 
-字体随本地候选包从同源加载，不依赖浏览器访问第三方字体 CDN；验证须检查 WOFF2真实字节、FontFace加载和实际渲染字族，不能只检查 CSS 字符串或依赖缺失字族时也会返回true的 `document.fonts.check()`。
+`app/interface-fonts.css` 保留原有独立别名。Serif 不注册成 `Anthropic Serif`，避免激活 `--font-answer-default` 的原首选字族而改变消息正文。只替换界面字体文件，不改 `--font-answer-default`、`--font-mono-default` 或用户存储偏好。中文按实际字形回退到系统字体；不能仅凭 CSS 字族串声称已渲染特定字形。
 
-上述字体文件与字族最初由官方公开网站确认；本轮侧栏另从已登录的 `claude.ai/new` 读取 computed styles 和 DOM 结构，不以营销页尺寸代替应用实测。New/Search 为 14px / 21px、字重 435，导航行高 32px、图标 20px；项目实例与会话文字为 14px、字重 400，Pinned 分组为 12px / 20px、字重 520。New/Search 与列表处于同一非 sticky 滚动容器，品牌和底部区域在其外；本地预览以真实 wheel 验证对应滚动行为。
+字体随本地包同源加载，不依赖第三方 CDN。验证应核对 WOFF2 字节、FontFace 加载以及浏览器实际渲染字体，不能只用 `document.fonts.check()` 判断。
+
+应用实测导航为 14px / 21px、字重 435，项目/会话为 14px / 400，分组为 12px / 20px / 520。参考应用辅助文字采用中性灰；本地 Light 与 Claude White 仅在侧栏内统一灰阶，不修改消息区和暖色/暗色主题。普通顶层会话与有分叉的父会话共用左文字边缘；折叠按钮独立置于链接之后，只有实际子级增加缩进。

@@ -42,7 +42,6 @@ import {
   BranchIcon,
   ChevronIcon,
   ProjectIcon,
-  FolderOpenIcon,
   PinOffIcon,
   MoreIcon,
   PinIcon,
@@ -660,20 +659,6 @@ const SessionRowView = memo(function SessionRowView({
         <span key={depth} className="session-tree-branch-guide" style={{ "--session-guide-depth": depth } as CSSProperties} aria-hidden="true" />
       ))}
       {row.depth > 0 ? <span className={`session-tree-branch-connector${row.branchLast !== false ? " is-last" : ""}`} aria-hidden="true" /> : null}
-      {row.hasChildren ? (
-        <button
-          type="button"
-          className="session-tree-branch-toggle"
-          aria-label={`${t(row.expanded ? "i18n.collapse" : "i18n.expand")} ${title}`}
-          aria-expanded={row.expanded}
-          onClick={(event) => {
-            event.stopPropagation();
-            handlers.current.onToggleBranch?.(root.id, row.expanded);
-          }}
-        >
-          <ChevronIcon size={12} className={`session-tree-chevron${row.expanded ? " is-open" : ""}`} />
-        </button>
-      ) : null}
       {status.transient ? (
         // No file yet: a link would open a session no other tab can load.
         <button type="button" className="session-tree-main" title={tooltip} aria-current={status.selected ? "true" : undefined}>
@@ -700,6 +685,20 @@ const SessionRowView = memo(function SessionRowView({
           {mainContent}
         </a>
       )}
+      {row.hasChildren ? (
+        <button
+          type="button"
+          className="session-tree-branch-toggle"
+          aria-label={`${t(row.expanded ? "i18n.collapse" : "i18n.expand")} ${title}`}
+          aria-expanded={row.expanded}
+          onClick={(event) => {
+            event.stopPropagation();
+            handlers.current.onToggleBranch?.(root.id, row.expanded);
+          }}
+        >
+          <ChevronIcon size={12} className={`session-tree-chevron${row.expanded ? " is-open" : ""}`} />
+        </button>
+      ) : null}
       {!status.transient && (
         <span className="session-tree-actions">
           {context !== "archive" && handlers.current.onPinFamily && <button
@@ -1095,7 +1094,7 @@ const PlainRowView = memo(function PlainRowView({
             className="session-tree-footer-button"
             onClick={(event) => handlers.current.onOpenOtherProject(event.currentTarget)}
           >
-            <FolderOpenIcon size={16} />
+            <ProjectIcon size={20} className="session-tree-project-icon" />
             <span className="session-tree-footer-label">{t("sidebar.openOtherProject")}</span>
           </button>
         </div>

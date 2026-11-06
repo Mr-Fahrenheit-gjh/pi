@@ -32,9 +32,25 @@ function rows(search = '', mode = 'command') {
   const { actions } = actionsFixture();
   const session = { id: 'other', name: 'File notes', firstMessage: '', modified: '2026-10-22', cwd: '/project' };
   const context = { mode, useMemo: fn => fn(), quickActionMatches, quickSessionMatches, actions, sessions: [session], search, contentResponse: undefined, currentSessionId: 'current', files: { key: 'key', paths: search === 'file' ? ['report.md'] : [] }, fileKey: 'key', t: key => key, onFile() {}, onSession() {} };
-  evaluate(section(menu, '  const rows = useMemo(', '  const selected =') + '\nglobalThis.result = rows;', context);
+  evaluate(section(menu, '  const rows = useMemo(', '  const previousRows =') + '\nglobalThis.result = rows;', context);
   return Array.from(context.result, row => row.key);
 }
+
+test('failed search batches preserve only results from that exact query', () => {
+  const line = menu.split('\n').find(line => line.includes('setContent(previous =>'));
+  assert.ok(line);
+  const expression = line.slice(line.indexOf('previous => ') + 'previous => '.length, line.lastIndexOf(')'));
+  const previous = { query: 'alpha', response: { results: [{ match: 'alpha' }], nextCursor: 'next' }, loading: true };
+  const failed = { previous, search: 'beta' };
+  evaluate(`globalThis.result = ${expression};`, failed);
+  assert.equal(failed.result.query, 'beta');
+  assert.equal(failed.result.failed, true);
+  assert.equal(failed.result.loading, false);
+  assert.equal(failed.result.response, undefined, 'a failed new query must not inherit alpha hits');
+  const continued = { previous, search: 'alpha' };
+  evaluate(`globalThis.result = ${expression};`, continued);
+  assert.equal(continued.result.response, previous.response, 'a later failed batch retains its own earlier hits');
+});
 
 test('command and chat modes never mix commands with conversation or file results', () => {
   assert.deepEqual(rows(), ['action:new', 'action:terminal', 'action:outputs', 'action:rename', 'action:fork', 'action:finder', 'action:inline-visuals', 'action:runtime-meta', 'action:split']);

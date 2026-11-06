@@ -33,9 +33,11 @@ export function quickSessionMatches(
     ? `${session.name ?? ""} ${session.firstMessage}`.toLocaleLowerCase().includes(needle)
     : session.id !== currentSessionId).map(session => ({ session, blockIndex: 0, before: "", match: "", after: "" }));
   const seen = new Set<string>();
-  return (needle ? [...contentMatches, ...fallback] : fallback).filter(result => {
+  const matches = (needle ? [...contentMatches, ...fallback] : fallback).filter(result => {
     if (result.session.transient || seen.has(result.session.id)) return false;
     seen.add(result.session.id);
     return true;
-  }).slice(0, 8);
+  });
+  // Nine recent conversations is a display choice, never a search scope limit.
+  return needle ? matches : matches.slice(0, QUICK_ACTION_PAGE_SIZE);
 }

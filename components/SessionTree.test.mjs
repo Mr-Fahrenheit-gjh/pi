@@ -188,7 +188,8 @@ test("fork parents expose an independent expand button, and descendants show dep
   const html = render({ rows: [parent, child] });
   const parentHtml = rowMarkup(html, parent.key);
   assert.match(parentHtml, /<button type="button" class="session-tree-branch-toggle" aria-label="Collapse first parent" aria-expanded="true">/);
-  assert.match(parentHtml, /<\/button><a class="session-tree-main"/);
+  assert.match(parentHtml, /<\/a><button type="button" class="session-tree-branch-toggle"/);
+  assert.doesNotMatch(parentHtml, /<a[^>]*>[\s\S]*?<button[\s\S]*?<\/a>/, "collapse is never nested in the navigation link");
   const childHtml = rowMarkup(html, child.key);
   assert.match(childHtml, /--session-branch-depth:1/);
   assert.match(childHtml, /data-branch-depth="1"/);

@@ -8,7 +8,7 @@ import { SpinnerIcon } from "@/components/SidebarIcons";
 import { focusModalPanel, listenForStackedDialogEscape } from "@/lib/stacked-dialog";
 import { outputPathForCwd } from "@/lib/task-outputs";
 import { QUICK_ACTION_PAGE_SIZE, quickActionMatches, quickActionPage, quickActionShortcut, quickSessionMatches } from "@/lib/quick-actions";
-import type { SessionSearchResponse } from "@/lib/session-search";
+import type { SessionSearchPageResponse } from "@/lib/session-search";
 import type { SessionInfo } from "@/lib/types";
 
 export interface QuickAction { id: string; label: string; keywords?: readonly string[]; run: () => void }
@@ -25,7 +25,7 @@ export function QuickActions({ mode, onModeChange, actions, sessions, cwd, curre
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
   const [files, setFiles] = useState<{ key: string; paths: string[]; failed: boolean }>({ key: "", paths: [], failed: false });
-  const [content, setContent] = useState<{ query: string; response?: SessionSearchResponse; failed?: boolean }>({ query: "" });
+  const [content, setContent] = useState<{ query: string; response?: SessionSearchPageResponse; loading?: boolean; failed?: boolean }>({ query: "" });
   const panel = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const listId = useId();
@@ -63,12 +63,34 @@ export function QuickActions({ mode, onModeChange, actions, sessions, cwd, curre
     if (mode !== "chat" || !search) return;
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      void fetch(`/api/sessions/search?${new URLSearchParams({ q: search })}`, { signal: controller.signal })
-        .then(async response => {
-          if (!response.ok) throw new Error("Conversation search unavailable");
-          const data = await response.json() as SessionSearchResponse;
-          if (!controller.signal.aborted) setContent({ query: search, response: data });
-        }).catch(() => { if (!controller.signal.aborted) setContent({ query: search, failed: true }); });
+      void (async () => {
+        const results: SessionSearchPageResponse["results"] = [];
+        const seen = new Set<string>();
+        const visited = new Set<string>();
+        let cursor: string | undefined;
+        let incomplete = false;
+        try {
+          do {
+            const params = new URLSearchParams({ q: search, paging: "1" });
+            if (cursor) params.set("cursor", cursor);
+            const response = await fetch(`/api/sessions/search?${params}`, { signal: controller.signal });
+            if (!response.ok) throw new Error("Conversation search unavailable");
+            const data = await response.json() as SessionSearchPageResponse;
+            if (controller.signal.aborted) return;
+            for (const result of data.results) {
+              if (seen.has(result.session.id)) continue;
+              seen.add(result.session.id); results.push(result);
+            }
+            incomplete ||= data.incomplete ?? data.truncated;
+            cursor = data.nextCursor ?? undefined;
+            if (cursor && visited.has(cursor)) throw new Error("Conversation search did not advance");
+            if (cursor) visited.add(cursor);
+            setContent({ query: search, response: { results: [...results], incomplete, truncated: incomplete, nextCursor: cursor ?? null }, loading: Boolean(cursor) });
+          } while (cursor && !controller.signal.aborted);
+        } catch {
+          if (!controller.signal.aborted) setContent(previous => ({ ...(previous.query === search ? previous : {}), query: search, loading: false, failed: true }));
+        }
+      })();
     }, 300);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [mode, search]);
@@ -86,6 +108,19 @@ export function QuickActions({ mode, onModeChange, actions, sessions, cwd, curre
       key: `file:${path}`, label: path, detail: t("quickActions.file"), preview: "", run: () => onFile(path),
     })),
   ], [mode, actions, sessions, search, contentResponse, currentSessionId, files, fileKey, onFile, onSession, t]);
+  const previousRows = useRef({ query, mode, rows });
+  useLayoutEffect(() => {
+    const previous = previousRows.current;
+    previousRows.current = { query, mode, rows };
+    if (previous.query !== query || previous.mode !== mode) return;
+    // New background batches may prepend body hits or move file rows. Keep the
+    // selected identity, not its obsolete numeric position/digit.
+    setIndex(current => {
+      const key = previous.rows[current]?.key;
+      const next = key ? rows.findIndex(row => row.key === key) : -1;
+      return next >= 0 ? next : Math.min(current, Math.max(0, rows.length - 1));
+    });
+  }, [rows, query, mode]);
   const selected = Math.min(index, Math.max(0, rows.length - 1));
   const currentPage = quickActionPage(rows.length, selected);
   const visibleRows = rows.slice(currentPage.start, currentPage.end);
@@ -169,7 +204,7 @@ export function QuickActions({ mode, onModeChange, actions, sessions, cwd, curre
           <span aria-live="polite" aria-label={t("quickActions.page", { current: currentPage.number, total: currentPage.total })} title={query === "" ? "← / →" : "PageUp / PageDown"}>{currentPage.number} / {currentPage.total}</span>
           <button type="button" aria-label={t("quickActions.nextPage")} disabled={currentPage.number === currentPage.total} onClick={() => movePage(1)}>›</button>
         </nav>}
-        {mode === "chat" && search && (!contentResponse || contentResponse.truncated || contentFailed) && <span role="status">{t(contentFailed ? "sidebar.sessionSearchFailed" : contentResponse?.truncated ? "sidebar.sessionSearchPartial" : "sidebar.sessionSearching")}</span>}
+        {mode === "chat" && search && (!contentResponse || content.loading || contentResponse.incomplete || contentFailed) && <span role="status">{t(contentFailed ? "sidebar.sessionSearchFailed" : !contentResponse || content.loading ? "sidebar.sessionSearching" : "sidebar.sessionSearchPartial")}</span>}
         {mode === "chat" && search && files.key === fileKey && files.failed && <span role="status">{t("quickActions.filesUnavailable")}</span>}
       </footer>
     </div>

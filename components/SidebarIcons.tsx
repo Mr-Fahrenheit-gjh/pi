@@ -58,11 +58,11 @@ export function ArchiveIcon(props: SidebarIconProps) {
   );
 }
 
-/** Layered project container; distinct from the archive action. */
+/** Rounded project container, shared by project rows and the open-project action. */
 export function ProjectIcon(props: SidebarIconProps) {
   return (
-    <SidebarIcon {...props} strokeWidth={1.7}>
-      <path d="M4.5 10h15l-1.4 10H5.9Z" />
+    <SidebarIcon {...props} strokeWidth={1.6}>
+      <path d="M5.4 10h13.2a.8.8 0 0 1 .8.9l-1 7.5A1.8 1.8 0 0 1 16.6 20H7.4a1.8 1.8 0 0 1-1.8-1.6l-1-7.5a.8.8 0 0 1 .8-.9Z" />
       <path d="M4.5 6.5h15M8 3h8" />
     </SidebarIcon>
   );

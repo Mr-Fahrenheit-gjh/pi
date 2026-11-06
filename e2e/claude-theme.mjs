@@ -64,15 +64,27 @@ if (sidebarScale) {
     if (!projectOrder.includes(cwd)) projectOrder.push(cwd);
     const id = `sidebar-scale-${i}`;
     const time = new Date(Date.now() - (i + 1) * 60000).toISOString();
-    const text = ['Reading notes', '研究计划', 'Interface alignment', 'Layout review'][i % 4] + ` ${i + 1}`;
+    const text = ({ 0: '审稿：方法与证据', 1: '云计算大作业', 3: '分支：评价指标', 4: '分支：实验设计' })[i] || ['Reading notes', '研究计划', 'Interface alignment', 'Layout review'][i % 4] + ` ${i + 1}`;
+    const parent = i === 3 ? 0 : i === 4 ? 3 : null;
+    writeFileSync(join(agent, 'sessions/fixture', `${id}.jsonl`), [
+      { type: 'session', version: 3, id, timestamp: time, cwd, ...(parent !== null ? { parentSession: join(agent, 'sessions/fixture', `sidebar-scale-${parent}.jsonl`) } : {}) },
+      { type: 'message', id: 'q', parentId: null, timestamp: time, message: { role: 'user', content: text, timestamp: Date.parse(time) } },
+      { type: 'message', id: 'a', parentId: 'q', timestamp: time, message: { ...messages[1], content: [{ type: 'text', text: i < 40 ? 'Preview fixture shared-content-marker.' : 'Preview fixture.' }], timestamp: Date.parse(time) } },
+    ].map(entry => JSON.stringify(entry)).join('\n') + '\n');
+  }
+  // The only deep hit is beyond the first 500 candidates and archived in another project.
+  for (let i = 0; i <= 510; i++) {
+    const id = i === 510 ? 'aaa-deep-search-fixture' : `search-padding-${String(i).padStart(4, '0')}`;
+    const time = new Date(Date.now() - (i + 60) * 60000).toISOString();
+    const cwd = i === 510 ? projectOrder[1] : project;
     writeFileSync(join(agent, 'sessions/fixture', `${id}.jsonl`), [
       { type: 'session', version: 3, id, timestamp: time, cwd },
-      { type: 'message', id: 'q', parentId: null, timestamp: time, message: { role: 'user', content: text, timestamp: Date.parse(time) } },
-      { type: 'message', id: 'a', parentId: 'q', timestamp: time, message: { ...messages[1], content: [{ type: 'text', text: 'Preview fixture.' }], timestamp: Date.parse(time) } },
+      { type: 'message', id: 'q', parentId: null, timestamp: time, message: { role: 'user', content: 'Earlier ordinary conversation', timestamp: Date.parse(time) } },
+      { type: 'message', id: 'deep-answer', parentId: 'q', timestamp: time, message: { ...messages[1], content: [{ type: 'text', text: i === 510 ? 'Historical body deep-scan-marker.' : 'Unrelated history.' }], timestamp: Date.parse(time) } },
     ].map(entry => JSON.stringify(entry)).join('\n') + '\n');
   }
   writeFileSync(join(agent, 'pi-web-session-state.json'), JSON.stringify({ version: 1, revision: 1,
-    sessions: { 'sidebar-scale-0': { pinnedAt: Date.now() }, 'sidebar-scale-1': { pinnedAt: Date.now() - 1 }, 'sidebar-scale-2': { archivedAt: Date.now() } },
+    sessions: { 'sidebar-scale-0': { pinnedAt: Date.now() }, 'sidebar-scale-1': { pinnedAt: Date.now() - 1 }, 'sidebar-scale-3': { pinnedAt: Date.now() - 3 }, 'sidebar-scale-4': { pinnedAt: Date.now() - 4 }, 'sidebar-scale-2': { archivedAt: Date.now() }, 'aaa-deep-search-fixture': { archivedAt: Date.now() } },
     projects: {}, projectOrder, projectNames: { [project]: 'Research workspace' },
   }));
 }
@@ -104,7 +116,7 @@ try {
   await page.route('**/api/agent/*/subagents**', route => route.fulfill({ json: { available: false } }));
   if (uiPreview) {
     const result = sidebarScale
-      ? await runSidebarScaleChecks(page, { baseURL: base, outputDir: out, sessionId: sid })
+      ? await runSidebarScaleChecks(page, { baseURL: base, outputDir: out, sessionId: sid, theme: process.env.PI_WEB_THEME_NAME || 'light' })
       : await runSidebarRefinementChecks(page, { baseURL: base, outputDir: out, sessionId: sid, assistant: messages[1] });
     assert.deepEqual(errors, []);
     Object.assign(result, { mode: dev ? 'isolated-development-preview' : 'built-candidate', packageRoot, realModelRequests: 0 });

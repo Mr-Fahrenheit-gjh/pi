@@ -670,7 +670,7 @@ export const zhCNLocale: LocalePlugin = {
     "sidebar.sessionSearching": "搜索中...",
     "sidebar.sessionSearchEmpty": "没有匹配的对话",
     "sidebar.sessionSearchCount": "{count} 个匹配的对话",
-    "sidebar.sessionSearchPartial": "已达到搜索上限，结果可能不完整。",
+    "sidebar.sessionSearchPartial": "部分记录未能检索，结果可能不完整。",
     "sidebar.sessionSearchFailed": "无法搜索对话",
     "sidebar.changedFiles": "{count} 个变更文件",
     "sidebar.loading": "加载中...",
