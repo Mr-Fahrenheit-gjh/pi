@@ -46,7 +46,7 @@ globalThis.document = emitter({
 // One panel at a time: the previous test's stops listening to the window.
 let mounted = null;
 
-function mount({ storedHeight, persistClamp, room }) {
+function mount({ storedHeight, persistClamp, room, axis = "vertical", growthDirection = "down" }) {
   mounted?.unmount();
   stored.clear();
   if (storedHeight !== undefined) stored.set(KEY, String(storedHeight));
@@ -55,11 +55,11 @@ function mount({ storedHeight, persistClamp, room }) {
   const widthRef = { current: 0 };
   const view = renderHook(() => useResizablePanel({
     ariaLabel: "Resize",
-    axis: "vertical",
+    axis,
     cssVariable: "--test-height",
     defaultWidth: 240,
     getMaxWidth: () => space.room,
-    growthDirection: "down",
+    growthDirection,
     maxWidth: 800,
     minWidth: 120,
     persistClamp,
@@ -205,7 +205,7 @@ test("Escape rolls a live drag back without saving, even after window resizing",
   assert.equal(document.body.style.userSelect, "");
 });
 
-for (const cancelMethod of ["onPointerCancel", "onLostPointerCapture"]) {
+for (const cancelMethod of ["onPointerCancel"]) {
   test(`${cancelMethod} restores the initial width and removes the iframe shield`, () => {
     const panel = mount({ storedHeight: 300, room: 600 });
     const props = () => panel.view.result.separatorProps;
@@ -219,6 +219,52 @@ for (const cancelMethod of ["onPointerCancel", "onLostPointerCapture"]) {
     assert.equal(shields.size, 0);
   });
 }
+
+for (const growthDirection of ["right", "left"]) {
+  test(`${growthDirection}-growing panel keeps dragging after capture loss and commits on window pointerup`, () => {
+    const panel = mount({ storedHeight: 240, room: 600, axis: "horizontal", growthDirection });
+    const props = () => panel.view.result.separatorProps;
+    const direction = growthDirection === "right" ? 1 : -1;
+    const event = delta => pointer(100, { clientX: 200 + delta * direction });
+    props().onPointerDown(event(0));
+    panel.view.flush();
+    props().onPointerMove(event(40));
+    props().onLostPointerCapture(event(40));
+    panel.view.flush();
+    assert.equal(panel.view.result.isResizing, true, "capture loss is not pointer cancellation");
+    assert.equal(shields.size, 1, "keep the iframe shield while the pointer is held");
+    window.emit("pointermove", { ...event(80), currentTarget: window });
+    window.emit("pointerup", { ...event(80), buttons: 0, currentTarget: window });
+    panel.view.flush();
+    assert.equal(panel.shown(), 320);
+    assert.equal(panel.saved(), "320");
+    assert.equal(shields.size, 0);
+    assert.equal(panel.view.result.isResizing, false);
+    assert.equal(document.body.style.cursor, "");
+    window.emit("pointermove", event(120));
+    panel.view.flush();
+    assert.equal(panel.shown(), 320, "completed drags do not leave window listeners active");
+  });
+}
+
+test("capture loss before movement still tracks the pointer, ignores other pointers and cancels on blur", () => {
+  const panel = mount({ storedHeight: 240, room: 600 });
+  const props = () => panel.view.result.separatorProps;
+  props().onPointerDown(pointer(100));
+  panel.view.flush();
+  props().onLostPointerCapture(pointer(100));
+  window.emit("pointermove", pointer(180, { pointerId: 2 }));
+  window.emit("pointerup", pointer(180, { pointerId: 2, buttons: 0 }));
+  assert.equal(shields.size, 0, "an unrelated pointer cannot move or finish this drag");
+  window.emit("pointermove", pointer(180));
+  assert.equal(shields.size, 1);
+  window.emit("blur");
+  panel.view.flush();
+  assert.equal(panel.shown(), 240);
+  assert.equal(panel.saved(), "240");
+  assert.equal(shields.size, 0);
+  assert.equal(panel.view.result.isResizing, false);
+});
 
 test("unmounting during a drag restores body state and removes its shield", () => {
   const panel = mount({ room: 600 });

@@ -25,7 +25,7 @@ export function prepareInteractionFixture(agentDir) {
   writeFileSync(join(agentDir, "sessions/test/interaction-practical.jsonl"), entries.map(e => JSON.stringify(e)).join("\n") + "\n");
 }
 
-export async function runInteractionChecks(page, { baseURL, outputDir }) {
+export async function runInteractionChecks(page, { baseURL, outputDir, resizeOnly = false }) {
   // Self-contained so the function can also run inside playwright-mcp's VM,
   // where dynamic imports and Node's module globals are intentionally absent.
   const check = (condition, message = "Assertion failed") => { if (!condition) throw new Error(message); };
@@ -50,6 +50,9 @@ export async function runInteractionChecks(page, { baseURL, outputDir }) {
     localStorage.setItem("pi-locale", "zh-CN");
     localStorage.setItem("pi-ui-language-version", "english-interface-v1"); // Explicit test locale after migration.
     localStorage.setItem("pi-sidebar-open", "true");
+    localStorage.setItem("pi-right-panel-open", "false");
+    localStorage.removeItem("pi-sidebar-width");
+    localStorage.removeItem("pi-right-panel-width");
     window.__sources = [];
     window.EventSource = class {
       static CONNECTING = 0; static OPEN = 1; static CLOSED = 2;
@@ -67,6 +70,7 @@ export async function runInteractionChecks(page, { baseURL, outputDir }) {
   await page.route("**/api/agent/*/subagents**", route => route.fulfill({ json: { available: false } }));
   await page.route("**/api/sessions/*/state", route => route.fulfill({ json: state }));
   await page.route("**/api/agent/interaction-practical", route => route.fulfill({ json: state }));
+  await page.route("https://interaction-fixture.invalid/preview", route => route.fulfill({ contentType: "text/html", body: "<button>Embedded preview</button>" }));
   await page.route(imageURL, route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800"><rect width="1200" height="800" fill="#c8d8ea"/><path d="M0 400H1200M600 0V800" stroke="#506070" stroke-width="4"/><text x="100" y="150" font-size="60">Image viewport test</text></svg>' }));
   const frames = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   const readTransform = () => page.locator(".image-preview-image").evaluate(el => {
@@ -75,6 +79,7 @@ export async function runInteractionChecks(page, { baseURL, outputDir }) {
   });
   try {
     await page.goto(`${baseURL}/?session=interaction-practical`, { waitUntil: "networkidle" });
+    if (!resizeOnly) {
     const trigger = page.getByRole("button", { name: "预览图片: 交互测试图", exact: true });
     await trigger.waitFor();
     await trigger.scrollIntoViewIfNeeded();
@@ -123,6 +128,8 @@ export async function runInteractionChecks(page, { baseURL, outputDir }) {
     await page.keyboard.press("Escape");
     checks.push("image: keyboard, reset, Escape, focus return and reopen");
 
+    }
+
     const handle = page.locator('[data-resize-handle="sidebar"]');
     await handle.waitFor({ state: "visible" });
     const start = Number(await handle.getAttribute("aria-valuenow"));
@@ -165,6 +172,52 @@ export async function runInteractionChecks(page, { baseURL, outputDir }) {
     await page.mouse.dblclick(x, y);
     assert.equal(Number(await handle.getAttribute("aria-valuenow")), start);
     checks.push("split: commit, shield cleanup and double-click reset");
+
+    // Capture loss is not pointer cancellation. Exercise both real separators,
+    // before movement and over an embedded preview after the shield is installed.
+    await page.locator('[data-right-panel-toggle]').click();
+    await page.locator('[data-resize-handle="right-panel"]').waitFor({ state: "visible" });
+    for (const name of ["sidebar", "right-panel"]) {
+      const separator = page.locator(`[data-resize-handle="${name}"]`);
+      const storageKey = name === "sidebar" ? "pi-sidebar-width" : "pi-right-panel-width";
+      const direction = name === "sidebar" ? -1 : 1;
+      for (const early of [true, false]) {
+        const beforeWidth = Number(await separator.getAttribute("aria-valuenow"));
+        const beforeSaved = await page.evaluate(key => localStorage.getItem(key), storageKey);
+        const rect = await separator.boundingBox();
+        const origin = rect.x + rect.width / 2;
+        const pointerY = 300;
+        await separator.evaluate(el => {
+          el.addEventListener("pointerdown", event => { el.dataset.testPointerId = String(event.pointerId); }, { once: true });
+        });
+        await page.mouse.move(origin, pointerY);
+        await page.mouse.down();
+        if (!early) {
+          await page.mouse.move(origin + direction * 40, pointerY, { steps: 4 });
+          await page.evaluate(({ origin, direction, pointerY }) => {
+            const frame = document.createElement("iframe"); frame.id = "capture-loss-frame";
+            frame.src = "https://interaction-fixture.invalid/preview";
+            Object.assign(frame.style, { position: "fixed", left: `${direction > 0 ? origin + 45 : origin - 240}px`, top: `${pointerY - 40}px`, width: "190px", height: "200px", zIndex: "1000" });
+            document.body.append(frame);
+          }, { origin, direction, pointerY });
+        }
+        await separator.evaluate(el => el.releasePointerCapture(Number(el.dataset.testPointerId)));
+        await page.mouse.move(origin + direction * 80, pointerY, { steps: 8 });
+        assert.equal(Number(await separator.getAttribute("aria-valuenow")), beforeWidth - 80, `${name} keeps following after capture loss`);
+        const panel = page.locator(name === "sidebar" ? "#session-sidebar" : "#file-panel");
+        assert.ok(Math.abs((await panel.boundingBox()).width - (beforeWidth - 80)) < 2, `${name} actual layout follows too`);
+        assert.equal(await page.evaluate(key => localStorage.getItem(key), storageKey), beforeSaved, "do not save live movement");
+        await page.mouse.up();
+        assert.equal(await page.evaluate(key => Number(localStorage.getItem(key)), storageKey), beforeWidth - 80);
+        assert.equal(await page.locator("[data-panel-drag-shield]").count(), 0);
+        assert.equal(await page.evaluate(() => document.body.style.cursor), "");
+        await page.evaluate(() => document.getElementById("capture-loss-frame")?.remove());
+        await separator.press("Enter");
+      }
+      checks.push(`${name}: capture loss before/after movement, iframe crossing, live layout, commit, cleanup and repeated drag`);
+    }
+    await page.locator('[data-right-panel-toggle]').click();
+    if (resizeOnly) return { passed: errors.length === 0, checks, pageErrors: errors };
 
     const scroller = page.locator(".chat-content .overflow-y-auto").first();
     // Locate the actual transcript by its scrollable overflow, not an ancestor.

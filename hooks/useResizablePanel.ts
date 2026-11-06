@@ -172,7 +172,13 @@ export function useResizablePanel(options: UseResizablePanelOptions) {
 
     const target = event.currentTarget;
     target.focus({ preventScroll: true });
-    target.setPointerCapture(event.pointerId);
+    // Capture is an optimization, not the owner of the drag. Some browser /
+    // embedded-preview transitions can release it while the button stays down.
+    try {
+      target.setPointerCapture(event.pointerId);
+    } catch {
+      // Window pointer listeners below still track the active pointer.
+    }
     dragRef.current = {
       pointerId: event.pointerId,
       startPosition: axis === "vertical" ? event.clientY : event.clientX,
@@ -188,7 +194,9 @@ export function useResizablePanel(options: UseResizablePanelOptions) {
     setIsResizing(true);
   }, [axis, finishResize, widthRef]);
 
-  const onPointerMove = useCallback((event: PointerEvent<HTMLDivElement>) => {
+  const onPointerMove = useCallback((event: Pick<globalThis.PointerEvent,
+    "pointerId" | "pointerType" | "buttons" | "clientX" | "clientY" | "preventDefault"
+  >) => {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (event.pointerType === "mouse" && event.buttons === 0) {
@@ -217,8 +225,8 @@ export function useResizablePanel(options: UseResizablePanelOptions) {
     }
     const nextWidth = clampWidth(drag.startWidth + (delta * direction));
     applyLiveWidth(nextWidth);
-    event.currentTarget.setAttribute("aria-valuenow", String(nextWidth));
-    event.currentTarget.setAttribute("aria-valuetext", `${nextWidth} px`);
+    drag.target.setAttribute("aria-valuenow", String(nextWidth));
+    drag.target.setAttribute("aria-valuetext", `${nextWidth} px`);
   }, [applyLiveWidth, axis, clampWidth, finishResize, growthDirection]);
 
   const onPointerUp = useCallback((event: PointerEvent<HTMLDivElement>) => {
@@ -230,7 +238,9 @@ export function useResizablePanel(options: UseResizablePanelOptions) {
   }, [finishResize]);
 
   const onLostPointerCapture = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    finishResize(event.pointerId, true);
+    // Losing capture is not a cancellation: keep following window events while
+    // held, including events on the iframe shield. A released pointer commits.
+    if (event.buttons === 0) finishResize(event.pointerId);
   }, [finishResize]);
 
   const resetWidth = useCallback(() => {
@@ -312,15 +322,23 @@ export function useResizablePanel(options: UseResizablePanelOptions) {
     const onVisibilityChange = () => {
       if (document.visibilityState !== "visible") cancelResize();
     };
+    const onWindowPointerUp = (event: globalThis.PointerEvent) => finishResize(event.pointerId);
+    const onWindowPointerCancel = (event: globalThis.PointerEvent) => finishResize(event.pointerId, true);
+    window.addEventListener("pointermove", onPointerMove, true);
+    window.addEventListener("pointerup", onWindowPointerUp, true);
+    window.addEventListener("pointercancel", onWindowPointerCancel, true);
     window.addEventListener("blur", cancelResize);
     window.addEventListener("keydown", onEscape, true);
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
+      window.removeEventListener("pointermove", onPointerMove, true);
+      window.removeEventListener("pointerup", onWindowPointerUp, true);
+      window.removeEventListener("pointercancel", onWindowPointerCancel, true);
       window.removeEventListener("blur", cancelResize);
       window.removeEventListener("keydown", onEscape, true);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [finishResize, isResizing]);
+  }, [finishResize, isResizing, onPointerMove]);
 
   useEffect(() => {
     return () => {

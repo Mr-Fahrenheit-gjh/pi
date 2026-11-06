@@ -81,5 +81,10 @@ than treating tool/process exit as success. Save that result with the candidate'
 model calls or user sessions. Coverage: cursor-anchor zoom, drag threshold and
 pan, reset/keyboard/Escape/focus, iframe-crossing split drag and rollback/storage,
 queued follow cancellation, detached reading and attached height-change follow.
+For a panel-only regression, add `resizeOnly: true` to the options. This checks
+both real separators when pointer capture is released before/after movement,
+including iframe crossing, actual panel width, mouseup persistence, cleanup and
+repeated drags, alongside the existing threshold/Escape/reset checks.
+
 Finally close the test page and stop the exact candidate process. Candidate
 verification is not a production publish or a live-service acceptance.
