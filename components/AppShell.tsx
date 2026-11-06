@@ -15,8 +15,6 @@ import { FileViewer } from "./FileViewer";
 import { TabBar, type Tab } from "./TabBar";
 import { openFileTab, saveFileViewerState, saveParkedFileViewerState, switchFileWorkspace, type ParkedFileWorkspace } from "./file-tab-state";
 import { SettingsPanel, SettingsSectionIcon } from "./SettingsPanel";
-import { PendingReleasePanel } from "./PendingReleasePanel";
-import { usePendingReleases } from "@/hooks/usePendingReleases";
 import { ProjectTrustDialog, type ProjectTrustFailure } from "./ProjectTrustDialog";
 import { BranchNavigator, hasSessionBranches } from "./BranchNavigator";
 import { SystemPromptPanel } from "./SystemPromptPanel";
@@ -28,7 +26,6 @@ import { OutputsWorkspace } from "./OutputsWorkspace";
 import { DesignDeckWorkspace } from "./DesignDeckWorkspace";
 import { sameDesignDecks, type DesignDeckPresentation } from "@/lib/design-deck";
 import { QuickActions, type QuickAction } from "./QuickActions";
-import { ServiceRestartButton } from "./ServiceRestartButton";
 import { usePackageSubagents } from "@/hooks/usePackageSubagents";
 import { TerminalPanel } from "./TerminalPanel";
 import { newTerminalTab, restoreTerminalTabs, TERMINAL_TABS_KEY, type TerminalTab } from "./terminal-tab-state";
@@ -227,7 +224,6 @@ export function AppShell() {
   }, []);
   const [explorerRefreshKey, setExplorerRefreshKey] = useState(0);
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null);
-  const [pendingReleaseOpen, setPendingReleaseOpen] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
   const [activeChatPane, setActiveChatPane] = useState<"primary" | "secondary">("primary");
   const splitInputRef = useRef<ChatInputHandle | null>(null);
@@ -239,7 +235,6 @@ export function AppShell() {
   }, []);
   const [quickActionsMode, setQuickActionsMode] = useState<QuickActionsMode | null>(null);
   const closeQuickActions = useCallback(() => setQuickActionsMode(null), []);
-  const pendingReleases = usePendingReleases(pendingReleaseOpen);
   const [modelsRefreshKey, setModelsRefreshKey] = useState(0);
   const [projectTrust, setProjectTrust] = useState<ProjectTrustStatus | null>(null);
   const [projectTrustDialogOpen, setProjectTrustDialogOpen] = useState(false);
@@ -1635,6 +1630,7 @@ export function AppShell() {
         selectedSessionId={secondaryActive ? splitContext.sessionId : selectedSession?.id ?? null}
         onSelectSession={handleSelectInActivePane}
         onNewSession={handleNewInActivePane}
+        onSearchConversations={() => setQuickActionsMode("chat")}
         controlRef={sidebarControlRef}
         onNewSessionContextChange={handleSidebarNewSessionContext}
         initialSessionId={initialSessionId}
@@ -1666,23 +1662,10 @@ export function AppShell() {
           aria-label={translate("common.settings")}
           className="quiet-action-button"
         >
-          <SettingsSectionIcon section="general" size={14} strokeWidth={2} />
+          <SettingsSectionIcon section="general" size={20} strokeWidth={1.7} />
           <span>{translate("common.settings")}</span>
         </button>
-        <button
-          type="button"
-          className="quiet-action-button pending-release-entry-button"
-          aria-label={translate("pendingRelease.title")}
-          aria-haspopup="dialog"
-          aria-expanded={pendingReleaseOpen}
-          title={pendingReleases.error ?? (pendingReleases.snapshot?.warnings.length ? translate("pendingRelease.countWarning") : translate("pendingRelease.title"))}
-          onClick={() => setPendingReleaseOpen(true)}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4" /></svg>
-          <span>{translate("pendingRelease.label")}</span><span className="pending-release-count">{pendingReleases.snapshot && !pendingReleases.snapshot.warnings.length
-            ? pendingReleases.snapshot.pendingCount : pendingReleases.loading ? "…" : "—"}</span>
-        </button>
-        <ServiceRestartButton />
+
       </div>
     </>
   );
@@ -2574,15 +2557,6 @@ export function AppShell() {
         projectTrust={projectTrust}
         onOpenTrustDialog={openProjectTrustDialog}
         onProjectTrustChanged={handleProjectTrustChanged}
-      />
-    )}
-    {pendingReleaseOpen && (
-      <PendingReleasePanel
-        snapshot={pendingReleases.snapshot}
-        loading={pendingReleases.loading}
-        error={pendingReleases.error}
-        onRefresh={pendingReleases.refresh}
-        onClose={() => setPendingReleaseOpen(false)}
       />
     )}
     {/* After Settings, so it opens above it (z-index 1100 over 1000) when Settings › MCP asks for it. */}

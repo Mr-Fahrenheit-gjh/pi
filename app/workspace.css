@@ -41,7 +41,9 @@
 
 .sidebar-container {
   background: color-mix(in srgb, var(--bg-panel) 42%, var(--bg)) !important;
-  font-family: var(--font-ui);
+  --font-sidebar: 'Claude Interface Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: var(--font-sidebar);
+  font-optical-sizing: auto;
   font-weight: 400;
 }
 .sidebar-container .sidebar-brand {
@@ -145,110 +147,75 @@
 @media (hover: none) { .assistant-message-footer { opacity: 1; } }
 
 .sidebar-container .session-tree-title {
-  font-family: inherit;
-  font-size: 14px;
+  font-family: var(--font-sidebar);
+  font-size: 15px;
   font-weight: 400;
   line-height: 1.5;
-  letter-spacing: .005em;
+  letter-spacing: 0;
 }
 .sidebar-container .sidebar-project-title {
   font-family: inherit;
 }
 .workspace-settings-entry {
-  container: sidebar-actions / inline-size;
   display: flex;
-  align-items: center;
-  gap: 6px;
   flex-shrink: 0;
   padding: 10px 12px;
   border-top: 1px solid var(--workspace-divider);
 }
-.workspace-settings-entry > * {
-  flex: 1;
-  min-width: 0;
-}
 .workspace-settings-entry > button {
-  justify-content: center;
-  width: auto;
-  padding: 0 4px;
-  border-radius: 9px;
-  font-family: var(--font-ui);
-  font-size: 12px;
-  line-height: 16px;
-  white-space: nowrap;
-}
-.workspace-settings-entry > button > svg,
-.workspace-settings-entry .pending-release-count {
-  flex-shrink: 0;
-}
-@container sidebar-actions (max-width: 280px) {
-  .workspace-settings-entry > button > span:not(.pending-release-count) {
-    display: none;
-  }
-  .workspace-settings-entry > button {
-    gap: 4px;
-  }
-  .workspace-settings-entry .pending-release-count {
-    margin-left: 0;
-  }
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 40px;
+  height: auto;
+  gap: 12px;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--font-sidebar);
+  font-size: 16px;
+  font-weight: 400;
 }
 .sidebar-quick-actions {
-  font-family: var(--font-ui-default);
-  font-weight: 400;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  gap: 8px;
-  padding: 10px 12px 14px;
+  gap: 4px;
+  padding: 10px 12px 18px;
+  font-family: var(--font-sidebar);
 }
+.sidebar-quick-new,
 .sidebar-quick-search {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 12px;
   min-height: 40px;
-  padding: 0 12px;
-  border: 1px solid var(--workspace-divider);
-  border-radius: 10px;
-  background: var(--bg);
-  color: var(--text-dim);
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--text) 3%, transparent);
-}
-.sidebar-quick-search:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
-}
-.sidebar-quick-search input {
   width: 100%;
-  min-width: 0;
-  height: 38px;
-  padding: 0;
+  padding: 0 12px;
   border: 0;
-  outline: 0;
+  border-radius: 8px;
   background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: 14px;
-}
-.sidebar-quick-search input::placeholder { color: var(--text-dim); }
-.sidebar-quick-new {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 40px;
-  width: 100%;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 10px;
-  background: var(--bg-hover);
+  box-shadow: none;
   color: var(--text);
   cursor: default;
   font: inherit;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 400;
+  line-height: 1.4;
   text-align: left;
+  transition: background-color var(--workspace-feedback-duration) ease;
 }
-.sidebar-quick-new:hover { background: var(--bg-selected); }
+.sidebar-quick-actions > button > svg,
+.workspace-settings-entry > button > svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.7;
+}
+.sidebar-quick-new:hover,
+.sidebar-quick-search:hover { background: var(--bg-hover); }
 .sidebar-quick-new:disabled { opacity: .45; cursor: default; }
-.sidebar-quick-new:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sidebar-quick-new:focus-visible,
+.sidebar-quick-search:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .service-restart-button {
   width: auto;
   font-size: 12px;
@@ -326,19 +293,6 @@
 /* Claude White: let the conversation, not nested chrome, carry the hierarchy. */
 [data-theme="claude-white"] .sidebar-container {
   background: var(--bg-panel) !important;
-}
-[data-theme="claude-white"] .sidebar-quick-search {
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-}
-[data-theme="claude-white"] .sidebar-quick-search:hover {
-  background: var(--bg-hover);
-}
-[data-theme="claude-white"] .sidebar-quick-search:focus-within {
-  background: var(--bg);
-  border-color: #949494;
-  box-shadow: none;
 }
 [data-theme="claude-white"] .composer-surface {
   border-color: var(--border);

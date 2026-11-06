@@ -608,6 +608,7 @@ export const zhTWLocale: LocalePlugin = {
     "layout.resizeFilePanel": "調整檔案面板寬度",
     "layout.resizeHint": "拖曳以調整寬度。按兩下或按 Enter 鍵即可重設，Esc 取消拖曳。",
     "sidebar.new": "新增",
+    "sidebar.search": "搜尋",
     "sidebar.newSessionTitle": "在 {path} 中新增工作階段",
     "sidebar.refresh": "重新整理",
     "sidebar.selectProject": "選擇專案…",

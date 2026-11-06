@@ -990,7 +990,7 @@ function BlockView({ block, searchTarget, toolResults, isStreaming, streamingDur
 }
 
 function TextBlock({ block, isStreaming, cwd, onOpenFile }: { block: TextContent; isStreaming?: boolean; cwd?: string; onOpenFile?: (filePath: string, page?: number) => void }) {
-  return <SafeMarkdownBody className="markdown-assistant-message" allowInlineVisuals isStreaming={isStreaming} cwd={cwd} onOpenFile={onOpenFile}>{block.text}</SafeMarkdownBody>;
+  return <SafeMarkdownBody className={`markdown-assistant-message${isStreaming ? " markdown-streaming-answer" : ""}`} allowInlineVisuals isStreaming={isStreaming} cwd={cwd} onOpenFile={onOpenFile}>{block.text}</SafeMarkdownBody>;
 }
 
 export function ThinkingBlock({ block, duration, sessionId, entryId, blockIndex }: {

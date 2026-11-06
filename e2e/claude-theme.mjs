@@ -9,12 +9,15 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
+import { runSidebarRefinementChecks } from './ui-polish.mjs';
 
 const source = dirname(dirname(fileURLToPath(import.meta.url)));
 assert.ok(process.env.PI_WEB_CHAT_PACKAGE_ROOT, 'An isolated built candidate is required');
 const packageRoot = resolve(process.env.PI_WEB_CHAT_PACKAGE_ROOT);
 // CSS-only preview on an existing build. This is not production-build evidence.
 const cssPreview = process.env.PI_WEB_THEME_CSS_PREVIEW === '1';
+const uiPreview = process.env.PI_WEB_THEME_UI_PREVIEW === '1';
+const dev = uiPreview && process.env.PI_WEB_THEME_DEV === '1';
 const whiteStyles = ['app/globals.css', 'app/workspace.css'].map(file =>
   (readFileSync(join(source, file), 'utf8').match(/\[data-theme="claude-white"\][^{]*\{[^}]*\}/g) || []).join('\n')
 ).join('\n');
@@ -42,7 +45,7 @@ messages.push(
   { role: 'toolResult', toolCallId: 'theme-error', toolName: 'read', content: [{ type: 'text', text: 'File not found' }], isError: true, timestamp: Date.now() },
   { ...messages[1], content: [{ type: 'text', text: '浅白主题保留柔和、清晰的成功与失败状态。' }] },
 );
-if (cssPreview) {
+if (cssPreview || uiPreview) {
   messages[0].content = 'SOTP 相比 DCF，主要灵活在哪里？';
   messages[1].content[0].text = '## 先区分方法与框架\n\n**DCF 是估值方法，SOTP 是分部估值框架。** 两者不在同一个层面：拆开后的每个业务，仍然可以采用 DCF。\n\n### 灵活的地方\n\n- 每个分部选择更适合自己的方法，例如成熟业务用 PE，高增长业务结合收入与现金流判断。\n- 各分部可以对标不同的可比公司，不必给整家公司套同一个倍数。\n- 单独观察业务的价值来源，比一个合并后的数字更直观。\n\n### 灵活也意味着更多判断\n\n分部披露通常比公司整体更有限。利润、成本与总部费用如何分摊，以及是否考虑集团折价，都会影响结果。\n\n| 维度 | DCF | SOTP |\n| --- | --- | --- |\n| 核心思路 | 未来现金流折现 | 分部估值后汇总 |\n| 主要判断 | 增长、折现率与终值 | 分部划分、方法与折价 |\n\n所以，更准确的说法是：SOTP 让不同业务可以采用不同的估值方法，而不是天然比 DCF 更可靠。';
   messages[messages.length - 1].content = [{ type: 'text', text: '把关键假设列清楚，比单纯增加估值方法更重要。' }];
@@ -56,7 +59,7 @@ await once(probe, 'listening');
 const port = probe.address().port;
 await new Promise(resolve => probe.close(resolve));
 const log = createWriteStream(join(out, 'server.log'));
-const server = spawn(process.execPath, [join(packageRoot, 'node_modules/next/dist/bin/next'), 'start', '-H', '127.0.0.1', '-p', String(port)], {
+const server = spawn(process.execPath, [join(packageRoot, 'node_modules/next/dist/bin/next'), dev ? 'dev' : 'start', '-H', '127.0.0.1', '-p', String(port)], {
   cwd: packageRoot, env: { ...process.env, HOME: home, PI_CODING_AGENT_DIR: agent, PI_WEB_PASSWORD: '', PI_WEB_DISABLE_MCP: '1', PI_OFFLINE: '1', NEXT_TELEMETRY_DISABLED: '1' }, stdio: ['ignore', 'pipe', 'pipe'],
 });
 server.stdout.pipe(log); server.stderr.pipe(log);
@@ -77,7 +80,13 @@ try {
   page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/api/agent/*/subagents**', route => route.fulfill({ json: { available: false } }));
-  if (cssPreview) {
+  if (uiPreview) {
+    const result = await runSidebarRefinementChecks(page, { baseURL: base, outputDir: out, sessionId: sid, assistant: messages[1] });
+    assert.deepEqual(errors, []);
+    Object.assign(result, { mode: dev ? 'isolated-development-preview' : 'built-candidate', packageRoot, realModelRequests: 0 });
+    writeFileSync(join(out, 'result.json'), JSON.stringify(result, null, 2) + '\n');
+    console.log(JSON.stringify(result, null, 2));
+  } else if (cssPreview) {
     await context.addInitScript(() => localStorage.setItem('pi-theme', 'claude-white'));
     await page.goto(`${base}/?session=${sid}`, { waitUntil: 'networkidle' });
     await page.locator('.markdown-assistant-message').first().waitFor();
@@ -96,8 +105,12 @@ try {
     assert.equal(await page.locator('.sidebar-container').evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(248, 248, 248)');
     const search = page.locator('.sidebar-quick-search');
     assert.equal(await search.evaluate(el => getComputedStyle(el).boxShadow), 'none');
-    await search.locator('input').focus();
-    await page.waitForFunction(() => getComputedStyle(document.querySelector('.sidebar-quick-search')).borderTopColor === 'rgb(148, 148, 148)');
+    if (await search.locator('input').count()) {
+      await search.locator('input').focus(); // Older CSS-only baseline.
+    } else {
+      await search.focus();
+      assert.equal(await search.evaluate(el => getComputedStyle(el).outlineStyle), 'solid');
+    }
     await page.locator('.chat-input-textarea').focus();
     await page.waitForFunction(() => getComputedStyle(document.querySelector('.composer-surface')).borderTopColor === 'rgb(148, 148, 148)');
     await page.locator('.chat-input-textarea').blur();
@@ -206,8 +219,12 @@ try {
   assert.equal(await page.locator('.sidebar-container').evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(248, 248, 248)');
   const search = page.locator('.sidebar-quick-search');
   assert.equal(await search.evaluate(el => getComputedStyle(el).boxShadow), 'none');
-  await search.locator('input').focus();
-  await page.waitForFunction(() => getComputedStyle(document.querySelector('.sidebar-quick-search')).borderTopColor === 'rgb(148, 148, 148)');
+  if (await search.locator('input').count()) {
+    await search.locator('input').focus(); // Older CSS-only baseline.
+  } else {
+    await search.focus();
+    assert.equal(await search.evaluate(el => getComputedStyle(el).outlineStyle), 'solid');
+  }
   await page.locator('.chat-input-textarea').focus();
   await page.waitForFunction(() => getComputedStyle(document.querySelector('.composer-surface')).borderTopColor === 'rgb(148, 148, 148)');
   await page.locator('.chat-input-textarea').blur();

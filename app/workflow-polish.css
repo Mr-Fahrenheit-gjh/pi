@@ -1,8 +1,5 @@
 /* A: native refinement. Keep theme, typography and the 200ms panel exit contract. */
 :root { --workspace-feedback-duration: 110ms; --workspace-popover-duration: 160ms; }
-.sidebar-quick-search { transition: border-color var(--workspace-feedback-duration) ease, box-shadow var(--workspace-feedback-duration) ease; }
-.sidebar-quick-search:focus-within { border-color: color-mix(in srgb, var(--accent) 48%, var(--border)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 8%, transparent); }
-.sidebar-quick-search input { min-width: 0; }
 .outputs-workspace button:focus-visible, .outputs-workspace select:focus-visible, .quick-actions-surface button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 #file-panel [role="tab"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
 .quick-actions-backdrop { position: fixed; inset: 0; z-index: 1150; display: flex; align-items: flex-start; justify-content: center; padding: min(14vh, 110px) 18px 18px; background: #0003; font-family: var(--font-ui); }

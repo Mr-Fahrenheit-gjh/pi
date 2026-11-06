@@ -196,6 +196,7 @@ export interface SelectSessionOptions {
 }
 
 interface Props {
+  onSearchConversations: () => void;
   selectedSessionId: string | null;
   onSelectSession: (session: SessionInfo, isRestore?: boolean, entryId?: string, blockIndex?: number, options?: SelectSessionOptions) => void;
   /** projectKey: the target's project identity when it is known (a group's "+", the composer's bar). */
@@ -490,7 +491,7 @@ function buttonAnchor(element: HTMLElement, align: "start" | "end"): SidebarMenu
   return { kind: "rect", rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }, align };
 }
 
-export function SessionSidebar({ conversationVisible = true, selectedSessionId, onSelectSession, onNewSession, controlRef, onNewSessionContextChange, initialSessionId, initialSessionLinked, skipInitialProjectSelection, onInitialRestoreDone, refreshKey, onSessionDeleted, selectedCwd: selectedCwdProp, onCwdChange, onOpenFile, onOpenTerminal, explorerRefreshKey, onExplorerRefresh, onAtMention, onAtMentions, onBackgroundTaskDone, onRunningSessionIdsChange, onAwaitingInputSessionIdsChange, onUnreadSessionIdsChange, onDesignDecksChange, onSessionsChange }: Props) {
+export function SessionSidebar({ onSearchConversations, conversationVisible = true, selectedSessionId, onSelectSession, onNewSession, controlRef, onNewSessionContextChange, initialSessionId, initialSessionLinked, skipInitialProjectSelection, onInitialRestoreDone, refreshKey, onSessionDeleted, selectedCwd: selectedCwdProp, onCwdChange, onOpenFile, onOpenTerminal, explorerRefreshKey, onExplorerRefresh, onAtMention, onAtMentions, onBackgroundTaskDone, onRunningSessionIdsChange, onAwaitingInputSessionIdsChange, onUnreadSessionIdsChange, onDesignDecksChange, onSessionsChange }: Props) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const [allSessions, setAllSessions] = useState<SessionInfo[]>([]);
@@ -664,7 +665,7 @@ export function SessionSidebar({ conversationVisible = true, selectedSessionId, 
   // The toolbar row's search button: always there and enabled, so focus has
   // somewhere to go when there are no tabs (selectedTabButton).
   const searchButtonRef = useRef<HTMLButtonElement>(null);
-  const quickSearchRef = useRef<HTMLInputElement>(null);
+  const quickSearchRef = useRef<HTMLButtonElement>(null);
 
   // The files section's height below the sessions, on the sidebar's root
   // (--sidebar-files-height: the files panel's height, and what the toast
@@ -2660,30 +2661,13 @@ export function SessionSidebar({ conversationVisible = true, selectedSessionId, 
       </div>
       {stacked && (
         <div className="sidebar-quick-actions">
-          <div className="sidebar-quick-search">
-            <SearchIcon size={16} />
-            <input
-              ref={quickSearchRef}
-              id="session-search-input"
-              type="search"
-              value={sessionSearchQuery}
-              maxLength={200}
-              placeholder={t("sidebar.searchSessions")}
-              aria-label={t("sidebar.searchSessions")}
-              onFocus={() => setSessionSearchOpen(true)}
-              onChange={(event) => { setSessionSearchQuery(event.target.value); setSessionSearchOpen(true); }}
-              onKeyDown={(event) => {
-                if (event.key === "Escape" && !event.nativeEvent.isComposing) {
-                  event.stopPropagation();
-                  setSessionSearchQuery("");
-                  setSessionSearchOpen(false);
-                }
-              }}
-            />
-          </div>
           <button type="button" className="sidebar-quick-new" onClick={handleNewSession} disabled={!selectedCwd} title={selectedCwd ? t("sidebar.newSessionTitle", { path: selectedCwd }) : t("sidebar.selectProject")}>
-            <PlusIcon size={18} />
+            <PlusIcon size={20} />
             <span>{t("sidebar.new")}</span>
+          </button>
+          <button type="button" ref={quickSearchRef} className="sidebar-quick-search" onClick={onSearchConversations} aria-haspopup="dialog">
+            <SearchIcon size={20} />
+            <span>{t("sidebar.search")}</span>
           </button>
         </div>
       )}

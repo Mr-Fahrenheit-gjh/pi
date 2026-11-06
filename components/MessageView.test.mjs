@@ -518,6 +518,15 @@ test("shows every line of pasted plain text in a user message (#680)", () => {
   assert.match(listHtml, /<li>看门狗的原理是（ ）<br\/>A\. 监控温度<br\/>B\. 计数器<\/li>/);
 });
 
+test("only live assistant prose opts into block entry motion without changing Markdown", () => {
+  const message = { role: "assistant", content: [{ type: "text", text: "A **clear** answer.\n\nSecond paragraph." }] };
+  const live = renderMessage(message, { isStreaming: true });
+  assert.match(live, /markdown-assistant-message markdown-streaming-answer/);
+  assert.match(live, /<p>A <strong>clear<\/strong> answer\.<\/p>/);
+  assert.doesNotMatch(renderMessage(message), /markdown-streaming-answer/);
+  assert.doesNotMatch(renderMessage({ role: "user", content: "Text" }, { isStreaming: true }), /markdown-streaming-answer/);
+});
+
 test("keeps assistant soft line breaks as Markdown paragraphs", () => {
   const html = renderMessage({ role: "assistant", content: [{ type: "text", text: "one\ntwo" }] });
 

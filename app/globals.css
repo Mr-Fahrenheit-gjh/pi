@@ -1214,6 +1214,21 @@ pre, code {
   white-space: pre-wrap;
 }
 
+/* Fade new prose blocks once, never replay on each token or delay the stream.
+   No wrappers/transforms: Markdown structure, selection and scroll geometry stay intact. */
+.markdown-streaming-answer > :is(p, h1, h2, h3, h4, h5, h6):not(:has(.katex)) {
+  animation: answer-prose-enter 180ms ease-out;
+}
+@keyframes answer-prose-enter {
+  from { opacity: .72; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .markdown-streaming-answer > :is(p, h1, h2, h3, h4, h5, h6):not(:has(.katex)) {
+    animation: none;
+  }
+}
+
 /* The page's mono font ships Latin and Cyrillic only, so arrows, box drawing and
    blocks fell back to glyphs 12-17px wide in a 7.8px column. These faces take
    those characters from a system mono font, sized to the 0.6em column. */
