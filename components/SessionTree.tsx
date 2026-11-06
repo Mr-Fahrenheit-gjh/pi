@@ -41,7 +41,7 @@ import {
   ArchiveIcon,
   BranchIcon,
   ChevronIcon,
-  FolderIcon,
+  ProjectIcon,
   FolderOpenIcon,
   PinOffIcon,
   MoreIcon,
@@ -94,6 +94,8 @@ export interface SessionTreeReveal {
 export interface SessionTreeProps {
   rows: SidebarRow[];
   layout: SidebarLayout;
+  /** Navigation in the same scroll surface, before the virtual rows. */
+  header?: ReactNode;
   /** Shown above the footer rows when there are no session/group rows; null = none. */
   emptyLabel: string | null;
   /** Shows t("sidebar.loading") instead of rows. */
@@ -187,6 +189,8 @@ export function SessionTree(props: SessionTreeProps): ReactNode {
 
   const treeRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const preambleRef = useRef<HTMLDivElement>(null);
+  const [preambleHeight, setPreambleHeight] = useState(0);
   const innerRef = useRef<HTMLDivElement>(null);
   const ghostRef = useRef<HTMLDivElement>(null);
   useScrollbarVisibility(scrollRef);
@@ -214,6 +218,8 @@ export function SessionTree(props: SessionTreeProps): ReactNode {
     // where the session times end; a tree with no box (under the archive
     // view, in a hidden tab) measures nothing and leaves it.
     const syncScrollbarWidth = () => {
+      // Hidden archive/tab trees keep their last measurement until visible.
+      if (element.getClientRects().length) setPreambleHeight(preambleRef.current?.offsetHeight ?? 0);
       const width = `${Math.max(0, element.offsetWidth - element.clientWidth)}px`;
       element.style.setProperty("--session-tree-scrollbar", width);
       if (element.offsetWidth > 0) element.closest<HTMLElement>(".session-sidebar")?.style.setProperty("--session-tree-scrollbar", width);
@@ -232,6 +238,7 @@ export function SessionTree(props: SessionTreeProps): ReactNode {
       setScrollTop(element.scrollTop);
     });
     observer.observe(element);
+    if (preambleRef.current) observer.observe(preambleRef.current);
     return () => observer.disconnect();
   }, []);
 
@@ -257,6 +264,12 @@ export function SessionTree(props: SessionTreeProps): ReactNode {
   }, []);
 
   const offsets = useMemo(() => getRowOffsets(rows, layout), [rows, layout]);
+  // Rows/drag coordinates stay inner-local; viewport/reveal coordinates
+  // include the normal-flow navigation and status messages above the rows.
+  const scrollOffsets = useMemo(() => offsets.map((y) => y + preambleHeight), [offsets, preambleHeight]);
+  // Read the committed box before ResizeObserver's update on first mount,
+  // loading completing or return from archive.
+  const readScrollOffsets = useCallback(() => offsets.map((y) => y + (preambleRef.current?.offsetHeight ?? 0)), [offsets]);
   // A group header can be dragged to another place in its band (pinned
   // projects, or the others) when the band has another group.
   const canMoveGroups = Boolean(props.onMoveGroup);
@@ -270,6 +283,7 @@ export function SessionTree(props: SessionTreeProps): ReactNode {
   const groupDrag = useGroupDrag({
     rows,
     offsets,
+    contentOffset: preambleHeight,
     layout,
     enabled: canMoveGroups && !loading,
     scrollRef,
@@ -296,8 +310,8 @@ export function SessionTree(props: SessionTreeProps): ReactNode {
     return indices;
   }, [rows, focusedRowKey, activeMenuRowKey, pendingRevealKey, draggedRowKey, renamingRootId, renamingProjectKey, confirmDeleteRootId]);
   const visibleIndices = useMemo(
-    () => (loading ? [] : getVisibleRowIndices(offsets, scrollTop, viewportHeight, OVERSCAN_PX, keepMounted)),
-    [loading, offsets, scrollTop, viewportHeight, keepMounted],
+    () => (loading ? [] : getVisibleRowIndices(scrollOffsets, scrollTop, viewportHeight, OVERSCAN_PX, keepMounted)),
+    [loading, scrollOffsets, scrollTop, viewportHeight, keepMounted],
   );
 
   // "Show more" / "show less" change the rows under the pointer. After "show
@@ -332,13 +346,13 @@ export function SessionTree(props: SessionTreeProps): ReactNode {
     let index = rows.findIndex((row) => row.key === pending.rowKey);
     if (index < 0) index = rows.findIndex((row) => row.key === pending.fallbackKey);
     if (pending.scroll && element && index >= 0) {
-      const next = revealScrollTop(offsets, index, element.scrollTop, element.clientHeight);
+      const next = revealScrollTop(readScrollOffsets(), index, element.scrollTop, element.clientHeight);
       if (next !== null) element.scrollTop = next;
       // The browser may clamp scrollTop when the list shrank: keep the window in step either way.
       setScrollTop(element.scrollTop);
     }
     if (pending.focus) pendingFocusRef.current = { rowKey: pending.rowKey, fallbackKey: pending.fallbackKey, tries: 0 };
-  }, [rows, offsets]);
+  }, [rows, readScrollOffsets]);
   // A reveal request: scrolled to once its row is in the rows (it is kept
   // mounted meanwhile, so focus can go to it in the same commit), or dropped.
   // Its age is checked on every look, so a late one is dropped even when its
@@ -354,7 +368,7 @@ export function SessionTree(props: SessionTreeProps): ReactNode {
       const element = scrollRef.current;
       // A tree in a hidden tab has no box to scroll: it gets its saved position back when shown.
       if (element && element.getClientRects().length > 0) {
-        const next = revealScrollTop(offsets, index, element.scrollTop, element.clientHeight);
+        const next = revealScrollTop(readScrollOffsets(), index, element.scrollTop, element.clientHeight);
         if (next !== null) element.scrollTop = next;
         setScrollTop(element.scrollTop);
       }
@@ -364,7 +378,7 @@ export function SessionTree(props: SessionTreeProps): ReactNode {
     }
     setHandledRevealId(pendingReveal.id);
     handlersRef.current.onRevealHandled?.(pendingReveal.id);
-  }, [pendingReveal, rows, offsets]);
+  }, [pendingReveal, rows, readScrollOffsets]);
   useLayoutEffect(() => {
     const target = pendingFocusRef.current;
     if (!target) return;
@@ -406,9 +420,6 @@ export function SessionTree(props: SessionTreeProps): ReactNode {
 
   return (
     <div ref={treeRef} className={`session-tree${layout === "mobile" ? " is-mobile" : ""}${ghostProject ? " is-group-dragging" : ""}`}>
-      {loading && <div className="session-tree-message">{t("sidebar.loading")}</div>}
-      {error && <div className="session-tree-message is-error">{error}</div>}
-      {showEmpty && <div className="session-tree-message">{emptyLabel}</div>}
       <div
         ref={scrollRef}
         className="session-tree-scroll scrollbar-subtle"
@@ -418,6 +429,12 @@ export function SessionTree(props: SessionTreeProps): ReactNode {
         onPointerDownCapture={groupDrag.onPointerDownCapture}
         onClickCapture={groupDrag.onClickCapture}
       >
+        <div ref={preambleRef} className="session-tree-preamble">
+          {props.header}
+          {loading && <div className="session-tree-message">{t("sidebar.loading")}</div>}
+          {error && <div className="session-tree-message is-error">{error}</div>}
+          {showEmpty && <div className="session-tree-message">{emptyLabel}</div>}
+        </div>
         {!loading && (
           <div ref={innerRef} className="session-tree-inner" style={{ height: offsets[rows.length] }}>
             {visibleIndices.map((index) => {
@@ -520,6 +537,7 @@ const SessionRowView = memo(function SessionRowView({
     status.selected ? "is-selected" : "",
     status.running ? "is-running" : "",
     context === "archive" ? "is-archived" : "",
+    context === "pinned" && !row.hasChildren && !row.depth ? "is-standalone-pin" : "",
     menuOpen ? "is-menu-open" : "",
     confirming ? "is-confirming" : "",
     renaming ? "is-renaming" : "",
@@ -948,12 +966,9 @@ const GroupRowView = memo(function GroupRowView({
         title={project.root}
         onClick={(event) => handlers.current.onToggleGroup(project.key, event.altKey)}
       >
-        {/* A section header, not one more row: the chevron leads in a
-            column of its own, so the name starts where the session titles
-            below it do and every header's chevron lines up. */}
-        <ChevronIcon size={12} strokeWidth={3} className={`session-tree-chevron${expanded ? " is-open" : ""}`} />
-        <FolderIcon size={15} className="session-tree-folder-icon" />
+        <ProjectIcon size={20} className="session-tree-project-icon" />
         <span className="session-tree-group-name">{project.name}</span>
+        <ChevronIcon size={12} className={`session-tree-chevron${expanded ? " is-open" : ""}`} />
         {project.pinned && <PinIcon size={10} className="session-tree-group-pin" label={t("sidebar.pinnedProject")} />}
         {!expanded && <ActivitySummary running={row.running} unread={row.unread} t={t} />}
       </button>
@@ -1016,8 +1031,8 @@ const PlainRowView = memo(function PlainRowView({
             aria-expanded={!row.collapsed}
             onClick={() => handlers.current.onTogglePinned()}
           >
-            <ChevronIcon size={12} strokeWidth={3} className={`session-tree-chevron${row.collapsed ? "" : " is-open"}`} />
             <span className="session-tree-pinned-label">{t("sidebar.pinned")}</span>
+            <ChevronIcon size={12} className={`session-tree-chevron${row.collapsed ? "" : " is-open"}`} />
             <span className="session-tree-pinned-count">· {row.count}</span>
             {row.collapsed && row.running > 0 && (
               <span

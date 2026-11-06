@@ -2659,19 +2659,6 @@ export function SessionSidebar({ onSearchConversations, conversationVisible = tr
         </button>
         </>}
       </div>
-      {stacked && (
-        <div className="sidebar-quick-actions">
-          <button type="button" className="sidebar-quick-new" onClick={handleNewSession} disabled={!selectedCwd} title={selectedCwd ? t("sidebar.newSessionTitle", { path: selectedCwd }) : t("sidebar.selectProject")}>
-            <PlusIcon size={20} />
-            <span>{t("sidebar.new")}</span>
-          </button>
-          <button type="button" ref={quickSearchRef} className="sidebar-quick-search" onClick={onSearchConversations} aria-haspopup="dialog">
-            <SearchIcon size={20} />
-            <span>{t("sidebar.search")}</span>
-          </button>
-        </div>
-      )}
-
       {/* Sessions: every project's sessions, or the archive. A tab's panel,
           or the top section, always shown, filling what the files leave. */}
       <div
@@ -2720,6 +2707,18 @@ export function SessionSidebar({ onSearchConversations, conversationVisible = tr
             <div className="sidebar-sessions-view" hidden={archiveMotion.mainHidden} inert={archiveMotion.mainInert}>
               <SessionTree
                 {...treeProps}
+                header={stacked && (
+                  <div className="sidebar-quick-actions">
+                    <button type="button" className="sidebar-quick-new" onClick={handleNewSession} disabled={!selectedCwd} title={selectedCwd ? t("sidebar.newSessionTitle", { path: selectedCwd }) : t("sidebar.selectProject")}>
+                      <PlusIcon size={20} />
+                      <span>{t("sidebar.new")}</span>
+                    </button>
+                    <button type="button" ref={quickSearchRef} className="sidebar-quick-search" onClick={onSearchConversations} aria-haspopup="dialog">
+                      <SearchIcon size={20} />
+                      <span>{t("sidebar.search")}</span>
+                    </button>
+                  </div>
+                )}
                 rows={model.rows}
                 emptyLabel={t("sidebar.noSessions")}
                 reveal={treeReveal}

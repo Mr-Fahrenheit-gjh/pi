@@ -88,3 +88,111 @@ export async function runSidebarPreviewLayoutChecks(page, { baseURL }) {
   }
   return { passed: true, checks };
 }
+
+// Claude-scale navigation on the isolated source/dev fixture; no model calls.
+export async function runSidebarScaleChecks(page, { baseURL, outputDir, sessionId }) {
+  const checks = [];
+  const context = page.context();
+  await context.addInitScript(() => {
+    localStorage.setItem('pi-theme', 'claude-white');
+    localStorage.setItem('pi-web:sidebar-show-archived', 'true');
+    window.EventSource = class {
+      readyState = 1; onmessage = null; onerror = null;
+      constructor() { setTimeout(() => this.onmessage?.({ data: JSON.stringify({ type: 'connected', isStreaming: false }) }), 0); }
+      close() { this.readyState = 2; }
+    };
+  });
+  const state = { running: false, state: { isStreaming: false, isPromptRunning: false, messages: [], thinkingLevel: 'off', extensionStatuses: [], extensionWidgets: [] } };
+  await page.route('**/api/sessions/*/state', route => route.fulfill({ json: state }));
+  await page.route(`**/api/agent/${sessionId}`, route => route.fulfill({ json: state }));
+  await page.goto(`${baseURL}/?session=${sessionId}`, { waitUntil: 'networkidle' });
+  await page.locator('.markdown-assistant-message').first().waitFor();
+  await page.locator('.session-tree-pinned-label').waitFor();
+  await page.evaluate(() => document.fonts.ready);
+  const scroll = page.locator('.sidebar-sessions-view:not([hidden]):not(.sidebar-archive-view) .session-tree-scroll');
+  const top = () => scroll.evaluate(el => { el.scrollTop = 0; });
+  await top();
+  const metrics = await page.evaluate(() => {
+    const measure = selector => {
+      const el = document.querySelector(selector), s = getComputedStyle(el), r = el.getBoundingClientRect();
+      return { fontSize: s.fontSize, fontWeight: s.fontWeight, lineHeight: s.lineHeight, transform: s.textTransform, x: r.x, y: r.y, height: r.height, width: r.width };
+    };
+    return Object.fromEntries(Object.entries({ new: '.sidebar-quick-new', search: '.sidebar-quick-search', newLabel: '.sidebar-quick-new > span', project: '.session-tree-group-toggle', projectLabel: '.session-tree-group-name', projectIcon: '.session-tree-project-icon', session: '.session-tree-session[data-row-key^="session:group:"] .session-tree-title', pinned: '.session-tree-pinned-label', pinnedSession: '.session-tree-session.is-standalone-pin .session-tree-title', document: '.sidebar-files-section-label', settings: '.workspace-settings-entry > button' }).map(([key, selector]) => [key, measure(selector)]));
+  });
+  for (const key of ['new', 'search', 'project', 'session', 'settings']) assert.equal(metrics[key].fontSize, '14px', key);
+  for (const key of ['new', 'search', 'project', 'settings']) assert.equal(metrics[key].height, 32, key);
+  assert.equal(metrics.pinned.fontSize, '12px'); assert.equal(metrics.pinned.transform, 'none');
+  assert.equal(metrics.projectIcon.width, 20); assert.equal(metrics.projectIcon.height, 20);
+  assert.equal(metrics.newLabel.x, metrics.projectLabel.x, 'Navigation/project text column');
+  assert.equal(metrics.projectLabel.x, metrics.session.x, 'Nested conversations keep the project text column');
+  assert.equal(metrics.pinnedSession.x, metrics.pinned.x, 'Standalone pins follow Claude’s unindented recent/pinned rows');
+  assert.equal(metrics.document.x, metrics.pinned.x, 'Section headings share their left edge');
+  assert.equal(metrics.document.fontSize, '12px'); assert.equal(metrics.document.transform, 'none');
+  assert.equal(await page.locator('.sidebar-quick-actions input').count(), 0);
+  checks.push('14px content, 12px sentence-case sections, 32px rows, 20px project icons, aligned text columns');
+  const fixed = async () => ({ brand: (await page.locator('.sidebar-brand').boundingBox()).y, settings: (await page.locator('.workspace-settings-entry').boundingBox()).y });
+  const before = await fixed();
+  const firstY = (await page.locator('.sidebar-quick-new').boundingBox()).y;
+  const box = await scroll.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, 240);
+  await page.waitForFunction(() => document.querySelector('.session-tree-scroll').scrollTop > 100);
+  const moved = await scroll.evaluate(el => el.scrollTop);
+  assert.ok(Math.abs(firstY - (await page.locator('.sidebar-quick-new').boundingBox()).y - moved) < 1);
+  assert.deepEqual(await fixed(), before);
+  checks.push('real wheel scroll moves New/Search with the tree; brand and Settings stay fixed');
+  await page.screenshot({ path: `${outputDir}/sidebar-scrolled.png`, style: 'nextjs-portal { display: none !important; }' });
+  await scroll.evaluate(el => { el.scrollTop = el.scrollHeight; });
+  const archived = page.locator('.session-tree-footer-button').filter({ hasText: 'Archived' });
+  await archived.waitFor();
+  const endBox = await archived.boundingBox(), scrollBox = await scroll.boundingBox();
+  assert.ok(endBox.y + endBox.height <= scrollBox.y + scrollBox.height + 1, 'Last row reachable');
+  const saved = await scroll.evaluate(el => el.scrollTop);
+  await archived.click();
+  await page.locator('.sidebar-archive-back').waitFor();
+  await page.locator('.sidebar-archive-back').click();
+  await scroll.waitFor({ state: 'visible' });
+  assert.ok(Math.abs(await scroll.evaluate(el => el.scrollTop) - saved) < 1, 'Archive round-trip restores container scrollTop');
+  checks.push('virtualized bottom reachable and archive return preserves scroll position');
+  await top();
+  await page.locator('.sidebar-files-section-toggle').click();
+  await page.waitForFunction(() => document.querySelector('.sidebar-files-section-toggle').getAttribute('aria-expanded') === 'false');
+  const more = page.locator('.session-tree-more-toggle[data-more-action="more"]').first();
+  await more.focus();
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => {
+    const active = document.activeElement, surface = active?.closest('.session-tree-scroll');
+    if (!surface || !active.matches('[data-more-action]')) return false;
+    const a = active.getBoundingClientRect(), s = surface.getBoundingClientRect();
+    return a.y >= s.y && a.bottom <= s.bottom;
+  });
+  checks.push('keyboard Show more reveals/focuses its moved row with the navigation offset');
+  await page.locator('.session-tree-more-toggle[data-more-action="less"]').first().click();
+  await top();
+  await page.locator('.session-tree-pinned-toggle').click();
+  assert.equal(await page.locator('.session-tree-pinned-toggle').getAttribute('aria-expanded'), 'false');
+  await page.locator('.session-tree-pinned-toggle').click();
+  await page.locator('.sidebar-files-section-toggle').click();
+  await page.locator('.sidebar-quick-search').click();
+  await page.locator('.quick-actions-surface[data-mode="chat"]').waitFor();
+  await page.screenshot({ path: `${outputDir}/sidebar-search.png`, style: 'nextjs-portal { display: none !important; }' });
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('ControlOrMeta+j');
+  await page.locator('.quick-actions-surface[data-mode="chat"]').waitFor();
+  await page.keyboard.press('Escape');
+  checks.push('Pinned folding and Search/Cmd+J remain functional');
+  await top();
+  await page.locator('.chat-input-textarea').focus();
+  await page.locator('.chat-input-textarea').blur();
+  await page.mouse.move(1100, 20);
+  await page.screenshot({ path: `${outputDir}/sidebar-chat.png`, style: 'nextjs-portal { display: none !important; }' });
+  await page.locator('.sidebar-quick-new').click();
+  await page.locator('.new-session-greeting').waitFor();
+  await top();
+  await page.locator('.chat-input-textarea').blur();
+  await page.mouse.move(1100, 20);
+  await page.screenshot({ path: `${outputDir}/sidebar-welcome.png`, style: 'nextjs-portal { display: none !important; }' });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  checks.push('New opens welcome; no horizontal overflow');
+  return { passed: true, metrics, checks, screenshots: ['sidebar-chat.png', 'sidebar-scrolled.png', 'sidebar-search.png', 'sidebar-welcome.png'].map(name => `${outputDir}/${name}`) };
+}

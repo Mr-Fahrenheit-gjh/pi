@@ -96,6 +96,8 @@ export interface GroupDragHandlers {
 export interface GroupDragOptions {
   rows: SidebarRow[];
   offsets: number[];
+  /** Normal-flow navigation/status height before the inner row canvas. */
+  contentOffset?: number;
   layout: SidebarLayout;
   /** False while loading or without onMove: a drag under way is cancelled. */
   enabled: boolean;
@@ -261,7 +263,7 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
       const box = scroll.getBoundingClientRect();
       const delta = autoScrollDelta(drag.clientY, box.top, box.bottom, AUTO_SCROLL_EDGE[optionsRef.current.layout], AUTO_SCROLL_MAX_STEP);
       if (delta !== 0) {
-        const contentHeight = optionsRef.current.offsets[optionsRef.current.offsets.length - 1] ?? 0;
+        const contentHeight = (optionsRef.current.offsets[optionsRef.current.offsets.length - 1] ?? 0) + (optionsRef.current.contentOffset ?? 0);
         const next = Math.min(Math.max(0, contentHeight - scroll.clientHeight), Math.max(0, scroll.scrollTop + delta));
         if (next !== scroll.scrollTop) {
           scroll.scrollTop = next;
@@ -468,7 +470,7 @@ export function useGroupDrag(options: GroupDragOptions): GroupDragApi {
     if (!drag || (drag.phase !== "armed" && drag.phase !== "dragging")) return;
     if (!rows.some((row) => row.kind === "group" && row.project.key === drag.projectKey)) machine.cancel();
     else machine.updateDrag();
-  }, [rows, offsets, machine]);
+  }, [rows, offsets, options.contentOffset, machine]);
 
   useEffect(() => {
     if (!enabled) machine.cancel();

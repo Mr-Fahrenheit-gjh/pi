@@ -7,8 +7,8 @@
 .session-sidebar .session-tree-session { border-radius: 8px; transition: background 140ms ease-out; }
 .session-sidebar .session-tree-session.is-selected:not(.is-confirming)::before { content: none; }
 .session-sidebar .session-tree-title { font-size: 13px; letter-spacing: -0.012em; }
-.session-sidebar .session-tree-session.is-selected .session-tree-title { font-weight: 550; }
-.session-sidebar .session-tree-group-name { font-weight: 550; }
+.session-sidebar .session-tree-session.is-selected .session-tree-title { font-weight: 400; }
+.session-sidebar .session-tree-group-name { font-weight: 400; }
 .session-sidebar .session-tree-group { border-radius: 7px; }
 .session-sidebar .session-tree-group:hover { background: var(--bg-hover); }
 .session-sidebar .session-tree-more,

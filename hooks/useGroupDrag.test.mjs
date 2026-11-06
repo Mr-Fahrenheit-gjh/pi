@@ -106,7 +106,7 @@ const TREE_TOP = 60;
  * A tree of collapsed groups (28px headers right on each other, then the
  * footer's 8px spacer and its row) in a list box 100px from the top of the page.
  */
-function setup({ projects = ["/a", "/b", "/c"], clientHeight = 400, enabled = true } = {}) {
+function setup({ projects = ["/a", "/b", "/c"], clientHeight = 400, enabled = true, contentOffset = 0 } = {}) {
   const { rows } = model(projects);
   const offsets = getRowOffsets(rows, "desktop");
   const scroll = emitter({
@@ -120,13 +120,14 @@ function setup({ projects = ["/a", "/b", "/c"], clientHeight = 400, enabled = tr
       return this.hidden ? [] : [{}];
     },
   });
-  const inner = { getBoundingClientRect: () => ({ top: SCROLL_TOP_EDGE - scroll.scrollTop }) };
+  const inner = { getBoundingClientRect: () => ({ top: SCROLL_TOP_EDGE + contentOffset - scroll.scrollTop }) };
   const tree = { getBoundingClientRect: () => ({ top: TREE_TOP, left: 0 }) };
   const ghost = { style: {}, offsetHeight: GHOST_HEIGHT };
   const moves = [];
   const props = {
     rows,
     offsets,
+    contentOffset,
     layout: "desktop",
     enabled,
     scrollRef: { current: scroll },
@@ -143,14 +144,14 @@ function setup({ projects = ["/a", "/b", "/c"], clientHeight = 400, enabled = tr
     return {
       isConnected: true,
       captured,
-      getBoundingClientRect: () => ({ top: SCROLL_TOP_EDGE + rowTop(key) - scroll.scrollTop, left: 6, width: 228, height: 28 }),
+      getBoundingClientRect: () => ({ top: SCROLL_TOP_EDGE + contentOffset + rowTop(key) - scroll.scrollTop, left: 6, width: 228, height: 32 }),
       setPointerCapture: (id) => captured.add(id),
       hasPointerCapture: (id) => captured.has(id),
       releasePointerCapture: (id) => captured.delete(id),
     };
   };
   /** Content y to page y. */
-  const at = (y) => SCROLL_TOP_EDGE + y - scroll.scrollTop;
+  const at = (y) => SCROLL_TOP_EDGE + contentOffset + y - scroll.scrollTop;
   let time = 1000;
   const press = (key, { y = at(rowTop(key) + 10), x = 50, pointerType = "mouse", pointerId = 1, button = 0, ctrlKey = false, isPrimary = true, target = new FakeElement() } = {}) => {
     const element = header(key);
@@ -216,7 +217,7 @@ test("a mouse drag starts after a few pixels, follows the pointer and drops next
   const view = tree.hook.result.view;
   assert.equal(view.phase, "dragging");
   assert.equal(view.projectKey, "/a");
-  assert.deepEqual(view.source, { key: "/a", pinned: false, top: 0, bottom: 28, gapAbove: 0, gapBelow: 0 });
+  assert.deepEqual(view.source, { key: "/a", pinned: false, top: 0, bottom: 32, gapAbove: 0, gapBelow: 0 });
   assert.equal(view.drop, null, "still over itself");
   assert.ok(element.captured.has(1), "the header holds the pointer");
   // The ghost is placed in the tree's box, its left edge 4px in from the
@@ -230,19 +231,19 @@ test("a mouse drag starts after a few pixels, follows the pointer and drops next
   // Past the middle of /c (56..84): after it, the line in the middle of the
   // footer's spacer (page y 188), below the pointer: the ghost's bottom
   // keeps the gap above the pointer.
-  tree.move(tree.at(80));
-  assert.deepEqual(tree.hook.result.view.drop, { anchorKey: "/c", position: "after", lineY: 88 });
-  assert.equal(tree.ghost.style.top, `${tree.at(80) - GHOST_GAP_PX.mouse - GHOST_HEIGHT - TREE_TOP}px`);
+  tree.move(tree.at(90));
+  assert.deepEqual(tree.hook.result.view.drop, { anchorKey: "/c", position: "after", lineY: 100 });
+  assert.equal(tree.ghost.style.top, `${tree.at(90) - GHOST_GAP_PX.mouse - GHOST_HEIGHT - TREE_TOP}px`);
   // The line on the edge between /b and /c (56), just above the pointer
   // (58): the ghost goes above the new line, not the last one.
-  tree.move(tree.at(58));
-  assert.deepEqual(tree.hook.result.view.drop, { anchorKey: "/b", position: "after", lineY: 56 });
-  assert.equal(tree.ghost.style.top, `${tree.at(56) - GHOST_LINE_GAP_PX - GHOST_HEIGHT - TREE_TOP}px`);
+  tree.move(tree.at(66));
+  assert.deepEqual(tree.hook.result.view.drop, { anchorKey: "/b", position: "after", lineY: 64 });
+  assert.equal(tree.ghost.style.top, `${tree.at(64) - GHOST_LINE_GAP_PX - GHOST_HEIGHT - TREE_TOP}px`);
   // The line below the pointer: back to the pointer.
-  tree.move(tree.at(48));
-  assert.deepEqual(tree.hook.result.view.drop, { anchorKey: "/b", position: "after", lineY: 56 });
-  assert.equal(tree.ghost.style.top, `${tree.at(48) - GHOST_GAP_PX.mouse - GHOST_HEIGHT - TREE_TOP}px`);
-  tree.release(tree.at(80));
+  tree.move(tree.at(56));
+  assert.deepEqual(tree.hook.result.view.drop, { anchorKey: "/b", position: "after", lineY: 64 });
+  assert.equal(tree.ghost.style.top, `${tree.at(56) - GHOST_GAP_PX.mouse - GHOST_HEIGHT - TREE_TOP}px`);
+  tree.release(tree.at(90));
   assert.deepEqual(tree.moves, [["/a", "/c", "after"]], "the drop is taken where the pointer is let go");
   assert.equal(tree.hook.result.view, null);
   assert.equal(element.captured.size, 0, "capture released");
@@ -423,18 +424,18 @@ test("new rows without the dragged group cancel it; with it, the drop is taken a
   const start = tree.at(15);
   tree.press("/a", { y: start });
   tree.move(tree.at(95));
-  assert.deepEqual(tree.hook.result.view.drop, { anchorKey: "/c", position: "after", lineY: 88 });
+  assert.deepEqual(tree.hook.result.view.drop, { anchorKey: "/c", position: "after", lineY: 100 });
   // /d joins at the bottom: the pointer is now over /d's upper half, the
   // line on the edge between /c and /d.
   const grown = model(["/a", "/b", "/c", "/d"]);
   tree.hook.rerender({ ...tree.props, rows: grown.rows, offsets: getRowOffsets(grown.rows, "desktop") });
-  assert.deepEqual(tree.hook.result.view.drop, { anchorKey: "/c", position: "after", lineY: 84 });
-  tree.move(tree.at(105));
-  assert.deepEqual(tree.hook.result.view.drop, { anchorKey: "/d", position: "after", lineY: 116 });
+  assert.deepEqual(tree.hook.result.view.drop, { anchorKey: "/c", position: "after", lineY: 96 });
+  tree.move(tree.at(120));
+  assert.deepEqual(tree.hook.result.view.drop, { anchorKey: "/d", position: "after", lineY: 132 });
   const gone = model(["/b", "/c", "/d"]);
   tree.hook.rerender({ ...tree.props, rows: gone.rows, offsets: getRowOffsets(gone.rows, "desktop") });
   assert.equal(tree.hook.result.view, null, "archived in another window");
-  tree.release(tree.at(105));
+  tree.release(tree.at(120));
   assert.deepEqual(tree.moves, []);
   assert.equal(tree.click(), true);
   tree.hook.unmount();
@@ -491,6 +492,21 @@ test("near an edge the list scrolls, never past the rows' own height", () => {
   tree.release(SCROLL_TOP_EDGE + 50);
   assert.equal(frames.size, 0, "no frame left running");
   tree.hook.unmount();
+});
+
+test("a navigation preamble participates in drag hit-testing and bottom auto-scroll", () => {
+  const tree = setup({ projects: Array.from({ length: 12 }, (_, i) => "/p" + i), clientHeight: 200, contentOffset: 90 });
+  tree.press("/p0");
+  tree.move(tree.at(45));
+  assert.equal(tree.hook.result.view.phase, "dragging");
+  const bottom = SCROLL_TOP_EDGE + 199;
+  tree.move(bottom);
+  runFrames(200);
+  tree.hook.flush();
+  assert.equal(tree.scroll.scrollTop, 90 + tree.offsets.at(-1) - 200);
+  assert.equal(tree.hook.result.view.drop.anchorKey, "/p11");
+  tree.release(bottom);
+  assert.deepEqual(tree.moves, [["/p0", "/p11", "after"]]);
 });
 
 test("unmounting mid-drag removes every listener, timer and frame", () => {

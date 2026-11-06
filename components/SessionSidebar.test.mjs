@@ -125,7 +125,7 @@ test("on a desktop the files sit below the sessions by default, both in view", (
   assert.match(html, /^<div class="session-sidebar is-files-below" style="--sidebar-files-height:320px">/);
   // No tabs: the brand (its name says the versions a click shows), then New
   // and the sessions' search. No view options.
-  assert.match(html, /<div class="sidebar-header"><button type="button" class="sidebar-brand" aria-label="Switch agent" aria-haspopup="menu" aria-expanded="false">Pi Web<\/button><span class="sidebar-header-spacer"><\/span><\/div><div class="sidebar-quick-actions">/);
+  assert.match(html, /<div class="session-tree-scroll scrollbar-subtle"><div class="session-tree-preamble"><div class="sidebar-quick-actions">/);
   assert.doesNotMatch(html, /role="tablist"|role="tab"|role="tabpanel"|View options|sidebar-title/);
   assert.match(html, /<button type="button" class="sidebar-quick-search" aria-haspopup="dialog">[\s\S]*?<span>Search<\/span>/);
   assert.doesNotMatch(html, /id="session-search-input"/);

@@ -58,6 +58,16 @@ export function ArchiveIcon(props: SidebarIconProps) {
   );
 }
 
+/** Layered project container; distinct from the archive action. */
+export function ProjectIcon(props: SidebarIconProps) {
+  return (
+    <SidebarIcon {...props} strokeWidth={1.7}>
+      <path d="M4.5 10h15l-1.4 10H5.9Z" />
+      <path d="M4.5 6.5h15M8 3h8" />
+    </SidebarIcon>
+  );
+}
+
 export function RestoreIcon(props: SidebarIconProps) {
   return (
     <SidebarIcon {...props}>

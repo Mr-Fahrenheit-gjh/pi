@@ -148,49 +148,104 @@
 
 .sidebar-container .session-tree-title {
   font-family: var(--font-sidebar);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 400;
   line-height: 1.5;
   letter-spacing: 0;
 }
-.sidebar-container .sidebar-project-title {
-  font-family: inherit;
+.sidebar-container .sidebar-project-title { font-family: inherit; }
+/* Claude's navigation scale: 14/21 content, 12/20 section labels, 20px icons.
+   Keep project children on the text column; fork guides retain their own lane. */
+.sidebar-container .session-tree-scroll {
+  --session-tree-inset-left: 8px;
+  --session-tree-inset-right: max(0px, calc(8px - var(--session-tree-scrollbar, 0px)));
 }
+.sidebar-container .session-tree-group-toggle {
+  gap: 8px;
+  padding-left: 8px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 21px;
+}
+.session-tree-project-icon { flex: none; }
+.sidebar-container .session-tree-group-toggle > .session-tree-chevron { margin-left: -4px; }
+.sidebar-container .session-tree-session {
+  padding-left: calc(36px + min(var(--session-branch-depth, 0), 8) * 16px);
+}
+.sidebar-container .session-tree-session.is-standalone-pin { padding-left: 10px; }
+.sidebar-container .session-tree-branch-toggle,
+.sidebar-container .session-tree-branch-connector {
+  left: calc(17px + min(var(--session-branch-depth, 0), 8) * 16px);
+}
+.sidebar-container .session-tree-branch-guide {
+  left: calc(17px + min(var(--session-guide-depth), 8) * 16px);
+}
+.sidebar-container .session-tree-pinned-toggle {
+  gap: 5px;
+  padding-left: 18px;
+  font-size: 12px;
+  font-weight: 520;
+  line-height: 20px;
+}
+.sidebar-container .session-tree-pinned-label,
+.sidebar-container .sidebar-files-section-label {
+  font-weight: 520;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.sidebar-container .sidebar-files-section-toggle { padding-left: 12px; gap: 5px; font-size: 12px; line-height: 20px; }
+.sidebar-container .sidebar-files-section-label { line-height: 28px; }
+.sidebar-container .sidebar-files-section-toggle > .session-tree-chevron { order: 1; }
+.sidebar-container .sidebar-files-section-count { order: 2; }
+.sidebar-container .session-tree-more,
+.sidebar-container .session-tree-group-empty { padding-left: 44px; font-size: 12px; }
+.sidebar-container .session-tree-more-toggle { font-size: 12px; }
+.sidebar-container .session-tree-footer-button {
+  gap: 8px;
+  padding-left: 8px;
+  font-size: 14px;
+  line-height: 21px;
+}
+.sidebar-container .session-tree-footer-button > svg:first-child { width: 20px; height: 20px; stroke-width: 1.7; }
+.sidebar-container .session-tree-archive-group { padding-left: 44px; }
+
 .workspace-settings-entry {
   display: flex;
   flex-shrink: 0;
-  padding: 10px 12px;
+  padding: 6px 8px;
   border-top: 1px solid var(--workspace-divider);
 }
 .workspace-settings-entry > button {
   justify-content: flex-start;
   width: 100%;
-  min-height: 40px;
+  min-height: 32px;
   height: auto;
-  gap: 12px;
-  padding: 0 12px;
+  gap: 8px;
+  padding: 0 8px;
   border-radius: 8px;
   color: var(--text);
   font-family: var(--font-sidebar);
-  font-size: 16px;
-  font-weight: 400;
+  font-size: 14px;
+  font-weight: 435;
+  line-height: 21px;
 }
 .sidebar-quick-actions {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  gap: 4px;
-  padding: 10px 12px 18px;
+  gap: 2px;
+  padding: 4px var(--session-tree-inset-right, 8px) 20px 8px;
   font-family: var(--font-sidebar);
 }
 .sidebar-quick-new,
 .sidebar-quick-search {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 40px;
+  gap: 8px;
+  min-height: 32px;
   width: 100%;
-  padding: 0 12px;
+  padding: 0 8px;
   border: 0;
   border-radius: 8px;
   background: transparent;
@@ -198,9 +253,9 @@
   color: var(--text);
   cursor: default;
   font: inherit;
-  font-size: 16px;
-  font-weight: 400;
-  line-height: 1.4;
+  font-size: 14px;
+  font-weight: 435;
+  line-height: 21px;
   text-align: left;
   transition: background-color var(--workspace-feedback-duration) ease;
 }
@@ -211,6 +266,8 @@
   height: 20px;
   stroke-width: 1.7;
 }
+.session-tree.is-mobile .sidebar-quick-actions > button { min-height: 44px; }
+@media (max-width: 640px) { .workspace-settings-entry > button { min-height: 44px; } }
 .sidebar-quick-new:hover,
 .sidebar-quick-search:hover { background: var(--bg-hover); }
 .sidebar-quick-new:disabled { opacity: .45; cursor: default; }

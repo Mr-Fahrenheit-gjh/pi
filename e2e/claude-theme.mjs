@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
 import { runSidebarRefinementChecks } from './ui-polish.mjs';
+import { runSidebarScaleChecks } from './sidebar-preview-layout.mjs';
 
 const source = dirname(dirname(fileURLToPath(import.meta.url)));
 assert.ok(process.env.PI_WEB_CHAT_PACKAGE_ROOT, 'An isolated built candidate is required');
@@ -18,6 +19,7 @@ const packageRoot = resolve(process.env.PI_WEB_CHAT_PACKAGE_ROOT);
 const cssPreview = process.env.PI_WEB_THEME_CSS_PREVIEW === '1';
 const uiPreview = process.env.PI_WEB_THEME_UI_PREVIEW === '1';
 const dev = uiPreview && process.env.PI_WEB_THEME_DEV === '1';
+const sidebarScale = uiPreview && process.env.PI_WEB_THEME_SIDEBAR_SCALE === '1';
 const whiteStyles = ['app/globals.css', 'app/workspace.css'].map(file =>
   (readFileSync(join(source, file), 'utf8').match(/\[data-theme="claude-white"\][^{]*\{[^}]*\}/g) || []).join('\n')
 ).join('\n');
@@ -54,6 +56,26 @@ writeFileSync(join(agent, 'sessions/fixture', `${timestamp.replaceAll(':', '-')}
   { type: 'session', version: 3, id: sid, timestamp, cwd: project },
   ...messages.map((message, index) => ({ type: 'message', id: `entry${index}`, parentId: index ? `entry${index - 1}` : null, timestamp, message })),
 ].map(entry => JSON.stringify(entry)).join('\n') + '\n');
+if (sidebarScale) {
+  const projectOrder = [project];
+  for (let i = 0; i < 48; i++) {
+    const cwd = i < 20 ? project : join(home, `Workspace ${String(i - 19).padStart(2, '0')}`);
+    mkdirSync(cwd, { recursive: true });
+    if (!projectOrder.includes(cwd)) projectOrder.push(cwd);
+    const id = `sidebar-scale-${i}`;
+    const time = new Date(Date.now() - (i + 1) * 60000).toISOString();
+    const text = ['Reading notes', '研究计划', 'Interface alignment', 'Layout review'][i % 4] + ` ${i + 1}`;
+    writeFileSync(join(agent, 'sessions/fixture', `${id}.jsonl`), [
+      { type: 'session', version: 3, id, timestamp: time, cwd },
+      { type: 'message', id: 'q', parentId: null, timestamp: time, message: { role: 'user', content: text, timestamp: Date.parse(time) } },
+      { type: 'message', id: 'a', parentId: 'q', timestamp: time, message: { ...messages[1], content: [{ type: 'text', text: 'Preview fixture.' }], timestamp: Date.parse(time) } },
+    ].map(entry => JSON.stringify(entry)).join('\n') + '\n');
+  }
+  writeFileSync(join(agent, 'pi-web-session-state.json'), JSON.stringify({ version: 1, revision: 1,
+    sessions: { 'sidebar-scale-0': { pinnedAt: Date.now() }, 'sidebar-scale-1': { pinnedAt: Date.now() - 1 }, 'sidebar-scale-2': { archivedAt: Date.now() } },
+    projects: {}, projectOrder, projectNames: { [project]: 'Research workspace' },
+  }));
+}
 const probe = createServer().listen(0, '127.0.0.1');
 await once(probe, 'listening');
 const port = probe.address().port;
@@ -81,7 +103,9 @@ try {
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/api/agent/*/subagents**', route => route.fulfill({ json: { available: false } }));
   if (uiPreview) {
-    const result = await runSidebarRefinementChecks(page, { baseURL: base, outputDir: out, sessionId: sid, assistant: messages[1] });
+    const result = sidebarScale
+      ? await runSidebarScaleChecks(page, { baseURL: base, outputDir: out, sessionId: sid })
+      : await runSidebarRefinementChecks(page, { baseURL: base, outputDir: out, sessionId: sid, assistant: messages[1] });
     assert.deepEqual(errors, []);
     Object.assign(result, { mode: dev ? 'isolated-development-preview' : 'built-candidate', packageRoot, realModelRequests: 0 });
     writeFileSync(join(out, 'result.json'), JSON.stringify(result, null, 2) + '\n');
