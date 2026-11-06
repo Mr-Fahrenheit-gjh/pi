@@ -115,10 +115,29 @@ export async function runSidebarScaleChecks(page, { baseURL, outputDir, sessionI
   const metrics = await page.evaluate(() => {
     const measure = selector => {
       const el = document.querySelector(selector), s = getComputedStyle(el), r = el.getBoundingClientRect();
-      return { fontSize: s.fontSize, fontWeight: s.fontWeight, lineHeight: s.lineHeight, transform: s.textTransform, x: r.x, y: r.y, height: r.height, width: r.width };
+      return { fontFamily: s.fontFamily, fontSize: s.fontSize, fontWeight: s.fontWeight, lineHeight: s.lineHeight, transform: s.textTransform, x: r.x, y: r.y, height: r.height, width: r.width };
     };
-    return Object.fromEntries(Object.entries({ new: '.sidebar-quick-new', search: '.sidebar-quick-search', newLabel: '.sidebar-quick-new > span', project: '.session-tree-group-toggle', projectLabel: '.session-tree-group-name', projectIcon: '.session-tree-project-icon', session: '.session-tree-session[data-row-key^="session:group:"] .session-tree-title', pinned: '.session-tree-pinned-label', pinnedSession: '.session-tree-session.is-standalone-pin .session-tree-title', document: '.sidebar-files-section-label', settings: '.workspace-settings-entry > button' }).map(([key, selector]) => [key, measure(selector)]));
+    return Object.fromEntries(Object.entries({ brand: '.sidebar-brand', header: '.sidebar-header', sidebarToggle: '[data-sidebar-toggle]', new: '.sidebar-quick-new', search: '.sidebar-quick-search', newLabel: '.sidebar-quick-new > span', project: '.session-tree-group-toggle', projectLabel: '.session-tree-group-name', projectIcon: '.session-tree-project-icon', session: '.session-tree-session[data-row-key^="session:group:"] .session-tree-title', pinned: '.session-tree-pinned-label', pinnedSession: '.session-tree-session.is-standalone-pin .session-tree-title', document: '.sidebar-files-section-label', settings: '.workspace-settings-entry > button' }).map(([key, selector]) => [key, measure(selector)]));
   });
+  assert.equal(metrics.brand.fontSize, '20px');
+  assert.equal(metrics.brand.fontWeight, '400');
+  assert.match(metrics.brand.fontFamily, /Claude Interface Serif/);
+  assert.equal(metrics.brand.lineHeight, '26px');
+  assert.equal(metrics.header.height, 48);
+  assert.equal(metrics.brand.x, metrics.newLabel.x, 'Brand shares the navigation text column');
+  assert.ok(metrics.brand.x >= metrics.sidebarToggle.x + metrics.sidebarToggle.width, 'Brand and collapse targets do not overlap');
+  assert.ok(Math.abs(metrics.brand.y + metrics.brand.height / 2 - metrics.sidebarToggle.y - metrics.sidebarToggle.height / 2) <= 1, 'Brand and collapse button are vertically centered together');
+  await page.locator('.sidebar-brand').click();
+  await page.getByRole('menu').waitFor();
+  assert.equal(await page.locator('.sidebar-brand').getAttribute('aria-expanded'), 'true');
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('.sidebar-brand').getAttribute('aria-expanded'), 'false');
+  await page.locator('[data-sidebar-toggle]').click();
+  await page.locator('#session-sidebar.sidebar-closed').waitFor({ state: 'attached' });
+  await page.locator('[data-sidebar-toggle]').click();
+  await page.locator('#session-sidebar.sidebar-open').waitFor();
+  await page.waitForFunction(() => document.getElementById('session-sidebar').getAnimations().length === 0);
+  checks.push('20px/400 serif brand aligned with navigation, 48px header; distinct collapse target and working brand menu');
   for (const key of ['new', 'search', 'project', 'session', 'settings']) assert.equal(metrics[key].fontSize, '14px', key);
   for (const key of ['new', 'search', 'project', 'settings']) assert.equal(metrics[key].height, 32, key);
   assert.equal(metrics.pinned.fontSize, '12px'); assert.equal(metrics.pinned.transform, 'none');

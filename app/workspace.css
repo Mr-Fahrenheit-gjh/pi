@@ -48,8 +48,9 @@
 }
 .sidebar-container .sidebar-brand {
   font-family: 'Claude Interface Serif', var(--font-answer-default);
-  font-size: 22px;
-  font-weight: 500;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 26px;
   letter-spacing: -.025em;
 }
 .todo-workspace {
@@ -811,7 +812,7 @@
   .workspace-sidebar-toggle {
     position: fixed;
     left: calc(env(safe-area-inset-left, 0px) + 12px);
-    top: 5px;
+    top: 8px;
     width: 32px !important;
     height: 32px !important;
     z-index: 201;
@@ -820,9 +821,14 @@
     box-shadow: none !important;
   }
   .sidebar-container .sidebar-header {
-    padding-left: 52px;
-    height: 42px;
-    min-height: 42px;
+    padding-left: 44px;
+    height: 48px;
+    min-height: 48px;
+  }
+  .sidebar-container .sidebar-brand {
+    /* Share the navigation text column without overlapping the fixed toggle. */
+    margin-left: 0;
+    padding: 3px 0;
   }
   /* No full-width header surface or hit target over the conversation. */
   .workspace-topbar {
