@@ -323,6 +323,37 @@
   height: 26px;
 }
 
+/* Claude White: let the conversation, not nested chrome, carry the hierarchy. */
+[data-theme="claude-white"] .sidebar-container {
+  background: var(--bg-panel) !important;
+}
+[data-theme="claude-white"] .sidebar-quick-search {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+[data-theme="claude-white"] .sidebar-quick-search:hover {
+  background: var(--bg-hover);
+}
+[data-theme="claude-white"] .sidebar-quick-search:focus-within {
+  background: var(--bg);
+  border-color: #949494;
+  box-shadow: none;
+}
+[data-theme="claude-white"] .composer-surface {
+  border-color: var(--border);
+  box-shadow: 0 2px 12px rgb(0 0 0 / .035);
+}
+[data-theme="claude-white"] .composer-surface:focus-within {
+  border-color: #949494;
+}
+/* Keep status icons and error treatment; successful work needs no green panel.
+   These two properties override the shared tool card's inline status styles. */
+[data-theme="claude-white"] [data-tool-status="success"] {
+  background: var(--tool-bg) !important;
+  border-color: var(--border) !important;
+}
+
 /* The composer is one object. Notices and permission requests remain outside it. */
 .composer-card {
   position: relative;

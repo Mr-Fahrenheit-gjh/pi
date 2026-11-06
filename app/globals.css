@@ -99,27 +99,27 @@ html.dark,
   --tool-error-rgb: 248,113,113;
 }
 
-/* A separate, quieter option; never replace the original Claude warm palette. */
+/* Light-level brightness, neutral surfaces; the warm Claude palette stays intact. */
 [data-theme="claude-white"] {
   color-scheme: light;
-  --bg: #fafaf9;
-  --bg-panel: #f3f3f1;
-  --bg-hover: #eeeeeb;
-  --bg-selected: #eaeae7;
-  --border: #dededa;
-  --text: #343430;
-  --text-muted: #60605a;
-  --text-dim: #666660;
-  --accent: #805d4c;
-  --accent-hover: #694b3e;
+  --bg: #ffffff;
+  --bg-panel: #f8f8f8;
+  --bg-hover: #efefef;
+  --bg-selected: #e9e9e9;
+  --border: #e5e5e5;
+  --text: #262626;
+  --text-muted: #606060;
+  --text-dim: #686868;
+  --accent: #6b5548;
+  --accent-hover: #514035;
   --accent-contrast: #ffffff;
-  --user-bg: #f0f0ed;
-  --assistant-bg: #fafaf9;
-  --tool-bg: #f6f6f4;
-  --bg-subtle: rgba(45, 45, 38, 0.025);
+  --user-bg: #f3f3f3;
+  --assistant-bg: #ffffff;
+  --tool-bg: #fafafa;
+  --bg-subtle: rgba(0, 0, 0, 0.02);
 }
 [data-theme="claude-white"] {
-  --user-border: #e3e3df;
+  --user-border: transparent;
   --tool-success-text: #4c705c;
   --tool-error-text: #95564e;
   --tool-running-text: #7a5f2c;
