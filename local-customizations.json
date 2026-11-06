@@ -21,7 +21,7 @@
     "app/globals.css": ["claude-white", "font-weight: 800", "Claude Interface Sans", "interface-fonts.css"],
     "app/interface-fonts.css": ["Claude Interface Sans", "Claude Interface Serif", "font-weight: 300 800"],
     "app/workspace.css": [".composer-card", ".sidebar-quick-actions", ".workspace-sidebar-toggle", ".workspace-right-panel-toggle", ".attachment-card", ".attachment-preview-dialog"],
-    "components/AppShell.tsx": ["AgentWorkspace", "workspace-settings-entry", "ServiceRestartButton", "data-sidebar-toggle", "data-right-panel-toggle", "QuickActions", "OutputsWorkspace", "DesignDeckWorkspace", "quickActions.forkConversation", "quickActions.openFinder", "useMenuNavigation", "skipRouterReplace"],
+    "components/AppShell.tsx": ["AgentWorkspace", "workspace-settings-entry", "onSearchConversations", "data-sidebar-toggle", "data-right-panel-toggle", "QuickActions", "OutputsWorkspace", "DesignDeckWorkspace", "quickActions.forkConversation", "quickActions.openFinder", "useMenuNavigation", "skipRouterReplace"],
     "components/QuickActions.tsx": ["listenForStackedDialogEscape", "/api/file-index", "/api/sessions/search", "AbortController"],
     "components/OutputsWorkspace.tsx": ["outputs.title", "useTaskOutputs", "onOpen"],
     "hooks/useTaskOutputs.ts": ["pageRuntime", "/outputs", "controller.abort"],
@@ -83,6 +83,7 @@
     "app/api/agent/[id]/subagents/route.ts": ["export"]
   },
   "forbiddenSourceMarkers": {
+    "components/AppShell.tsx": ["ServiceRestartButton", "PendingReleasePanel", "usePendingReleases"],
     "components/ChatWindow.tsx": ["new-session-context-footer", "<NewSessionContextBar"]
   }
 }
