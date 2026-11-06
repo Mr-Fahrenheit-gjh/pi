@@ -58,7 +58,7 @@ add({ role: 'toolResult', toolCallId: 'call2', toolName: 'read', content: [{ typ
 const sessionFile = join(agentDir, 'sessions/quiet', `2026-10-12T00-00-00-000Z_${sid}.jsonl`);
 const save = () => writeFileSync(sessionFile, [{ type: 'session', version: 3, id: sid, timestamp, cwd: project }, ...entries].map(x => JSON.stringify(x)).join('\n') + '\n');
 save();
-const shortcutSessions = Array.from({ length: 8 }, (_, index) => ({ id: `shortcut-fixture-${index + 1}`, name: `Numbered conversation ${index + 1}` }));
+const shortcutSessions = Array.from({ length: 9 }, (_, index) => ({ id: `shortcut-fixture-${index + 1}`, name: `Numbered conversation ${index + 1}` }));
 for (const session of shortcutSessions) {
   writeFileSync(join(agentDir, 'sessions/quiet', `2026-10-12T00-00-00-000Z_${session.id}.jsonl`), [
     { type: 'session', version: 3, id: session.id, timestamp, cwd: project },
