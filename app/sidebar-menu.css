@@ -113,6 +113,32 @@
   font-size: 11.5px;
 }
 
+.sidebar-menu-item.has-description {
+  height: auto;
+  min-height: 48px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.sidebar-menu-item-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  font-family: var(--font-sidebar);
+}
+.sidebar-menu-item-text > .sidebar-menu-label {
+  font-size: 14px;
+  line-height: 20px;
+}
+.sidebar-menu-description {
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sidebar-menu-note {
   flex-shrink: 0;
   max-width: 45%;

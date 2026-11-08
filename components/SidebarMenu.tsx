@@ -50,6 +50,8 @@ export type SidebarMenuItem =
       shortcut?: string;
       /** Right-aligned hint shown instead of the shortcut (a worktree's "main"). */
       note?: string;
+      /** Secondary text below the label, such as a project path. */
+      description?: string;
       /** Tooltip: what the label shortens (a project's full path). */
       title?: string;
       /** A choice: shows a check mark (true) or an empty slot (false) instead of `icon`. */
@@ -230,14 +232,14 @@ export function sidebarMenuHasFilter(items: readonly SidebarMenuItem[] | undefin
 }
 
 /**
- * The items a filter `query` leaves: the choices whose label, note or title
+ * The items a filter `query` leaves: the choices whose label, description, note or title
  * contains it (case-insensitive), and every item that is not a choice.
  */
 export function filterSidebarMenuItems(items: readonly SidebarMenuItem[], query: string): SidebarMenuItem[] {
   const wanted = query.trim().toLowerCase();
   if (!wanted) return [...items];
   return items.filter((item) => item.type !== "item" || item.checked === undefined
-    || [item.label, item.note, item.title].some((text) => text?.toLowerCase().includes(wanted)));
+    || [item.label, item.description, item.note, item.title].some((text) => text?.toLowerCase().includes(wanted)));
 }
 
 /** A field the keys belong to: arrows move its caret, letters are typed into it. */
@@ -403,6 +405,7 @@ function MenuItemButton({ item, onActivate }: { item: ActionItem; onActivate: Si
   const className = [
     "sidebar-menu-item",
     choice ? "is-choice" : "",
+    item.description ? "has-description" : "",
     item.danger ? "is-danger" : "",
     item.checked ? "is-checked" : "",
   ].filter(Boolean).join(" ");
@@ -432,7 +435,12 @@ function MenuItemButton({ item, onActivate }: { item: ActionItem; onActivate: Si
       <span className="sidebar-menu-icon">
         {choice ? (item.checked ? <CheckIcon size={13} /> : null) : item.icon}
       </span>
-      <span className={labelClassName}>{item.path ? <span>{item.label}</span> : item.label}</span>
+      {item.description ? (
+        <span className="sidebar-menu-item-text">
+          <span className={labelClassName}>{item.label}</span>
+          <span className="sidebar-menu-description">{item.description}</span>
+        </span>
+      ) : <span className={labelClassName}>{item.path ? <span>{item.label}</span> : item.label}</span>}
       {item.badge}
       {trailing}
     </button>

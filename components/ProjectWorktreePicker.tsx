@@ -27,8 +27,8 @@ export type WorktreeRemoval = "removed" | "dirty" | { error: string };
 export interface ProjectWorktreePickerHandle {
   /** The control's button, while it is shown. */
   button(control: ProjectWorktreeControl): HTMLButtonElement | null;
-  /** Opens the control's menu below its button (the sessions tab's "Open another project…"). */
-  openMenu(control: ProjectWorktreeControl): void;
+  /** An external opener shows a standalone, theme-styled menu without revealing the picker. */
+  openMenu(control: ProjectWorktreeControl, opener?: HTMLElement): void;
 }
 
 type MenuBody =
@@ -47,6 +47,7 @@ interface MenuState {
   anchor: SidebarMenuAnchor;
   opener: HTMLElement;
   width: number;
+  standalone: boolean;
   /** In place of the worktree list (classic: below it, or in the checkout's row). */
   body: MenuBody | null;
   /** A checkout is being removed from the list: the remove buttons wait. */
@@ -232,10 +233,11 @@ export function ProjectWorktreePicker({
   // The files' picker, either way its boxes are laid out.
   const stacked = layout !== "inline";
   const inline = !stacked;
-  // The menus on a desktop look as main's dropdowns did: whole paths,
-  // "Custom path…", the "New worktree…" form under the list, a dirty
-  // checkout's question in its row. A phone keeps the sheet.
-  const classic = !mobile;
+  // The files/composer controls retain their desktop dropdowns. An external
+  // opener (the sessions footer) gets the themed name/path presentation.
+  // A phone keeps the sheet.
+  const standalone = menu?.standalone === true;
+  const classic = !mobile && !standalone;
   const { project, worktrees } = context;
   const current = currentWorktreeOf(context);
   // Inline, the project's name as the menus name it: its display name, else
@@ -257,10 +259,10 @@ export function ProjectWorktreePicker({
   };
   const closeMenu = () => setMenu(null);
 
-  const openMenu = (kind: ProjectWorktreeControl, opener: HTMLElement) => {
+  const openMenu = (kind: ProjectWorktreeControl, opener: HTMLElement, standalone = false) => {
     const rect = opener.getBoundingClientRect();
     // At least as wide as its box, as main's dropdowns were.
-    const width = Math.max(stacked ? STACKED_MENU_MIN_WIDTH : kind === "project" ? 260 : 240, Math.round(rect.width));
+    const width = Math.max(standalone ? 320 : stacked ? STACKED_MENU_MIN_WIDTH : kind === "project" ? 260 : 240, Math.round(rect.width));
     // In the row the worktree box is the right one, narrower than its menu:
     // the menu grows leftward from its right edge, over the sidebar rather
     // than past it over the chat.
@@ -271,6 +273,7 @@ export function ProjectWorktreePicker({
       anchor: { kind: "rect", rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }, align },
       opener,
       width,
+      standalone,
       body: null,
       removing: false,
     });
@@ -282,9 +285,9 @@ export function ProjectWorktreePicker({
 
   useImperativeHandle(handleRef, () => ({
     button: (control) => (control === "worktree" ? worktreeRef : projectRef).current,
-    openMenu: (control) => {
-      const button = (control === "worktree" ? worktreeRef : projectRef).current;
-      if (button) openMenuRef.current(control, button);
+    openMenu: (control, opener) => {
+      const button = opener ?? (control === "worktree" ? worktreeRef : projectRef).current;
+      if (button) openMenuRef.current(control, button, opener !== undefined);
     },
   }), []);
 
@@ -363,7 +366,8 @@ export function ProjectWorktreePicker({
         type: "item",
         id: `project:${choice.key}`,
         label: wholePath ? displayPath(choice.root, homeDir) : name,
-        note: wholePath ? undefined : note ?? undefined,
+        note: wholePath || standalone ? undefined : note ?? undefined,
+        description: standalone ? displayPath(choice.root, homeDir) : undefined,
         mono: classic,
         path: wholePath,
         title: choice.root,
@@ -506,7 +510,7 @@ export function ProjectWorktreePicker({
   }
   const filter = menu?.kind === "project"
     // Main showed the projects' field only past 8 of them, the worktrees' from 8.
-    ? { placeholder: t("sidebar.filterProjects"), emptyLabel: t("sidebar.noMatchingProjects"), minChoices: classic ? 9 : undefined }
+    ? { placeholder: t("sidebar.filterProjects"), emptyLabel: t("sidebar.noMatchingProjects"), minChoices: standalone ? 0 : classic ? 9 : undefined }
     : { placeholder: t("sidebar.filterWorktrees"), emptyLabel: t("sidebar.noMatchingWorktrees") };
   // A dot in the files' project box: something runs or waits in another project.
   const otherActivity = stacked && projectActivity !== undefined && [...projectActivity].some(

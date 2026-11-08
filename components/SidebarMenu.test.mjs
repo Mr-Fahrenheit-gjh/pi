@@ -52,6 +52,16 @@ function surface(props = {}) {
   })));
 }
 
+test("project descriptions are secondary escaped text and remain searchable", () => {
+  const projects = [{ type: "item", id: "project", label: "App <draft>", description: "~/work/app & tools", checked: true, onSelect: noop }];
+  const html = renderToStaticMarkup(h(SidebarMenuSurface, {
+    sheet: false, ariaLabel: "Project", items: projects, cancelLabel: "Cancel", onActivate: noop, onClose: noop,
+  }));
+  assert.match(html, /sidebar-menu-item is-choice has-description is-checked/);
+  assert.match(html, /<span class="sidebar-menu-item-text"><span class="sidebar-menu-label">App &lt;draft&gt;<\/span><span class="sidebar-menu-description">~\/work\/app &amp; tools<\/span><\/span>/);
+  assert.deepEqual(filterSidebarMenuItems(projects, "work/app").map(item => item.id), ["project"]);
+});
+
 test("the menu waits for the client before portaling, so server markup is empty", () => {
   const html = renderToStaticMarkup(h(SidebarMenu, {
     open: true,

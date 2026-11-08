@@ -111,6 +111,12 @@ test("subagents fold into their main session row, which carries their running, u
   assert.deepEqual(sessionRows[0].status, { running: true, awaiting: false, unread: true, selected: true, transient: false });
 });
 
+test("Open another project opens its own menu without revealing Document", () => {
+  const handler = callbackBody("handleOpenOtherProject");
+  assert.match(handler, /filesPickerRef\.current\?\.openMenu\("project", opener\)/);
+  assert.doesNotMatch(handler, /revealFiles|setFilesPlacement|setFilesSectionCollapsed/);
+});
+
 test("only Shift skips the session deletion confirmation", () => {
   assert.match(
     callbackBody("requestDelete"),

@@ -171,7 +171,7 @@ export async function checkFilesPlacement(page) {
 }
 
 /** Document can disappear entirely without taking the workspace terminal with it. */
-export async function checkSidebarDocumentVisibility(page, { project, artifacts }) {
+export async function checkSidebarDocumentVisibility(page, { project, otherProject, artifacts }) {
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   const sidebar = page.locator("#session-sidebar");
@@ -233,8 +233,56 @@ export async function checkSidebarDocumentVisibility(page, { project, artifacts 
   await files.waitFor({ state: "hidden" });
   await page.getByRole("region", { name: "Sessions", exact: true }).waitFor();
   await page.screenshot({ path: `${artifacts}/sidebar-document-hidden.png` });
+
+  const openProject = sidebar.getByRole("button", { name: "Open another project…", exact: true });
+  const chooser = page.locator(".sidebar-menu").filter({ has: page.locator(".sidebar-menu-description") });
+  await openProject.click();
+  await chooser.waitFor();
+  assert.equal(await chooser.evaluate(node => node.classList.contains("is-classic")), false);
+  const typography = await chooser.locator(".sidebar-menu-item-text").first().evaluate(node => ({
+    family: getComputedStyle(node).fontFamily,
+    sidebar: getComputedStyle(document.querySelector(".session-tree-footer-button")).fontFamily,
+    labelSize: parseFloat(getComputedStyle(node.querySelector(".sidebar-menu-label")).fontSize),
+    pathSize: parseFloat(getComputedStyle(node.querySelector(".sidebar-menu-description")).fontSize),
+  }));
+  assert.equal(typography.family.split(",")[0], typography.sidebar.split(",")[0], "Project names use the sidebar UI font");
+  assert.ok(typography.labelSize > typography.pathSize, "Paths stay secondary to project names");
+  const filter = chooser.getByRole("textbox", { name: "Filter projects…", exact: true });
+  await filter.waitFor();
+  await filter.fill("another-project");
+  assert.equal(await chooser.getByRole("menuitemradio").count(), 1);
+  const otherChoice = chooser.getByRole("menuitemradio").filter({ hasText: "another-project" });
+  assert.equal(await otherChoice.locator(".sidebar-menu-label").textContent(), "another-project");
+  assert.equal(await otherChoice.locator(".sidebar-menu-description").textContent(), otherProject);
+  await files.waitFor({ state: "hidden" });
+  assert.equal(await page.evaluate(() => localStorage.getItem("pi-web:sidebar-files-placement")), "hidden");
+  await page.screenshot({ path: `${artifacts}/sidebar-project-switcher.png` });
+  await page.keyboard.press("Escape"); // Clear query first, then dismiss.
+  await page.keyboard.press("Escape");
+  await chooser.waitFor({ state: "hidden" });
+  assert.equal(await openProject.evaluate(node => node === document.activeElement), true);
+
+  await openProject.click();
+  await chooser.getByRole("menuitemradio").filter({ hasText: "another-project" }).click();
+  await chooser.waitFor({ state: "hidden" });
+  await page.waitForFunction(cwd => [...document.querySelectorAll(".sidebar-menu")].length === 0 && document.querySelector('.project-picker.is-row .is-project')?.getAttribute("title") === cwd, otherProject);
+  await files.waitFor({ state: "hidden" });
+  assert.equal(await page.evaluate(() => localStorage.getItem("pi-web:sidebar-files-placement")), "hidden");
+  await openProject.click();
+  const currentChoice = chooser.getByRole("menuitemradio").filter({ hasText: "another-project" });
+  assert.equal(await currentChoice.getAttribute("aria-checked"), "true");
+  await chooser.getByRole("menuitem", { name: "Open another project…", exact: true }).click();
+  const folderPicker = page.locator(".directory-picker-backdrop");
+  await folderPicker.waitFor();
+  await files.waitFor({ state: "hidden" });
+  await page.keyboard.press("Escape");
+  await folderPicker.waitFor({ state: "hidden" });
+  assert.equal(await openProject.evaluate(node => node === document.activeElement), true);
+  await openProject.click();
+  await chooser.getByRole("menuitemradio").filter({ has: page.locator(`.sidebar-menu-description`) }).filter({ hasText: project }).filter({ hasNotText: "another-project" }).click();
+  await chooser.waitFor({ state: "hidden" });
   await choose("Below sessions");
   await files.waitFor();
   assert.deepEqual(errors, []);
-  console.log("PASS: Document hidden/restored/persisted; terminal right of Settings at 180/260px; real terminal cwd and cleanup");
+  console.log("PASS: Document hidden/restored/persisted; terminal right of Settings at 180/260px; real terminal cwd and cleanup; themed standalone project search/select/cancel keeps Document hidden");
 }

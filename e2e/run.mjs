@@ -49,8 +49,8 @@ function message(id, parentId, role, content) {
   return { type: "message", id, parentId, timestamp, message: { role, content } };
 }
 
-function writeSession(id, entries) {
-  const header = { type: "session", version: 3, id, timestamp, cwd: project };
+function writeSession(id, entries, cwd = project) {
+  const header = { type: "session", version: 3, id, timestamp, cwd };
   writeFileSync(join(sessionDir, `2026-08-23T00-00-00-000Z_${id}.jsonl`),
     [header, ...entries].map((entry) => JSON.stringify(entry)).join("\n") + "\n");
 }
@@ -150,6 +150,12 @@ try {
     message("reply", "root", "assistant", "E2E wrapper reply"),
   ]);
 
+  const otherProject = join(agentDir, "another-project");
+  if (focus === "sidebar") {
+    mkdirSync(otherProject);
+    writeSession("e2e-other-project", [message("other", null, "user", "Other project fixture")], otherProject);
+  }
+
   const probe = createServer();
   probe.listen(0, "127.0.0.1");
   await once(probe, "listening");
@@ -190,7 +196,7 @@ try {
     const response = await fetch(`${base}/api/sessions`, { signal: AbortSignal.timeout(5000) }).catch(() => null);
     if (response?.ok) {
       const { sessions } = await response.json();
-      assert.deepEqual(sessions.map((session) => session.id).sort(), [LONG, BRANCH, RICH, COMPACTED, APPEND, CODE_BACKGROUND].sort());
+      assert.deepEqual(sessions.map((session) => session.id).sort(), [LONG, BRANCH, RICH, COMPACTED, APPEND, CODE_BACKGROUND, ...(focus === "sidebar" ? ["e2e-other-project"] : [])].sort());
       break;
     }
     assert.ok(Date.now() < deadline, "Server readiness timed out; see server.log");
@@ -524,7 +530,7 @@ try {
     page = await context.newPage();
     page.setDefaultTimeout(30_000);
     await page.goto(`${base}/?session=${BRANCH}`, { waitUntil: "domcontentloaded" });
-    await checkSidebarDocumentVisibility(page, { project, artifacts });
+    await checkSidebarDocumentVisibility(page, { project, otherProject, artifacts });
   } else if (focus === "voice") {
     await checkVoice({ browser, base, artifacts, sessionId: BRANCH });
   } else if (focus === "read-state") {
