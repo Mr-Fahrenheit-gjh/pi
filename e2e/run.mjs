@@ -14,7 +14,7 @@ import { checkExtensionDialogSizing, checkExtensionDialogs, extensionSource } fr
 import { checkChatAppearance } from "./chat-appearance.mjs";
 import { checkCodeBackground } from "./code-background.mjs";
 import { checkModelDiscovery } from "./model-discovery.mjs";
-import { checkFilesPlacement, showSidebarSessions } from "./sidebar.mjs";
+import { checkFilesPlacement, checkSidebarDocumentVisibility, showSidebarSessions } from "./sidebar.mjs";
 import { checkSessionNavigation } from "./session-navigation.mjs";
 import { checkReadState } from "./read-state.mjs";
 import { checkVoice } from "./voice.mjs";
@@ -23,7 +23,7 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const mode = process.env.E2E_SERVER_MODE || "dev";
 const focus = process.env.E2E_FOCUS || "all";
 const browserOptions = { headless: true, ...(process.env.E2E_BROWSER_CHANNEL ? { channel: process.env.E2E_BROWSER_CHANNEL } : {}) };
-assert.ok(["all", "session-navigation", "read-state", "voice"].includes(focus), "E2E_FOCUS must be all, session-navigation, read-state or voice");
+assert.ok(["all", "session-navigation", "read-state", "voice", "sidebar"].includes(focus), "E2E_FOCUS must be all, session-navigation, read-state, voice or sidebar");
 assert.ok(mode === "dev" || mode === "start", "E2E_SERVER_MODE must be dev or start");
 assert.ok(mode !== "dev" || !existsSync(join(root, ".next/dev/lock")), "Use a checkout without an active dev server");
 const artifacts = join(root, "test-results/e2e");
@@ -519,7 +519,13 @@ try {
   browser ??= await chromium.launch(browserOptions);
   // Last, in its own context and tabs, so the checks above run as before. It
   // restores the sidebar state (pins, archive) and deletes the fork it makes.
-  if (focus === "voice") {
+  if (focus === "sidebar") {
+    context = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: "en-US" });
+    page = await context.newPage();
+    page.setDefaultTimeout(30_000);
+    await page.goto(`${base}/?session=${BRANCH}`, { waitUntil: "domcontentloaded" });
+    await checkSidebarDocumentVisibility(page, { project, artifacts });
+  } else if (focus === "voice") {
     await checkVoice({ browser, base, artifacts, sessionId: BRANCH });
   } else if (focus === "read-state") {
     await checkReadState({ browser, base, artifacts, a: BRANCH, b: CODE_BACKGROUND, api, post });

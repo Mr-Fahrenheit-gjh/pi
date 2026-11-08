@@ -52,9 +52,9 @@ function fixture({ initial = {}, blocked = false, server = false } = {}) {
   };
 }
 
-test("only a saved \"tab\" moves the files out from under the sessions", () => {
+test("saved tab and hidden choices are restored; unknown values use the default", () => {
   const store = fixture();
-  for (const [raw, expected] of [[null, "below"], ["below", "below"], ["tab", "tab"], ["Tab", "below"], ["", "below"]]) {
+  for (const [raw, expected] of [[null, "below"], ["below", "below"], ["tab", "tab"], ["hidden", "hidden"], ["Tab", "below"], ["", "below"]]) {
     assert.equal(store.parseFilesPlacement(raw), expected, String(raw));
   }
   assert.equal(store.FILES_PLACEMENT_STORAGE_KEY, KEY);
@@ -75,18 +75,22 @@ test("a saved choice is restored, and a new one is saved and announced", () => {
   assert.equal(store.notifications, 1);
   store.setFilesPlacement("below");
   assert.equal(store.notifications, 1, "the same choice again changes nothing");
+  store.setFilesPlacement("hidden");
+  assert.equal(store.useFilesPlacement(), "hidden");
+  assert.equal(store.stored.get(KEY), "hidden");
+  assert.equal(fixture({ initial: { [KEY]: store.stored.get(KEY) } }).useFilesPlacement(), "hidden");
 });
 
 test("another tab's choice for this key, or a cleared storage, is followed", () => {
   const store = fixture();
   assert.equal(store.useFilesPlacement(), "below");
   const onStorage = store.events.get("storage");
-  store.stored.set(KEY, "tab");
+  store.stored.set(KEY, "hidden");
   onStorage({ key: "pi-web:sidebar-tab" });
   assert.equal(store.useFilesPlacement(), "below", "another key is not this choice");
   assert.equal(store.notifications, 0);
   onStorage({ key: KEY });
-  assert.equal(store.useFilesPlacement(), "tab");
+  assert.equal(store.useFilesPlacement(), "hidden");
   assert.equal(store.notifications, 1);
   store.stored.clear();
   onStorage({ key: null });

@@ -73,7 +73,7 @@ import {
   type SessionUiStateRequest,
 } from "@/lib/session-ui-state-shared";
 import { focusIfLost, type FocusDocument } from "@/lib/stacked-dialog";
-import { useFilesPlacement } from "@/hooks/useFilesPlacement";
+import { setFilesPlacement, useFilesPlacement } from "@/hooks/useFilesPlacement";
 import { useArchiveVisibility } from "@/hooks/useArchiveVisibility";
 import { useI18n } from "@/hooks/useI18n";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -109,7 +109,6 @@ import {
   RefreshIcon,
   RestoreIcon,
   SearchIcon,
-  TerminalIcon,
   TrashIcon,
   UploadIcon,
 } from "./SidebarIcons";
@@ -491,7 +490,7 @@ function buttonAnchor(element: HTMLElement, align: "start" | "end"): SidebarMenu
   return { kind: "rect", rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }, align };
 }
 
-export function SessionSidebar({ onSearchConversations, conversationVisible = true, selectedSessionId, onSelectSession, onNewSession, controlRef, onNewSessionContextChange, initialSessionId, initialSessionLinked, skipInitialProjectSelection, onInitialRestoreDone, refreshKey, onSessionDeleted, selectedCwd: selectedCwdProp, onCwdChange, onOpenFile, onOpenTerminal, explorerRefreshKey, onExplorerRefresh, onAtMention, onAtMentions, onBackgroundTaskDone, onRunningSessionIdsChange, onAwaitingInputSessionIdsChange, onUnreadSessionIdsChange, onDesignDecksChange, onSessionsChange }: Props) {
+export function SessionSidebar({ onSearchConversations, conversationVisible = true, selectedSessionId, onSelectSession, onNewSession, controlRef, onNewSessionContextChange, initialSessionId, initialSessionLinked, skipInitialProjectSelection, onInitialRestoreDone, refreshKey, onSessionDeleted, selectedCwd: selectedCwdProp, onCwdChange, onOpenFile, explorerRefreshKey, onExplorerRefresh, onAtMention, onAtMentions, onBackgroundTaskDone, onRunningSessionIdsChange, onAwaitingInputSessionIdsChange, onUnreadSessionIdsChange, onDesignDecksChange, onSessionsChange }: Props) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const [allSessions, setAllSessions] = useState<SessionInfo[]>([]);
@@ -558,7 +557,8 @@ export function SessionSidebar({ onSearchConversations, conversationVisible = tr
   // browser storage after hydration; the layout's choice is read the same
   // way (useFilesPlacement's server snapshot).
   const filesPlacement = useFilesPlacement();
-  const stacked = !isMobile && filesPlacement === "below";
+  const filesHidden = filesPlacement === "hidden";
+  const stacked = filesHidden || (!isMobile && filesPlacement === "below");
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("sessions");
   const [filesCollapsed, setFilesCollapsed] = useState(false);
   const sessionsTabRef = useRef<HTMLButtonElement>(null);
@@ -1646,7 +1646,7 @@ export function SessionSidebar({ onSearchConversations, conversationVisible = tr
         if (saved !== undefined && element.scrollTop !== saved) element.scrollTop = saved;
       }
     }
-  }, [sidebarTab, archiveView, stacked, filesCollapsed]);
+  }, [sidebarTab, archiveView, stacked, filesCollapsed, filesHidden]);
 
   const openArchiveView = useCallback(() => {
     setMenu(null);
@@ -1688,13 +1688,14 @@ export function SessionSidebar({ onSearchConversations, conversationVisible = tr
   // losing focus (no relatedTarget, !document.hasFocus()) keeps the note:
   // the setting from another window arrives just then.
   const sidebarFocusRef = useRef<Element | null>(null);
-  const previousStackedRef = useRef(stacked);
+  const layout = `${stacked}:${filesHidden}`;
+  const previousLayoutRef = useRef(layout);
   useLayoutEffect(() => {
-    if (previousStackedRef.current === stacked) return;
-    previousStackedRef.current = stacked;
+    if (previousLayoutRef.current === layout) return;
+    previousLayoutRef.current = layout;
     const last = sidebarFocusRef.current;
     if (last && (!last.isConnected || last.getClientRects().length === 0)) focusIfHidden(selectedTabButton());
-  }, [stacked, selectedTabButton]);
+  }, [layout, selectedTabButton]);
 
   const handleTabKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight" && event.key !== "Home" && event.key !== "End") return;
@@ -2209,11 +2210,20 @@ export function SessionSidebar({ onSearchConversations, conversationVisible = tr
   // the files section below the sessions, opened (and saved so) if folded.
   // The focus follows once they show.
   const revealFiles = useCallback((focusTarget: "project-button" | "project-list" | "file-search") => {
+    // An explicit file/project navigation can reveal a hidden browser.
+    if (filesHidden) {
+      setFilesPlacement("below");
+      // Phones still use tabs once visible; switchTab sees the old hidden layout.
+      if (isMobile) {
+        setSidebarTab("files");
+        saveSidebarTab("files");
+      }
+    }
     filesFocusRef.current = focusTarget;
     setFilesFocusRequest((count) => count + 1);
     if (stacked) setFilesSectionCollapsed(false);
     else switchTab("files");
-  }, [setFilesSectionCollapsed, stacked, switchTab]);
+  }, [filesHidden, isMobile, setFilesSectionCollapsed, stacked, switchTab]);
 
   // "Open in Files" of another project is a deliberate project switch, the
   // same as choosing it in the files' project list.
@@ -2231,7 +2241,7 @@ export function SessionSidebar({ onSearchConversations, conversationVisible = tr
   // the request counter runs it all the same. An unfolding section is not
   // shown yet: its button is still below the sidebar's edge, where the
   // project menu would be placed.
-  const filesShown = stacked ? filesFold.open : sidebarTab === "files";
+  const filesShown = !filesHidden && (stacked ? filesFold.open : sidebarTab === "files");
   useEffect(() => {
     const target = filesFocusRef.current;
     if (!target || !filesShown) return;
@@ -2489,15 +2499,6 @@ export function SessionSidebar({ onSearchConversations, conversationVisible = tr
   // 13px in the header row (smaller keys there, beside the label), 14px in the
   // files tab's row.
   const keyIconSize = stacked ? 13 : 14;
-  const terminalButton = (
-    <ToolbarIconButton
-      onClick={() => { if (explorerCwd) onOpenTerminal?.(explorerCwd); }}
-      disabled={!explorerCwd || !onOpenTerminal}
-      title={t("terminal.open")}
-    >
-      <TerminalIcon size={keyIconSize} />
-    </ToolbarIconButton>
-  );
   const fileOptions = (
     <ActionMenuButton
       key={explorerCwd}
@@ -2553,7 +2554,7 @@ export function SessionSidebar({ onSearchConversations, conversationVisible = tr
   return (
     <div
       ref={setSidebarRoot}
-      className={`session-sidebar${stacked ? " is-files-below" : ""}${stacked && filesCollapsed ? " is-files-collapsed" : ""}${stacked && filesFold.moving ? " is-files-folding" : ""}${toast ? " has-toast" : ""}`}
+      className={`session-sidebar${stacked ? " is-files-below" : ""}${filesHidden ? " is-files-hidden" : ""}${stacked && !filesHidden && filesCollapsed ? " is-files-collapsed" : ""}${stacked && !filesHidden && filesFold.moving ? " is-files-folding" : ""}${toast ? " has-toast" : ""}`}
       style={{ "--sidebar-files-height": `${filesSizer.width}px` } as CSSProperties}
       onFocus={(event) => { sidebarFocusRef.current = event.target; }}
       onBlur={(event) => { if (event.relatedTarget === null && !document.hasFocus()) return; if (!event.currentTarget.contains(event.relatedTarget)) sidebarFocusRef.current = null; }}
@@ -2758,7 +2759,7 @@ export function SessionSidebar({ onSearchConversations, conversationVisible = tr
           or a double-click to reset (useResizablePanel). Only while the
           files section is open and still: a drag never meets the fold's
           height transition. */}
-      {stacked && filesFold.open && (
+      {stacked && !filesHidden && filesFold.open && (
         <div
           {...filesSizer.separatorProps}
           aria-controls="session-sidebar-panel-files"
@@ -2777,7 +2778,7 @@ export function SessionSidebar({ onSearchConversations, conversationVisible = tr
         role={stacked ? "region" : "tabpanel"}
         aria-label={stacked ? t("sidebar.tabFiles") : undefined}
         aria-labelledby={stacked ? undefined : "session-sidebar-tab-files"}
-        hidden={!stacked && sidebarTab !== "files"}
+        hidden={filesHidden || (!stacked && sidebarTab !== "files")}
         className="sidebar-panel sidebar-files-panel"
         onScrollCapture={rememberScroll}
         onTransitionEnd={(event) => { if (event.target === event.currentTarget && event.propertyName === "height") endFilesFold(); }}
@@ -2802,7 +2803,6 @@ export function SessionSidebar({ onSearchConversations, conversationVisible = tr
               {changedFilesTitle && <span className="sidebar-files-section-count" aria-hidden="true">· {changesCount}</span>}
             </button>
             <div className="sidebar-files-keys" role="group" aria-label={t("sidebar.fileActions")}>
-              {terminalButton}
               {fileManagerButton}
               {fileOptions}
               <ToolbarIconButton
@@ -2870,7 +2870,6 @@ export function SessionSidebar({ onSearchConversations, conversationVisible = tr
                 search is the toolbar row's search button. */}
             {!stacked && explorerCwd && (
               <div className="sidebar-files-actions" role="group" aria-label={t("sidebar.fileActions")}>
-                {onOpenTerminal && terminalButton}
                 {fileManagerButton}
                 {fileOptions}
               </div>

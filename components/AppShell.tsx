@@ -28,6 +28,7 @@ import { sameDesignDecks, type DesignDeckPresentation } from "@/lib/design-deck"
 import { QuickActions, type QuickAction } from "./QuickActions";
 import { usePackageSubagents } from "@/hooks/usePackageSubagents";
 import { TerminalPanel } from "./TerminalPanel";
+import { TerminalIcon } from "./SidebarIcons";
 import { newTerminalTab, restoreTerminalTabs, TERMINAL_TABS_KEY, type TerminalTab } from "./terminal-tab-state";
 import { useTheme } from "@/hooks/useTheme";
 import { useFontPreferences } from "@/hooks/useFontPreferences";
@@ -1665,7 +1666,16 @@ export function AppShell() {
           <SettingsSectionIcon section="general" size={20} strokeWidth={1.7} />
           <span>{translate("common.settings")}</span>
         </button>
-
+        <button
+          type="button"
+          onClick={() => { if (activeCwd) handleOpenTerminal(activeCwd); }}
+          disabled={!activeCwd}
+          title={translate("terminal.open")}
+          aria-label={translate("terminal.open")}
+          className="quiet-action-button workspace-terminal-entry"
+        >
+          <TerminalIcon size={20} />
+        </button>
       </div>
     </>
   );

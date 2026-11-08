@@ -379,6 +379,17 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
                 />
                 <span className="settings-send-mode-label">{t("settings.filesPlacementTab")}</span>
               </label>
+              <label className="settings-send-mode-option">
+                <input
+                  type="radio"
+                  name="files-placement"
+                  value="hidden"
+                  checked={filesPlacement === "hidden"}
+                  onChange={() => setFilesPlacement("hidden")}
+                  className="sr-only"
+                />
+                <span className="settings-send-mode-label">{t("settings.filesPlacementHidden")}</span>
+              </label>
             </div>
           </div>
         </div>

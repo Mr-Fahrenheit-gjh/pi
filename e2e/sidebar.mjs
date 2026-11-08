@@ -169,3 +169,72 @@ export async function checkFilesPlacement(page) {
   await fileSearch.click();
   await fileQuery.waitFor({ state: "detached" });
 }
+
+/** Document can disappear entirely without taking the workspace terminal with it. */
+export async function checkSidebarDocumentVisibility(page, { project, artifacts }) {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  const sidebar = page.locator("#session-sidebar");
+  const files = page.locator("#session-sidebar-panel-files");
+  const footer = sidebar.locator(".workspace-settings-entry");
+  const settings = footer.getByRole("button", { name: "Settings", exact: true });
+  const terminal = footer.getByRole("button", { name: "Open workspace terminal", exact: true });
+  const openSidebar = async () => {
+    if (!await sidebar.evaluate(node => node.classList.contains("sidebar-open"))) await page.locator("[data-sidebar-toggle]").click();
+    await settings.waitFor();
+  };
+  const choose = async (label) => {
+    await settings.click();
+    await page.locator(".settings-section-tabs").getByRole("button", { name: "General", exact: true }).click();
+    const radio = page.getByRole("radio", { name: label, exact: true });
+    await radio.locator("..").click();
+    assert.equal(await radio.isChecked(), true);
+    await page.keyboard.press("Escape");
+    await page.getByRole("dialog", { name: "Settings", exact: true }).waitFor({ state: "hidden" });
+  };
+  await openSidebar();
+  await files.waitFor();
+  assert.equal(await files.getByRole("button", { name: "Open workspace terminal", exact: true }).count(), 0);
+  await choose("Hidden");
+  await files.waitFor({ state: "hidden" });
+  assert.equal(await sidebar.locator('[role="tablist"], [data-resize-handle="sidebar-files"]').count(), 0);
+  await page.getByRole("region", { name: "Sessions", exact: true }).waitFor();
+  for (const width of [180, 260]) {
+    await sidebar.evaluate((node, value) => node.style.setProperty("--sidebar-width", value + "px"), width);
+    const { positions, right } = await footer.evaluate(node => ({
+      right: node.getBoundingClientRect().right,
+      positions: [...node.children].map(button => {
+        const r = button.getBoundingClientRect(); return { x: r.x, y: r.y, right: r.right, bottom: r.bottom };
+      }),
+    }));
+    assert.equal(positions.length, 2);
+    assert.ok(positions[1].x >= positions[0].right - 1 && Math.abs(positions[1].y - positions[0].y) < 1, "Terminal stays to the right of Settings");
+    assert.ok(positions[1].right <= right + 1, "Terminal fits inside the footer");
+  }
+  await sidebar.evaluate(node => node.style.removeProperty("--sidebar-width"));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await openSidebar();
+  await files.waitFor({ state: "hidden" });
+  assert.equal(await page.evaluate(() => localStorage.getItem("pi-web:sidebar-files-placement")), "hidden");
+  const created = page.waitForResponse(response => new URL(response.url()).pathname === "/api/terminal" && response.request().method() === "POST");
+  await terminal.click();
+  const response = await created;
+  assert.ok(response.ok(), "Footer opens a real terminal");
+  assert.equal(response.request().postDataJSON().cwd, project);
+  await page.locator('.terminal-panel[data-terminal-status="ready"]').waitFor();
+  const removed = page.waitForResponse(response => /\/api\/terminal\/[^/]+$/.test(new URL(response.url()).pathname) && response.request().method() === "DELETE");
+  await page.getByRole("button", { name: /^Terminate terminal / }).click();
+  assert.ok((await removed).ok(), "The test's terminal is cleaned up");
+  await choose("Separate tab");
+  await sidebar.getByRole("tab", { name: "Document", exact: true }).waitFor();
+  await sidebar.getByRole("tab", { name: "Document", exact: true }).click();
+  await files.waitFor();
+  await choose("Hidden");
+  await files.waitFor({ state: "hidden" });
+  await page.getByRole("region", { name: "Sessions", exact: true }).waitFor();
+  await page.screenshot({ path: `${artifacts}/sidebar-document-hidden.png` });
+  await choose("Below sessions");
+  await files.waitFor();
+  assert.deepEqual(errors, []);
+  console.log("PASS: Document hidden/restored/persisted; terminal right of Settings at 180/260px; real terminal cwd and cleanup");
+}

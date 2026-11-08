@@ -994,6 +994,13 @@ a.session-tree-main {
   bottom: 37px;
 }
 
+.session-sidebar.is-files-below.is-files-hidden .sidebar-toast-region {
+  bottom: 8px;
+}
+.session-sidebar.is-files-hidden .sidebar-files-panel {
+  display: none;
+}
+
 /* One toolbar row in the cells of the chat's top bar beside it (AppShell):
    36px with its line, as that bar is, so the two read as one bar. Each cell is divided on its
    right; the search cell's right is the sidebar's own edge. */
@@ -1351,9 +1358,9 @@ a.session-tree-main {
    the rest (a fraction of a pixel until then). */
 .sidebar-files-keys {
   display: flex;
-  flex: 1000 0 calc(4 * 18px);
+  flex: 1000 0 calc(3 * 18px);
   align-items: center;
-  max-width: calc(4 * 26px);
+  max-width: calc(3 * 26px);
 }
 
 /* The section's keys: the files tab's square keys, a step under the row's
