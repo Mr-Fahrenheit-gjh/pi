@@ -8,6 +8,7 @@ import { validateAgentImages } from "./image-attachments";
 import { buildTaskContinuationPrompt } from "./task-continuation";
 import { invalidateModelsCache } from "./models-cache";
 import { dispatchHistoryPromptSuggestion } from "./prompt-suggestion-request";
+import { readFastModeState, setFastMode } from "./fast-mode";
 import { invalidateModelRuntimeWithExtensions } from "./model-runtime";
 import { resolveVisibleModels, selectInitialModelScope } from "./model-scope";
 import { findDeferredModel, findDeferredStartupModel, rememberProviderModels } from "./deferred-provider-models";
@@ -819,6 +820,7 @@ export class AgentSessionWrapper {
       || type === "follow_up"
       || type === "get_commands"
       || type === "request_prompt_suggestion"
+      || type === "set_fast_mode"
       || type === "get_state";
   }
 
@@ -1315,7 +1317,14 @@ export class AgentSessionWrapper {
           thinkingLevel: this.inner.agent.state?.thinkingLevel ?? "off",
           extensionStatuses: this.getExtensionStatuses(),
           extensionWidgets: this.getExtensionWidgets(),
+          fastModeState: readFastModeState(this.inner),
         };
+      }
+
+      case "set_fast_mode": {
+        const state = await setFastMode(this.inner, command.mode);
+        invalidateSessionListCache();
+        return state;
       }
 
       case "set_model": {

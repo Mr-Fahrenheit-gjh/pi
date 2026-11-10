@@ -74,6 +74,21 @@ test('names a selected model outside the scope from the on-demand full list', ()
   assert.doesNotMatch(html, />gpt-6-luna</);
 });
 
+test('running GPT can open Fast without unlocking other model selectors', () => {
+  const props = { modelSelectionDisabled: true, onFastModeChange() {} };
+  const gpt = render({ ...props, value: { provider: 'openai-codex', modelId: 'gpt-fixture' } });
+  assert.doesNotMatch(gpt, / disabled=""/);
+  assert.match(gpt, /aria-haspopup="dialog"/);
+  const other = render({ ...props, value: { provider: 'anthropic', modelId: 'claude' } });
+  assert.match(other, / disabled=""/);
+  assert.match(render({ ...props, disabled: true, value: { provider: 'openai', modelId: 'gpt-fixture' } }), / disabled=""/);
+});
+
+test('branch state preserves the Fast indicator before a new session connects SSE', () => {
+  assert.match(render({ value: { provider: 'openai', modelId: 'gpt-fixture' },
+    fastModeState: { available: true, supported: true, mode: 'fast' } }), /data-model-fast-indicator/);
+});
+
 test('no selected model keeps the generic icon and empty label', () => {
   const html = render({ value: null, emptyLabel: 'Select a model' });
   assert.ok(html.includes('Select a model'));

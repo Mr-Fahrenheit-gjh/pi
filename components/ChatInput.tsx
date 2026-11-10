@@ -44,6 +44,7 @@ import { useFontPreferences } from "@/hooks/useFontPreferences";
 import type { ToolPreset } from "@/lib/tool-presets";
 import { SelectorRow } from "./SelectorRow";
 import { ModelSelector, type ModelSelectorOption } from "./ModelSelector";
+import type { FastMode, FastModeState } from "@/lib/fast-mode";
 
 export { filterModelOptions } from "./ModelSelector";
 
@@ -65,6 +66,10 @@ interface Props {
   model?: { provider: string; modelId: string } | null;
   isAutoModelSelection?: boolean;
   fastMode?: boolean;
+  fastModeState?: FastModeState | null;
+  fastModeBusy?: boolean;
+  onFastModeOpen?: () => void;
+  onFastModeChange?: (mode: FastMode) => void;
   modelNames?: Record<string, string>;
   modelList?: { id: string; name: string; provider: string; input?: string[] }[];
   modelError?: string | null;
@@ -673,7 +678,7 @@ export function ModelScopeWarningBanner({ warnings }: { warnings?: string[] }) {
 // Memoized: its props hold still while a reply streams or a tool runs, and the
 // chat around it re-renders through both.
 export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatInput({
-  onSend, onAbort, onSteer, onFollowUp, isStreaming, model, isAutoModelSelection, fastMode, modelNames, modelList, modelError, modelScopeWarnings, allModelList, onLoadAllModels, onModelChange, modelSwitching,
+  onSend, onAbort, onSteer, onFollowUp, isStreaming, model, isAutoModelSelection, fastMode, fastModeState, fastModeBusy, onFastModeOpen, onFastModeChange, modelNames, modelList, modelError, modelScopeWarnings, allModelList, onLoadAllModels, onModelChange, modelSwitching,
   defaultModel, onSetDefaultModel,
   onCompact, onAbortCompaction, isCompacting, compactError, onDismissCompactError, compactResult, toolPreset, onToolPresetChange,
   thinkingLevel, isAutoThinkingSelection = false, onThinkingLevelChange, availableThinkingLevels, thinkingLevelMap,
@@ -2565,16 +2570,20 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
 
           {/* spacer */}
           <div className="composer-controls-spacer" style={{ flex: 1 }} />
-            {/* Model selector - visible always, disabled while the session or switch is busy */}
+            {/* Fast stays available mid-run; model rows remain locked. */}
             {(modelOptions.length > 0 || model || modelError) && onModelChange && (
               <ModelSelector
                 options={modelOptions}
                 value={model}
                 onChange={onModelChange}
-                disabled={isStreaming}
+                modelSelectionDisabled={isStreaming}
                 busy={modelSwitching}
                 isAutoSelection={isAutoModelSelection}
                 fastMode={fastMode}
+                fastModeState={fastModeState}
+                fastModeBusy={fastModeBusy}
+                onFastModeOpen={onFastModeOpen}
+                onFastModeChange={onFastModeChange}
                 defaultValue={defaultModel}
                 onSetDefault={onSetDefaultModel}
                 allOptions={allModelList?.map((m) => ({ provider: m.provider, modelId: m.id, name: m.name }))}

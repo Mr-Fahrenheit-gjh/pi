@@ -312,6 +312,7 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
     dismissCompactError,
     handleRecallQueue,
     handleBuiltinSlashCommand,
+    fastModeState, fastModeBusy, handleFastModeChange,
     handleToolPresetChange, handleThinkingLevelChange, handleSetDefaultModel, handleSetDefaultThinkingLevel, loadSlashCommands, loadAllModels, scrollUserMsgToTop,
     loadContext, activeLeafId, voiceNavigation, scrollToBottom, scrollToMessage,
   } = useAgentSession({
@@ -1003,6 +1004,10 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
       slashCommands={slashCommands}
       slashCommandsLoading={slashCommandsLoading}
       onLoadSlashCommands={loadSlashCommands}
+      fastModeState={fastModeState}
+      fastModeBusy={fastModeBusy}
+      onFastModeOpen={() => { void handleFastModeChange?.(); }}
+      onFastModeChange={handleFastModeChange}
       onBuiltinCommand={handleBuiltinSlashCommand}
       soundEnabled={soundEnabled}
       onSoundToggle={onSoundToggle}

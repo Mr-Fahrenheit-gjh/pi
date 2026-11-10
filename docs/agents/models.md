@@ -12,6 +12,14 @@
 ## Model manufacturer icons
 The selected-model button and assistant model labels both reuse `ProviderIcon` through `lib/model-manufacturer.ts`, showing the model maker rather than a gateway for recognizable model families. The selector preserves its spinner while switching and its generic icon when no model is selected. Icons are decorative; model text, filtering, defaults and selection behavior remain unchanged.
 
+## Session Fast control
+
+The GPT model picker exposes Fast on/off plus “Use model settings” (`auto`) for the existing `pi-codex-speed` extension. `set_fast_mode` dispatches only that verified extension's fixed `fast` command, never a prompt/abort, and `get_state.fastModeState` reads its current branch entry. Missing extensions/adapters are unavailable; never infer auto/standard from status text. This does not change global defaults, thinking or Feynman control.
+
+The menu stays openable mid-run, but its model/default rows remain disabled. A speed change affects the next `before_provider_request`, including another request after tools in the same run. The plugin retains the in-flight request's original mode, tier, verification and usage ledger. New-chat menu actions may ensure a non-prompt session before persisting the setting. Existing sessions must reload the updated extension while idle before using the mid-run feature.
+
+Checks: `node --experimental-strip-types --test lib/fast-mode.test.mjs components/ModelSelector.test.mjs components/ChatInput.test.mjs`; plugin checks in `工具/pi-codex-speed/speed.test.mjs`. `e2e/fast-mode.mjs` exports a component-only browser check against an isolated real-ModelSelector fixture (`window.fastFixture` controls its props); it is not full-app or formal-service deployment evidence.
+
 ## Model defaults for new sessions
 `GET /api/models` returns `defaultModel` from `~/.pi/agent/settings.json`; `ChatWindow` pre-selects it for new sessions. Browser model/thinking picks are applied atomically while the AgentSession is built and are **session-scoped**: neither startup nor a mid-session `set_model` / `set_thinking_level` writes `settings.json`, as pi's `/model` and `/thinking` persist only on Ctrl+S (otherwise a one-off pick becomes the TUI's default too).
 

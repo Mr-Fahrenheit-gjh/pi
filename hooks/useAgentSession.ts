@@ -26,6 +26,7 @@ import { clearDraft, getDraft, parkedNewSessionDraftKey, rekeyDraft, restoreDraf
 import { getPreferredToolPreset, setPreferredToolPreset } from "@/lib/tool-preset-preference";
 import { CONFIGURED_TOOL_PRESET, getPresetFromToolNames, getToolNamesForPreset, type ToolEntry, type ToolPreset } from "@/lib/tool-presets";
 import type { SessionStatsInfo } from "@/lib/pi-types";
+import type { FastMode, FastModeState } from "@/lib/fast-mode";
 import { mergeSessionStats, type SessionFileStats } from "@/lib/session-stats";
 import { userMessageKey } from "@/lib/prompt-recovery";
 import { canContinueTask } from "@/lib/task-continuation";
@@ -115,6 +116,7 @@ type AgentStateResponse = {
   isCompacting?: boolean;
   autoCompactionEnabled?: boolean;
   extensionStatuses?: ExtensionStatusItem[];
+  fastModeState?: FastModeState;
   extensionWidgets?: ExtensionWidgetItem[];
   queuedMessages?: { steering?: string[]; followUp?: string[] } | null;
 };
@@ -473,6 +475,9 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const [extensionDialogs, setExtensionDialogs] = useState<ExtensionUiDialogRequest[]>([]);
   const [extensionCustomUis, setExtensionCustomUis] = useState<ExtensionUiCustomRequest[]>([]);
   const [extensionStatuses, setExtensionStatuses] = useState<ExtensionStatusItem[]>([]);
+  const [fastModeState, setFastModeState] = useState<FastModeState | null>(null);
+  const [fastModeBusy, setFastModeBusy] = useState(false);
+  const fastModePendingRef = useRef(false);
   const [extensionWidgets, setExtensionWidgets] = useState<ExtensionWidgetItem[]>([]);
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessages>({ steering: [], followUp: [] });
 
@@ -637,6 +642,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     if (state?.thinkingLevel !== undefined) {
       setLiveThinkingLevel(asConcreteThinkingLevel(state.thinkingLevel));
     }
+    if (state?.fastModeState !== undefined) setFastModeState(state.fastModeState);
   }, []);
 
   const resolveComposerDraftKey = useCallback((key: string | undefined) => {
@@ -1043,6 +1049,30 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       ensuringNewSessionRef.current = null;
     }
   }, [isNew, newSessionCwd, toolPreset]);
+
+  const handleFastModeChange = useCallback(async (mode?: FastMode) => {
+    if (fastModePendingRef.current || pageRuntime() !== "pi") return;
+    fastModePendingRef.current = true;
+    setFastModeBusy(true);
+    if (mode === undefined) setFastModeState(null);
+    let sid: string | null = null;
+    try {
+      sid = sessionIdRef.current ?? await ensureNewSession();
+      if (!sid) return;
+      const state = mode === undefined
+        ? (await sendAgentCommand<AgentStateResponse>(sid, { type: "get_state" })).fastModeState
+        : await sendAgentCommand<FastModeState>(sid, { type: "set_fast_mode", mode });
+      if (!sessionHookMountedRef.current || sessionIdRef.current !== sid) return;
+      setFastModeState(state ?? null);
+    } catch (error) {
+      if (sessionHookMountedRef.current && (!sid || sessionIdRef.current === sid)) {
+        addNotice({ type: "error", message: `Fast: ${error instanceof Error ? error.message : String(error)}` });
+      }
+    } finally {
+      fastModePendingRef.current = false;
+      if (sessionHookMountedRef.current) setFastModeBusy(false);
+    }
+  }, [addNotice, ensureNewSession]);
 
   // Opening the System or Tools panel may initialize an otherwise dormant
   // session. This is deliberately a non-prompt command: it creates no message
@@ -2297,6 +2327,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   }, [isCompacting, loadContext]);
 
   const handleModelChange = useCallback(async (provider: string, modelId: string) => {
+    setFastModeState(null);
     if (isNew) {
       const selectedModel = { provider, modelId };
       newSessionModelOverrideRef.current = selectedModel;
@@ -2816,6 +2847,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       }
       clearSlashCommands();
       setExtensionStatuses([]);
+      setFastModeState(null);
       setExtensionWidgets([]);
       const [state] = await Promise.all([
         sendAgentCommand<AgentStateResponse>(activeSessionId, { type: "get_state" }),
@@ -3303,6 +3335,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     lastUserMsgRef, pendingScrollToUserRef, initialScrollDoneRef,
     // Actions
     handleSend, handleAbort, handleContinueTask, taskCanContinue, handleFork, handleNavigate, handleModelChange,
+    fastModeState, fastModeBusy, handleFastModeChange: pageRuntime() === "pi" ? handleFastModeChange : undefined,
     handleCompact, handleSteer, handleFollowUp, handlePromptWithStreamingBehavior, handleAbortCompaction,
     dismissCompactError,
     handleRecallQueue,

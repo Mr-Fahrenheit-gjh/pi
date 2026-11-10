@@ -35,6 +35,8 @@
     "hooks/useAttachmentText.ts": ["splitComposerAttachments", "serializeComposerAttachments", "removeFile"],
     "lib/attachment-presentation.ts": ["AttachmentPresentation", "presentAttachmentMessage"],
     "components/ChatInput.tsx": ["composer-card", "composer-surface", "AttachmentDialog", "data-composer-send", "ContextUsageRing", "useRunningSendMode", "data-prompt-suggestion", "dismissPromptSuggestion", "useAttachmentText", "expandAttachments"],
+    "components/ModelSelector.tsx": ["data-model-fast-indicator", "modelSelectionDisabled", "onFastModeChange", "chat.fastReset"],
+    "lib/fast-mode.ts": ["codex-speed-mode", "createCommandContext", "Invalid fast mode"],
     "lib/prompt-suggestions.ts": ["next-prompt-suggestion", "getPromptSuggestion", "shouldShowPromptSuggestion"],
     "components/ContextUsageRing.tsx": ["data-context-ring", "strokeDasharray"],
     "components/SettingsPanel.tsx": ["running-send-mode", "settings.runningSendMode"],

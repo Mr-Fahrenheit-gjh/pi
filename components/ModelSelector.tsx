@@ -6,6 +6,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { SelectorRow } from "./SelectorRow";
 import { ProviderIcon } from "./ProviderIcon";
 import { modelManufacturerIcon } from "@/lib/model-manufacturer";
+import type { FastMode, FastModeState } from "@/lib/fast-mode";
 
 export interface ModelSelectorOption {
   provider: string;
@@ -25,6 +26,12 @@ interface ModelSelectorProps {
   isAutoSelection?: boolean;
   /** The session's OpenAI / Codex fast mode is enabled. */
   fastMode?: boolean;
+  fastModeState?: FastModeState | null;
+  fastModeBusy?: boolean;
+  onFastModeOpen?: () => void;
+  onFastModeChange?: (mode: FastMode) => void;
+  /** Lock model/default selection without locking the Fast control. */
+  modelSelectionDisabled?: boolean;
   ariaLabel?: string;
   variant?: "toolbar" | "field";
   placement?: "up" | "auto";
@@ -62,6 +69,11 @@ export function ModelSelector({
   busy = false,
   isAutoSelection = false,
   fastMode = false,
+  fastModeState,
+  fastModeBusy = false,
+  onFastModeOpen,
+  onFastModeChange,
+  modelSelectionDisabled = false,
   ariaLabel,
   variant = "toolbar",
   placement = "up",
@@ -79,7 +91,10 @@ export function ModelSelector({
   const [filter, setFilter] = useState("");
   // pi's /model starts on the scope; Tab on the filter or a tap switches.
   const [showAll, setShowAll] = useState(false);
-  const locked = disabled || busy;
+  const showFastControl = Boolean(onFastModeChange && value && /^gpt-/i.test(value.modelId)
+    && (value.provider === "openai" || value.provider === "openai-codex"));
+  const locked = disabled || busy || (modelSelectionDisabled && !showFastControl);
+  const fastUnavailable = !fastModeState?.available || !fastModeState.supported;
   const listed = showAll ? allOptions : options;
   // Options arrive in pi's /model order (orderSelectorModels()); never re-sort
   // them, or a models.json provider loses the order its file gives (#783).
@@ -163,6 +178,7 @@ export function ModelSelector({
       };
 
   const choose = (option: ModelSelectorOption) => {
+    if (modelSelectionDisabled) return;
     const active = option.modelId === value?.modelId && option.provider === value?.provider;
     setOpen(false);
     setFilter("");
@@ -170,6 +186,7 @@ export function ModelSelector({
   };
 
   const saveDefault = (option: ModelSelectorOption) => {
+    if (modelSelectionDisabled) return;
     setOpen(false);
     setFilter("");
     onSetDefault?.(option.provider, option.modelId);
@@ -191,7 +208,7 @@ export function ModelSelector({
       <button
         type="button"
         aria-label={ariaLabel}
-        aria-haspopup="listbox"
+        aria-haspopup={showFastControl ? "dialog" : "listbox"}
         data-model-selector-trigger
         aria-expanded={open}
         aria-busy={busy || undefined}
@@ -201,6 +218,7 @@ export function ModelSelector({
         onClick={(event) => {
           const rect = event.currentTarget.getBoundingClientRect();
           setAnchorRect({ top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left, width: rect.width });
+          if (!open && showFastControl) onFastModeOpen?.();
           setOpen((current) => {
             if (current) setFilter("");
             else setShowAll(false);
@@ -239,7 +257,7 @@ export function ModelSelector({
           </svg>
         )}
         <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentName}</span>
-        {fastMode && value && (value.provider === "openai" || value.provider === "openai-codex") && (
+        {(fastMode || fastModeState?.mode === "fast") && value && (value.provider === "openai" || value.provider === "openai-codex") && (
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label="Fast mode" data-model-fast-indicator style={{ flexShrink: 0 }}>
             <title>Fast mode</title>
             <path d="M13 2 4 14h7l-1 8 10-12h-7l1-8Z" />
@@ -269,8 +287,9 @@ export function ModelSelector({
         return (
           <div
             ref={panelRef}
-            role="listbox"
-            aria-label={ariaLabel}
+            role={showFastControl ? "dialog" : undefined}
+            aria-label={ariaLabel ?? (showFastControl ? t("chat.modelAndSpeed") : undefined)}
+            data-model-selector-menu
             style={{
               position: "fixed",
               ...verticalPosition,
@@ -286,6 +305,33 @@ export function ModelSelector({
               boxShadow: openAbove ? "0 -4px 16px rgba(0,0,0,0.10)" : "0 4px 16px rgba(0,0,0,0.10)",
             }}
           >
+            {showFastControl && (
+              <div style={{ flexShrink: 0, padding: "10px 12px", borderBottom: "1px solid var(--border)", maxWidth: 320 }}>
+                <button type="button" role="switch" aria-label={t("chat.fastMode")}
+                  aria-checked={fastModeState?.mode === "fast"}
+                  disabled={fastModeBusy || fastUnavailable}
+                  onClick={() => onFastModeChange?.(fastModeState?.mode === "fast" ? "standard" : "fast")}
+                  style={{ display: "flex", alignItems: "center", gap: 20, justifyContent: "space-between", width: "100%", padding: 0, border: "none", background: "none", color: "var(--text)", fontSize: 12, opacity: fastModeBusy || fastUnavailable ? 0.5 : 1 }}>
+                  <span>Fast</span>
+                  <span aria-hidden="true" style={{ display: "flex", alignItems: "center", width: 28, height: 16, padding: 2, borderRadius: 10, background: fastModeState?.mode === "fast" ? "var(--accent)" : "var(--border)", justifyContent: fastModeState?.mode === "fast" ? "flex-end" : "flex-start" }}>
+                    <span style={{ width: 12, height: 12, borderRadius: "50%", background: "var(--bg)" }} />
+                  </span>
+                </button>
+                <div style={{ marginTop: 6, fontSize: 11, lineHeight: 1.5, color: "var(--text-dim)", whiteSpace: "normal" }}>
+                  {fastModeBusy ? t("chat.fastLoading") : fastUnavailable ? t("chat.fastUnavailable") : t("chat.fastHint")}
+                </div>
+                {fastModeState?.mode === "auto" ? (
+                  <div style={{ marginTop: 4, fontSize: 11, color: "var(--text-muted)" }}>{t("chat.fastAuto")}</div>
+                ) : (
+                  <button type="button" disabled={fastModeBusy || fastUnavailable} onClick={() => {
+                    // This row disappears after reset; keep Escape within the selector.
+                    rootRef.current?.querySelector<HTMLButtonElement>("[data-model-selector-trigger]")?.focus();
+                    onFastModeChange?.("auto");
+                  }}
+                    style={{ marginTop: 4, padding: 0, border: "none", background: "none", color: "var(--text-muted)", fontSize: 11 }}>{t("chat.fastReset")}</button>
+                )}
+              </div>
+            )}
             {onShowAll && (
               <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 8px 0", fontSize: 11 }}>
                 {[false, true].map((all) => (
@@ -345,7 +391,8 @@ export function ModelSelector({
                 />
               </div>
             )}
-            <div style={{ minHeight: 0, overflowY: "auto" }}>
+            <fieldset role="listbox" aria-label={ariaLabel} disabled={modelSelectionDisabled}
+              style={{ minHeight: 0, minWidth: 0, margin: 0, padding: 0, border: "none", overflowY: "auto", opacity: modelSelectionDisabled ? 0.5 : 1 }}>
               {onClear && !filter.trim() && (
                 <SelectorRow active={!value} gutter={Boolean(onSetDefault)} onSelect={() => {
                   setOpen(false);
@@ -386,7 +433,7 @@ export function ModelSelector({
                   })}
                 </div>
               ))}
-            </div>
+            </fieldset>
           </div>
         );
       })()}
