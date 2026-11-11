@@ -1051,6 +1051,19 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     }
   }, [isNew, newSessionCwd, toolPreset]);
 
+  const addNotice = useCallback((notice: { id?: string; message: string; type?: NoticeType }) => {
+    const message = notice.message.trim();
+    if (!message) return;
+    dispatchNotice({
+      type: "add",
+      notice: {
+        id: notice.id ?? createNoticeId(),
+        message,
+        type: notice.type ?? "info",
+      },
+    });
+  }, []);
+
   const handleFastModeChange = useCallback(async (mode?: FastMode) => {
     if (fastModePendingRef.current || pageRuntime() !== "pi") return;
     fastModePendingRef.current = true;
@@ -1317,18 +1330,6 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     }
   }, []);
 
-  const addNotice = useCallback((notice: { id?: string; message: string; type?: NoticeType }) => {
-    const message = notice.message.trim();
-    if (!message) return;
-    dispatchNotice({
-      type: "add",
-      notice: {
-        id: notice.id ?? createNoticeId(),
-        message,
-        type: notice.type ?? "info",
-      },
-    });
-  }, []);
   const translateRef = useRef(opts.t);
   translateRef.current = opts.t;
   const translate = useCallback((key: string, params?: TranslationParams) => translateRef.current(key, params), []);
