@@ -14,7 +14,7 @@
 ## 文件
 
 - `background.mjs`：TUI 专属会话槽位、UI/快捷键隔离、停靠/恢复、reload 和退出清理。
-- `install.mjs`：精确支持 `@earendil-works/pi-coding-agent@1.4.0`，同步适配 SDK TUI 与实际 CLI bundle；拒绝未知输入形状，幂等安装、保存校验备份、受保护回退。
+- `install.mjs`：精确支持 `@earendil-works/pi-coding-agent@1.4.0` / `1.5.0`，同步适配 SDK TUI 与实际 CLI bundle；拒绝未知输入形状，幂等安装、保存校验备份、受保护回退。
 - `background.test.mjs`：实际 AgentSession/SessionManager/runtime、faux 模型、工具和临时候选验证。
 - `smoke.mjs` / `activation.json`：实际已安装 bundle 的真实独立 PTY、faux provider 验收脚本与脱敏结果。
 - `verification.md`：本次验证与边界。
@@ -26,10 +26,14 @@
 从工作区根目录运行：
 
 ```sh
-node --test 工具/pi-tui-session-background/background.test.mjs
+node --test 工具/pi-tui-session-background/background.test.mjs 工具/pi-tui-session-background/composition.test.mjs
 node --check 工具/pi-tui-session-background/background.mjs
 node --check 工具/pi-tui-session-background/install.mjs
 ```
+
+`composition.test.mjs` 在独立副本中按恢复 → interrupt → 附件 → TUI 后台重放两遍，并对普通模块 / 真实 CLI chunks 做最终验真和未知字节拒绝测试；附件原件已由后装后台补丁改变时，仍要求精确组合字节。TUI 安装检查从带指纹备份完整重建当前文件，不以 marker 存在冒充验证。后台 faux 测试也覆盖 A 停靠后 steer 的完整 settled 与 B 隔离。
+
+1.5 的测试证据仅针对独立临时副本，不代表当前全局 CLI、Web 或既有进程已升级。编辑器测试需要 CLI 的 nested pi-tui 布局；不会让附件安装器写到 SDK 外的 hoisted 包。
 
 测试复制 SDK `dist/` 到 `/tmp`，只读取现有依赖，在临时目录安装/检查/回退并于结束清理；不会改全局安装，也不访问真实模型或凭据。`PI_TUI_TEST_SDK` 可指定同版本 SDK 根目录。
 

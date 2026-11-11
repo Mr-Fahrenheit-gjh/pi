@@ -42,14 +42,29 @@ test('plan validates all files before apply, rejects SDK 1.2/unknown versions, c
     writeFileSync(join(root, 'dist/pi-interrupt-engine.mjs'), 'stale engine');
     assert.notEqual(run('--check').status, 0);
     assert.equal(run('--apply').status, 0);
-    manifest('1.4.0');
-    assert.equal(plan(root).length, 3);
-    assert.equal(run('--check').status, 0);
-    for (const version of ['1.2.0', '1.3.1', '1.3.0-rc', '1.4.1', '1.4.0-rc']) {
+    for (const version of ['1.4.0', '1.5.0']) {
+      manifest(version);
+      assert.equal(plan(root).length, 3);
+      assert.equal(run('--check').status, 0);
+    }
+    for (const version of ['1.2.0', '1.3.1', '1.3.0-rc', '1.4.1', '1.4.0-rc', '1.5.1', '1.5.0-rc']) {
       manifest(version);
       assert.throws(() => plan(root), /Unsupported SDK identity/);
     }
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('shared bundle accepts only exact attachment v1/v2 imports before interrupt and preserves its terminal contract', () => {
+  for (const [version, name] of [[1, 'presentFileReferences'], [2, 'presentTypedFileReferences as presentFileReferences']]) {
+    const header = `// pi-attachment-presentation-v${version}\nimport { ${name} } from "../../pi-file-references.mjs";\n`;
+    const composed = header + patch(bundled, true);
+    assert.equal(patch(composed, true), composed);
+    assert.throws(() => patch(composed.replace('pi-file-references.mjs', 'unverified.mjs'), true), /Unrecognized/);
+    assert.throws(() => patch(composed.replace(name, 'unexpectedExport'), true), /Unrecognized/);
+    assert.throws(() => patch('// arbitrary leading code\n' + composed, true), /Unrecognized/);
+    assert.throws(() => patch(composed + '\n// trailing code', true), /Unrecognized/);
+    assert.throws(() => patch(composed, false), /Unrecognized/);
+  }
 });
 
 test('pi-subagents lifecycle factory includes transaction work without changing low-level SDK queues', () => {

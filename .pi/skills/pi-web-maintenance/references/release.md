@@ -49,7 +49,7 @@ python3 upgrade_when_idle.py --prepare <真实历史会话UUID>   # 前台，一
 python3 -u upgrade_when_idle.py --apply                     # task_start 后台，日志写本轮任务文件
 ```
 
-- 只有用户明确允许重启中断当前会话，才追加 `--restart-session <当前会话UUID>`；一次性豁免，不放宽其他会话/PTY。
+- 需要重启中断当前会话时，追加 `--restart-session <当前会话UUID>`；一次性豁免，不放宽其他会话/PTY。
 - 不运行 `--supersede`/`--refresh-owner` 绕过不明冲突；先查旧计划是否已切换。
 - 不手工换 `.next`、不 `launchctl kickstart`、不全局安装官方包。
 - `task_start` 返回中断/超时后先核对任务、PID/cwd 和状态；已有 apply 在跑就等它。

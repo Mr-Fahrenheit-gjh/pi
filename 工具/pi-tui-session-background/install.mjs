@@ -54,7 +54,7 @@ export function patch(source, bundled = false) {
 export function plan(sdkRoot) {
   const root = realpathSync(sdkRoot);
   const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-  if (manifest.name !== '@earendil-works/pi-coding-agent' || manifest.version !== '1.4.0') {
+  if (manifest.name !== '@earendil-works/pi-coding-agent' || !['1.4.0', '1.5.0'].includes(manifest.version)) {
     throw new Error(`Unsupported SDK: ${manifest.name}@${manifest.version}`);
   }
   const chunks = join(root, 'dist/bundle/chunks');
@@ -64,6 +64,16 @@ export function plan(sdkRoot) {
   const files = [join(root, 'dist/modes/interactive/interactive-mode.js'), matches[0]];
   const result = files.map((path, index) => {
     const before = readFileSync(path, 'utf8');
+    if (before.includes(marker)) {
+      const backup = join(root, 'dist/pi-tui-session-background-backup');
+      const prefix = sha(path).slice(0, 16) + '-';
+      const originals = existsSync(backup) ? readdirSync(backup).filter((name) => name.startsWith(prefix) && /^[a-f0-9]{16}-[a-f0-9]{16}\.js$/.test(name)) : [];
+      const verified = originals.some((name) => {
+        const original = readFileSync(join(backup, name), 'utf8');
+        return !original.includes(marker) && name === prefix + sha(original).slice(0, 16) + '.js' && patch(original, index === 1) === before;
+      });
+      if (!verified) throw new Error('Unrecognized TUI background fingerprint; refusing to overwrite other patches: ' + path);
+    }
     return { path, before, after: patch(before, index === 1) };
   });
   const path = join(root, 'dist/pi-tui-session-background.mjs');

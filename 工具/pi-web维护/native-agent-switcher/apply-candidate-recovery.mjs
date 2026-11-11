@@ -11,7 +11,7 @@ export function patchCandidateRecovery(packageRoot, { checkOnly = false } = {}) 
   const sdk = join(root, 'node_modules/@earendil-works/pi-coding-agent');
   if (!realpathSync(sdk).startsWith(root + '/')) throw new Error('Candidate SDK must not link to an outside installation');
   const version = JSON.parse(readFileSync(join(sdk, 'package.json'), 'utf8')).version;
-  if (!['1.2.0', '1.3.0', '1.4.0'].includes(version)) throw new Error(`SDK ${version} requires a tested recovery adapter`);
+  if (!['1.2.0', '1.3.0', '1.4.0', '1.5.0'].includes(version)) throw new Error(`SDK ${version} requires a tested recovery adapter`);
   const chunks = join(sdk, 'dist/bundle/chunks');
   const bundled = readdirSync(chunks).filter(name => name.endsWith('.js')).map(name => join(chunks, name)).filter(path => readFileSync(path, 'utf8').includes('async _prepareRetry(message){'));
   if (bundled.length !== 1) throw new Error('Expected exactly one bundled AgentSession');
@@ -21,7 +21,13 @@ export function patchCandidateRecovery(packageRoot, { checkOnly = false } = {}) 
     const original = readFileSync(path, 'utf8');
     const regular = path.endsWith('/core/agent-session.js');
     const interruptImport = `import { installInterruptSteer as piInstallInterruptSteer } from '${regular ? '../' : '../../'}pi-interrupt-engine.mjs';\n`;
-    const prefix = ['1.3.0', '1.4.0'].includes(version) && original.startsWith(interruptImport) ? interruptImport : '';
+    const attachmentPrefix = regular ? '' : [
+      '// pi-attachment-presentation-v1\nimport { presentFileReferences } from "../../pi-file-references.mjs";\n',
+      '// pi-attachment-presentation-v2\nimport { presentTypedFileReferences as presentFileReferences } from "../../pi-file-references.mjs";\n',
+    ].find(prefix => original.startsWith(prefix)) || '';
+    if (original.startsWith('// pi-attachment-presentation-') && !attachmentPrefix) throw new Error(`Unsupported attachment prefix: ${path}`);
+    const afterAttachment = original.slice(attachmentPrefix.length);
+    const prefix = attachmentPrefix + (['1.3.0', '1.4.0', '1.5.0'].includes(version) && afterAttachment.startsWith(interruptImport) ? interruptImport : '');
     if (original.slice(prefix.length).startsWith(importLine)) {
       for (const marker of ['piRecoveryStop(this.sessionManager)', 'piRecoverySpent(this.sessionManager)', 'piRecoveryRetry(this.sessionManager']) if (!original.includes(marker)) throw new Error(`Partial recovery patch: ${path}`);
       continue;

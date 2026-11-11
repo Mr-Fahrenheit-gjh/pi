@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, rm, cp, symlink, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, cp, symlink, readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
+import { existsSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -8,15 +9,15 @@ import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
 import { installTuiBackground } from './background.mjs';
 import { plan, patch } from './install.mjs';
-import { patch as interruptPatch } from '../pi-interrupt/install.mjs';
+import { patch as interruptPatch, enginePath } from '../pi-interrupt/install.mjs';
 
-const root = process.env.PI_TUI_TEST_SDK ?? '/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent';
+const root = realpathSync(process.env.PI_TUI_TEST_SDK ?? '/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent');
 const sdk = await import(pathToFileURL(join(root, 'dist/index.js')));
 const requireSdk = createRequire(join(root, 'package.json'));
-const { fauxProvider, fauxAssistantMessage, fauxText, fauxToolCall } = await import(pathToFileURL(join(root, 'node_modules/@earendil-works/pi-ai/dist/index.js')));
+const aiEntry = requireSdk.resolve.paths('@earendil-works/pi-ai').map((base) => join(base, '@earendil-works/pi-ai/dist/index.js')).find(existsSync);
+const { fauxProvider, fauxAssistantMessage, fauxText, fauxToolCall } = await import(pathToFileURL(aiEntry));
 const { Type } = await import(pathToFileURL(requireSdk.resolve('typebox')));
 const { emitSessionShutdownEvent } = await import(pathToFileURL(join(root, 'dist/core/extensions/runner.js')));
-const { AgentSessionRuntime, createAgentSession, ModelRuntime, SessionManager, SettingsManager } = sdk;
 const gate = () => { let resolve; const promise = new Promise((done) => { resolve = done; }); return { promise, resolve }; };
 const tick = () => new Promise((done) => setImmediate(done));
 
@@ -83,6 +84,7 @@ class TestUI {
 installTuiBackground(TestUI, emitSessionShutdownEvent);
 
 async function fixture(t, tools = [], UIClass = TestUI, options = {}) {
+  const { AgentSessionRuntime, createAgentSession, ModelRuntime, SessionManager, SettingsManager } = options.sdk ?? sdk;
   const dir = await mkdtemp(join(tmpdir(), 'pi-tui-background-test-'));
   const faux = fauxProvider({ models: [{ id: 'background-test' }] });
   const modelRuntime = await ModelRuntime.create({ authPath: join(dir, 'auth.json'), modelsPath: null, refreshOnCreate: false });
@@ -419,6 +421,52 @@ test('manual compaction completes in background and continues its queued message
   assert.equal(f.ui.events.some(({ session, event }) => session === b.sessionId && event.type === 'compaction_end'), false);
 });
 
+for (const bundled of [false, true]) {
+  test(`${bundled ? 'bundled CLI' : 'SDK'} interrupt while A is docked waits for full settled and never touches B`, { timeout: 10000 }, async (t) => {
+    const runtime = bundled ? await import(pathToFileURL(plan(root)[1].path)) : sdk;
+    const { installInterruptSteer, getInterruptSteerState, waitForInterruptSteer } = await import(pathToFileURL(enginePath));
+    installInterruptSteer(runtime.AgentSession);
+    const f = await fixture(t, [], TestUI, { sdk: runtime });
+    const entered = gate(), unwind = gate(), settling = gate(), settled = gate();
+    const a = f.host.session;
+    const emit = a.extensionRunner.emit.bind(a.extensionRunner);
+    let physicalSettles = 0;
+    a.extensionRunner.emit = async (event) => {
+      if (event.type === 'agent_settled' && ++physicalSettles === 1) { settling.resolve(); await settled.promise; }
+      return emit(event);
+    };
+    f.faux.setResponses([
+      async (_context, options) => {
+        entered.resolve();
+        if (!options.signal.aborted) await new Promise((resolve) => options.signal.addEventListener('abort', resolve, { once: true }));
+        await unwind.promise;
+        return complete('cancelled A');
+      },
+      complete('B unaffected'), complete('A replacement'),
+    ]);
+    const prompt = f.ui.promptInForeground('A original');
+    await entered.promise;
+    await f.host.newSession(); await prompt;
+    const b = f.host.session;
+    await f.ui.promptInForeground('B original');
+    f.ui.text = 'B draft';
+    await a.steer('A corrected');
+    assert.equal(a.agent.signal.aborted, true);
+    assert.notEqual(b.agent.signal?.aborted, true);
+    unwind.resolve(); await settling.promise;
+    assert.equal(f.faux.state.callCount, 2, 'replacement cannot start before awaited settled finishes');
+    settled.resolve(); await waitForInterruptSteer(a); await a.waitForIdle();
+    assert.equal(a.getLastAssistantText(), 'A replacement');
+    assert.equal(b.getLastAssistantText(), 'B unaffected');
+    assert.equal(f.ui.text, 'B draft');
+    assert.equal(physicalSettles, 2);
+    assert.equal(getInterruptSteerState(a).requests.at(-1).status, 'delivered');
+    assert.equal(f.sessions[0].counts.start, 1);
+    await f.host.switchSession(a.sessionFile);
+    assert.equal(f.host.session, a);
+  });
+}
+
 test('installer patches SDK and actual bundled TUI, validates before writes, and is idempotent', async () => {
   const changes = plan(root);
   assert.equal(changes.length, 3);
@@ -426,8 +474,9 @@ test('installer patches SDK and actual bundled TUI, validates before writes, and
     assert.equal(patch(change.after, i === 1), change.after);
     assert.match(change.after, /promptInForeground/);
     if (i === 1) {
-      assert.equal(interruptPatch(change.after, true), change.after, 'preserve the existing interrupt maintenance contract');
-      assert.throws(() => interruptPatch('// unknown adapter header\n' + change.after, true), /Unrecognized interrupt patch shape/);
+      const composed = interruptPatch(change.after, true);
+      assert.equal(interruptPatch(composed, true), composed, 'preserve the existing interrupt maintenance contract');
+      assert.throws(() => interruptPatch('// unknown adapter header\n' + composed, true), /Unrecognized interrupt patch shape/);
     }
     assert.throws(() => patch(change.before.replace('async run()', 'async incompatibleRun()'), i === 1), /shape/);
   }
@@ -438,7 +487,23 @@ test('patched SDK and bundled CLI import successfully in an isolated copy (no gl
   t.after(() => rm(dir, { recursive: true, force: true }));
   await cp(join(root, 'dist'), join(dir, 'dist'), { recursive: true });
   await cp(join(root, 'package.json'), join(dir, 'package.json'));
-  await symlink(join(root, 'node_modules'), join(dir, 'node_modules'));
+  // Merge nested and hoisted dependency search paths into a temporary link
+  // farm. Never symlink a directory that an installer might later write into.
+  const modules = join(dir, 'node_modules');
+  await mkdir(modules);
+  for (const base of requireSdk.resolve.paths('typebox')) {
+    if (!existsSync(base)) continue;
+    for (const entry of await readdir(base, { withFileTypes: true })) {
+      if (entry.name.startsWith('.')) continue;
+      const source = join(base, entry.name), target = join(modules, entry.name);
+      if (entry.name.startsWith('@')) {
+        await mkdir(target, { recursive: true });
+        for (const name of await readdir(source)) {
+          if (!existsSync(join(target, name))) await symlink(join(source, name), join(target, name));
+        }
+      } else if (!existsSync(target)) await symlink(source, target);
+    }
+  }
   if ((await readFile(join(dir, 'dist/modes/interactive/interactive-mode.js'), 'utf8')).includes('// pi-tui-session-background:1')) {
     // When testing after activation, restore only this isolated copy to the saved
     // pre-activation baseline. Never invoke rollback on the real installation.
@@ -454,7 +519,7 @@ test('patched SDK and bundled CLI import successfully in an isolated copy (no gl
   }
   const changes = plan(dir);
   const installer = fileURLToPath(new URL('./install.mjs', import.meta.url));
-  const install = (mode) => execFileSync(process.execPath, [installer, '--sdk', dir, mode, '--allow-external'], { encoding: 'utf8' });
+  const install = (mode) => execFileSync(process.execPath, [installer, '--sdk', dir, mode, '--allow-external'], { encoding: 'utf8', stdio: 'pipe' });
   install('--apply');
   for (const c of plan(dir)) assert.equal(c.before, c.after);
   install('--apply');

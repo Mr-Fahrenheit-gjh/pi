@@ -36,10 +36,10 @@ CANDIDATE = Path(CONFIG['candidateDirectory']).expanduser().resolve()
 STATE = HERE/'upgrade-0.12-state.json'
 PLAN = HERE/'upgrade-0.12-plan.json'
 VERSION = CONFIG['targetVersion']
-# Derived from the SHA-512-verified original 1.4.0 archive, including every dist file.
-META_SDK_VERSION = '1.4.0'
-META_ORIGINAL_PACKAGE_SHA256 = 'df6883685382d6a914e5797232744c26579fe7db5576ea0e9c859d018ca2d54e'
-META_ORIGINAL_DIST_SHA256 = '7312715e575506b50279140f784ceb2ad55adcd83e2a2795ae9a2ea9551d2fe8'
+# Derived from the SHA-512-verified original 1.5.0 archive, including every dist file.
+META_SDK_VERSION = '1.5.0'
+META_ORIGINAL_PACKAGE_SHA256 = '990aac3caff17b717294fa792b4e3f60b991d274d9f4ab6977d6aa42aa43c95e'
+META_ORIGINAL_DIST_SHA256 = '7cdb4952bc505f5f557a3b4f7d860763695eb6a6ee3144efe5263971090360b4'
 DEPLOY_LOCK = HERE.parent/'.deployment.lock'
 TIMING_ENABLED = False  # CLI only; library/unit-test imports stay side-effect free.
 
@@ -137,8 +137,14 @@ def unused_pre_switch_backup(plan):
 def refresh_owner(expected_build, reason):
     """Rebind a paused plan, including a proven untouched pre-switch failure."""
     previous, plan = json.loads(STATE.read_text()), json.loads(PLAN.read_text())
-    recovering = previous.get('status') == 'recovery_failed'
-    if not reason or previous.get('status') not in {'prepared', 'waiting_for_idle', 'recovery_failed'}:
+    # A host shutdown can interrupt wait_stopped before the exception handler
+    # records recovery_failed. The untouched manifest and dead bound processes
+    # below are required before treating that stale waiting state as recovery.
+    interrupted_stop = previous.get('status') == 'waiting_for_idle' and Path(plan['backup']).exists()
+    failed_lease = (previous.get('status') == 'failed' and plan.get('managed') is False
+                    and previous.get('error') == 'Could not acquire Pi Meta deployment lease')
+    recovering = previous.get('status') == 'recovery_failed' or interrupted_stop or failed_lease
+    if not reason or (previous.get('status') not in {'prepared', 'waiting_for_idle', 'recovery_failed'} and not failed_lease):
         raise RuntimeError('Only a paused pre-switch plan may refresh its owner with a reason')
     if previous.get('buildId') != expected_build or plan.get('buildId') != expected_build:
         raise RuntimeError('Owner refresh build identity mismatch')
@@ -150,6 +156,9 @@ def refresh_owner(expected_build, reason):
     unused_backup = unused_pre_switch_backup(plan)
     if recovering and (unused_backup is None or not plan.get('payloadFingerprint')):
         raise RuntimeError('Recovery requires matching unused backup initialization and a bound payload')
+    if interrupted_stop and (plan.get('managed') is not True or any(
+            core.bound_process_alive(plan[key], plan[key+'Identity']) for key in ('listener', 'parent'))):
+        raise RuntimeError('Interrupted stop is not proven complete; refusing owner refresh')
     if (LIVE/'.next/BUILD_ID').read_text().strip() != plan['oldBuild']:
         raise RuntimeError('Installed build changed; process-only refresh is forbidden')
     if plan.get('payloadFingerprint'):
@@ -165,6 +174,8 @@ def refresh_owner(expected_build, reason):
     parent_identity = core.identity(parent)
     managed = core.launchd_loaded()
     parent_command = core.command('/bin/ps', '-p', str(parent), '-o', 'command=').stdout.strip()
+    if failed_lease and not managed:
+        raise RuntimeError('Failed lease requires an already restored managed service; no unleased stop is authorized')
     if (not managed and not recovering) or parent_command != 'node /opt/homebrew/bin/pi-web --no-open --port 30141':
         raise RuntimeError('Refusing to refresh an unknown service owner')
     archive = HERE/'superseded-plans'/('owner-refresh-'+time.strftime('%Y%m%d-%H%M%S'))
@@ -445,13 +456,17 @@ def running_session_ids():
 
 
 def active_terminal_pids():
-    # node-pty children have controlling TTYs; ordinary SDK command pipes do not.
-    # Check direct children so `exec codex` is protected just like its shell.
+    # node-pty allocates a different controlling TTY, including after `exec codex`.
+    # Ordinary children may inherit a manually started listener's controlling TTY.
     listener = core.listener()
     rows = [line.split() for line in core.command('/bin/ps', '-axo', 'pid=,ppid=,tty=').stdout.splitlines() if line.strip()]
-    if not rows or any(len(row) != 3 for row in rows) or str(listener) not in {row[0] for row in rows}:
+    if not rows or any(len(row) != 3 or not row[0].isdecimal() or not row[1].isdecimal() for row in rows):
         raise RuntimeError('Cannot determine live terminal state; refusing a stop')
-    return [int(pid) for pid, parent, tty in rows if int(parent) == listener and tty not in {'??', '?', '-'}]
+    listener_rows = [row for row in rows if int(row[0]) == listener]
+    if len(listener_rows) != 1:
+        raise RuntimeError('Cannot determine live terminal state; refusing a stop')
+    inherited_tty = listener_rows[0][2]
+    return [int(pid) for pid, parent, tty in rows if int(parent) == listener and tty not in {'??', '?', '-', inherited_tty}]
 
 
 @measured('idle_wait')
@@ -473,6 +488,12 @@ class ServiceBusy(RuntimeError):
 
 class ServiceStopIncomplete(RuntimeError):
     """A stop was requested successfully, but its completion remains unproven."""
+
+
+class MetaDeploymentLease:
+    def __init__(self, lease_id, response):
+        self.id = lease_id
+        self.close_transport = response.close
 
 
 @contextmanager
@@ -520,7 +541,7 @@ def meta_deployment_lease():
                 raise ValueError('invalid lease')
         except (ValueError, TypeError, KeyError) as error:
             raise RuntimeError('Pi Meta deployment lease response is invalid') from error
-        yield lease_id
+        yield MetaDeploymentLease(lease_id, response)
     finally:
         response.close()
 
@@ -569,7 +590,8 @@ def stop_idle_service(plan=None):
         raise ServiceBusy('Terminal sessions are still open; refusing to stop active work')
     if plan is not None:
         core.assert_baseline(plan)
-    with meta_deployment_lease() as lease_id:
+    with meta_deployment_lease() as lease:
+        lease_id = lease.id if lease is not None else None
         if lease_id is not None:
             assert_meta_lease_owned(lease_id)
             # The marker is this updater's own drain, not another running session.
@@ -580,6 +602,8 @@ def stop_idle_service(plan=None):
             try:
                 # After this commit, a lost stream must not reopen admission.
                 meta_lease_action(lease_id, 'commit')
+                # The committed latch survives disconnect; Next must not wait on our stream.
+                lease.close_transport()
             except Exception:
                 cancel_unsubmitted_meta_lease(lease_id)
                 raise

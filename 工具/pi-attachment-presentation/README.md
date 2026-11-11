@@ -1,6 +1,7 @@
 # Pi 附件展示
 
 - 阶段：全局 CLI/SDK 1.4.0 已更新类型标记，安装检查和12项测试通过；既有TUI正常退出重开后生效，不强制结束任务。
+- 安装器支持精确 `1.4.0` / `1.5.0`；1.5 仅独立临时 SDK / bundle 验证，不代表全局安装已升级。组合顺序为恢复 → interrupt → 附件 → TUI 后台；附件 checker 逐字重建后台补丁后的完整文件，未知改动仍拒绝。编辑器仍要求 SDK 内 nested pi-tui，拒绝越界写 hoisted/shared 包。
 - TUI：图片`[image.1]`；PDF、Word、表格、文本、数据和代码按扩展名显示，如`[pdf.2]`、`[docx.3]`、`[txt.4]`、`[ts.5]`；未知类型才用file。
 - 只按扩展名识别，不读文件正文；编号共用paste registry，删除不重排。真实路径、引号与空格在发送/历史/排队/外部编辑器中保留。
 - `node --test 工具/pi-attachment-presentation/install.test.mjs`：真实SDK/CLI bundle临时模块、v1兼容、短标记、迁移/中断续跑/锁/回退冲突测试。

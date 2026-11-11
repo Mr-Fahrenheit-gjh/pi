@@ -76,6 +76,9 @@ SECRET_ASSIGNMENT = re.compile(
 # SHA-256 fingerprints of reviewed synthetic values in upstream/local test fixtures only.
 # Exceptions are path- and value-specific; additional matches in these files still fail.
 FIXTURE_HASHES = {
+    "e2e/api-workbench.mjs": {
+        "4e9298ca1fd399dae8ad292af9f8b720411920d28ae6e59934b3d7c83aba29e2",
+    },
     "app/api/project-trust/route.test.mjs": {"8c1bed10ff6f381fae4508036ecf1f0f6aa813a4fceb594a319909361cdb7b49"},
     "components/mcp-add-helpers.test.mjs": {"b41b949bed747ef14ad205c5497017adb341c7bdfd0cef5ab33361f287f4d072"},
     "lib/mcp-add.test.mjs": {"b41b949bed747ef14ad205c5497017adb341c7bdfd0cef5ab33361f287f4d072"},
@@ -86,6 +89,9 @@ FIXTURE_HASHES = {
     "lib/mcp-sign-in.test.mjs": {"f06e5bfc61500163622c0964e097168831117f76779bfee404d135fb40770a62"},
     "lib/mcp-test.test.mjs": {"ca43a0a764e0517d3678ede268969c83ce658144be8f1ce366deae2a9d978a53"},
     "lib/mcp-transport.test.mjs": {"756c6becb44abd81e9f27e24d981dedf7d0905c06038db9548f61308e00a8cf0"},
+    "lib/openai-api-request.test.mjs": {
+        "1fb04a1afd1c732ba0477d498f6c5a2e1b2c8abdceea9fc80c52c3dd9640415f",
+    },
     "lib/model-runtime.integration.test.mjs": {"86e7f972612a5775edaf88162b5f6a4e96d7f044296d2ae8d3c1325607afbd74", "bf5cc946fb98abf7bc41e6067832008873f9739f088356be8927c28f4b7886dd"},
     "lib/web-auth.test.mjs": {"21a7c490b5771694cfc11134286f5895e51b4714da53243a9263096db8f87936"},
     "工具/pi-prompt-suggestions/tests/web-fixture.mjs": {"3c35efb21258562c403ef9ee6e1c4b6b803341ef08946a8f9d70bc53f97f1a5c"},

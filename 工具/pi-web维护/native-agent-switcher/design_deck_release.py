@@ -1,4 +1,4 @@
-"""Opt-in, two-file pi-design-deck 0.5.1 transaction, owned by the Web deploy lock.
+"""Opt-in pi-design-deck 0.5.1 transaction, owned by the Web deploy lock.
 
 prepare only patches an offline copy. activate/restore require the caller to have
 stopped the verified Web host; neither function starts or stops any process.
@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 
 PACKAGE = Path.home()/'.pi/agent/npm/node_modules/pi-design-deck'
-FILES = ('index.ts', 'form/js/deck-session.js')
+FILES = ('index.ts', 'form/js/deck-session.js', 'deck-server.ts')
 PAYLOAD = '.release-design-deck'
 
 
@@ -70,7 +70,7 @@ def prepare(stage, script):
 
 
 def assert_record(record):
-    if record['packageRoot'] != str(PACKAGE) or set(record['files']) != set(FILES):
+    if record['packageRoot'] != str(PACKAGE) or set(record['files']) not in (set(FILES), {'index.ts', 'form/js/deck-session.js'}):
         raise RuntimeError('Design Deck plan has an unsupported package or file set')
     if metadata() != record['metadata']:
         raise RuntimeError('Design Deck package metadata drift')
@@ -84,7 +84,7 @@ def assert_prepared(record, stage):
     payload = stage/PAYLOAD
     require(payload/'patch.mjs', record['scriptIdentity'])
     require(payload/'package/package.json', record['metadata'])
-    for name in FILES:
+    for name in record['files']:
         require(PACKAGE/name, record['files'][name]['before'])
         require(payload/'package'/name, record['files'][name]['after'])
 
@@ -93,7 +93,7 @@ def assert_installed(record):
     if not record:
         return
     assert_record(record)
-    for name in FILES:
+    for name in record['files']:
         require(PACKAGE/name, record['files'][name]['after'])
 
 
@@ -120,15 +120,15 @@ def activate(record, stage, backup):
     assert_prepared(record, stage)
     saved = backup/'design-deck'
     saved.mkdir(mode=0o700)
-    # Both originals must be backed up and checked before the first live write.
-    for name in FILES:
+    # All originals must be backed up and checked before the first live write.
+    for name in record['files']:
         target = saved/name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(PACKAGE/name, target)
-    for name in FILES:
+    for name in record['files']:
         require(saved/name, record['files'][name]['before'])
     assert_prepared(record, stage)
-    for name in FILES:
+    for name in record['files']:
         data = (stage/PAYLOAD/'package'/name).read_bytes()
         if hashlib.sha256(data).hexdigest() != record['files'][name]['after']['sha256']:
             raise RuntimeError('Design Deck patched bytes changed during activation')
@@ -140,19 +140,19 @@ def restore(record, backup):
     if not record:
         return
     assert_record(record)
-    current = {name: snapshot(PACKAGE/name) for name in FILES}
+    current = {name: snapshot(PACKAGE/name) for name in record['files']}
     # Validate all current files before restoring any; never cover someone else's update.
-    for name in FILES:
+    for name in record['files']:
         if current[name] not in (record['files'][name]['before'], record['files'][name]['after']):
             raise RuntimeError('Design Deck rollback blocked by an unknown edit: '+name)
-    changed = [name for name in FILES if current[name] != record['files'][name]['before']]
+    changed = [name for name in record['files'] if current[name] != record['files'][name]['before']]
     if changed:
-        for name in FILES:
+        for name in record['files']:
             require(backup/'design-deck'/name, record['files'][name]['before'])
         for name in changed:
             data = (backup/'design-deck'/name).read_bytes()
             if hashlib.sha256(data).hexdigest() != record['files'][name]['before']['sha256']:
                 raise RuntimeError('Design Deck backup changed during rollback')
             replace_file(PACKAGE/name, data, current[name])
-    for name in FILES:
+    for name in record['files']:
         require(PACKAGE/name, record['files'][name]['before'])

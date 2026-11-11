@@ -6,7 +6,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import vm from 'node:vm';
 import { configureHostSdk, HOST_ROOT_ENV } from './host-sdk.mjs';
-import { patch, oldBlock, newBlock, legacyBlock, previousBlock } from './apply-runner-1.2-compat.mjs';
+import { patch, oldBlock, newBlock, legacyBlock, previousBlock, core14Block } from './apply-runner-1.2-compat.mjs';
 const plugin=path.join(os.homedir(),'.pi/agent/npm/node_modules/pi-subagents');
 const src=fs.readFileSync(path.join(plugin,'src/runs/background/runner-aliases.js'),'utf8');
 const host='/opt/homebrew/lib/node_modules/@agegr/pi-web/node_modules/@earendil-works/pi-coding-agent';
@@ -15,6 +15,7 @@ test('replay is idempotent and unknown source rejected',()=>{
  assert.equal(patch(src),src);assert.equal(patch(src.replace(newBlock,oldBlock)),src);
  assert.equal(patch(src.replace(newBlock,legacyBlock)),src);
  assert.equal(patch(src.replace(newBlock,previousBlock)),src);
+ assert.equal(patch(src.replace(newBlock,core14Block)),src);
  assert.throws(()=>patch('unknown'),/Unrecognized/);
 });
 const asyncSource = fs.readFileSync(path.join(plugin, 'src/runs/background/async-execution.js'), 'utf8');
@@ -49,7 +50,7 @@ test('real host dependencies resolve without obsolete chord',()=>{
  assert.ok(r.aliases['@earendil-works/pi-coding-agent']);
  assert.equal(r.aliases['@earendil-works/chord'],undefined);
 });
-for(const [version,declared,shouldFail] of [['1.4.0',false,false],['1.4.0',true,true],['1.4.1',false,true],['1.4.0-rc.1',false,true],['1.2.0',false,false],['1.3.0',false,false],['1.3.0',true,true],['1.3.1',false,true],['1.3.0-beta.1',false,true],['1.2.0',true,true],['1.2.1',false,true],['1.2.0-beta.1',false,true],['0.84.4',false,false]]) {
+for(const [version,declared,shouldFail] of [['1.5.0',false,false],['1.5.0',true,true],['1.5.1',false,true],['1.5.0-rc.1',false,true],['1.4.0',false,false],['1.4.0',true,true],['1.4.1',false,true],['1.4.0-rc.1',false,true],['1.2.0',false,false],['1.3.0',false,false],['1.3.0',true,true],['1.3.1',false,true],['1.3.0-beta.1',false,true],['1.2.0',true,true],['1.2.1',false,true],['1.2.0-beta.1',false,true],['0.84.4',false,false]]) {
  test(`host ${version}, declares chord=${declared}: strict policy`,()=>{
   const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'pi-runner-alias-'));
   try {

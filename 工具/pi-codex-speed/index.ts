@@ -1,25 +1,37 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { estimateUsage, readUsage, type CacheTtl, type PricingModel } from "./usage.ts";
 
-type Mode = "standard" | "fast";
+type Mode = "auto" | "standard" | "fast";
 const ENTRY = "codex-speed-mode";
 const STATUS = "codex-speed";
 const TIERS = { standard: "default", fast: "priority" } as const;
 const isMode = (value: unknown): value is Mode =>
-  value === "standard" || value === "fast";
+  value === "auto" || value === "standard" || value === "fast";
 const record = (value: unknown): Record<string, unknown> | undefined =>
   value !== null && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown> : undefined;
 const isCodex = (ctx: ExtensionContext) =>
   ctx.model?.provider === "openai-codex" && ctx.model.api === "openai-codex-responses";
-
-const isSupported = (ctx: ExtensionContext) => isCodex(ctx) ||
-  (ctx.model?.provider === "openai" && ctx.model.api === "openai-responses");
+const isOpenAI = (ctx: ExtensionContext) =>
+  ctx.model?.provider === "openai" && ctx.model.api === "openai-responses";
+const isSupported = (ctx: ExtensionContext) => isCodex(ctx) || isOpenAI(ctx);
 const providerLabel = (ctx: ExtensionContext) => isCodex(ctx) ? "Codex" : "OpenAI";
+const isFastTier = (tier: unknown) => tier === "priority" || tier === "fast";
+type Request = {
+  mode: Mode;
+  model: PricingModel;
+  provider: string;
+  api: string;
+  requestedTier: string | null;
+  actualTier: string | null;
+  retention: unknown;
+  responseId?: string;
+};
 
 export default function codexSpeed(pi: ExtensionAPI) {
-  let mode: Mode = "standard";
+  let mode: Mode = "auto";
   let observation = "未发送";
-  let activeModel: string | undefined;
+  let active: Request | undefined;
 
   function render(ctx: ExtensionContext) {
     if (!ctx.hasUI) return;
@@ -27,7 +39,7 @@ export default function codexSpeed(pi: ExtensionAPI) {
   }
 
   function restore(ctx: ExtensionContext) {
-    mode = "standard";
+    mode = "auto";
     for (const entry of ctx.sessionManager.getBranch()) {
       if (entry.type !== "custom" || entry.customType !== ENTRY) continue;
       const saved = record(entry.data)?.mode;
@@ -35,7 +47,7 @@ export default function codexSpeed(pi: ExtensionAPI) {
       else if (saved === "ultrafast") mode = "standard"; // Retired mode: never reactivate it.
     }
     observation = "未发送";
-    activeModel = undefined;
+    active = undefined;
     render(ctx);
   }
 
@@ -43,14 +55,14 @@ export default function codexSpeed(pi: ExtensionAPI) {
   pi.on("session_tree", (_event, ctx) => restore(ctx));
   pi.on("model_select", (_event, ctx) => {
     observation = "未发送";
-    activeModel = undefined;
+    active = undefined;
     render(ctx);
   });
 
   async function command(args: string, ctx: ExtensionContext) {
     const arg = args.trim().toLowerCase();
     if (arg === "status") {
-      ctx.ui.notify(`Fast 模式：${mode}；${observation}。${isSupported(ctx) ? "" : "当前模型不适用。"}\n仅当前会话分支保存；服务端权限和实际返回档位决定是否生效。Pi 金额估算不代表订阅额度或加速实际账单。`, "info");
+      ctx.ui.notify(`Fast 模式：${mode}；${observation}。${isSupported(ctx) ? "" : "当前模型不适用。"}\n仅当前会话分支保存；auto 继承 OpenAI 工作台请求档位，Codex 按标准速度。服务端权限和实际返回档位决定是否生效。Pi 金额估算不代表订阅额度或加速实际账单。`, "info");
       return;
     }
     let next: Mode;
@@ -59,29 +71,25 @@ export default function codexSpeed(pi: ExtensionAPI) {
     else if (arg === "off" || arg === "standard") next = "standard";
     else if (isMode(arg)) next = arg;
     else {
-      ctx.ui.notify("用法：/fast [on|off|status]", "warning");
+      ctx.ui.notify("用法：/fast [on|off|auto|status]", "warning");
       return;
     }
-    if (!ctx.isIdle()) {
-      ctx.ui.notify("请等待当前回复结束后再切换速度。", "warning");
-      return;
-    }
-    if (next !== "standard" && !isSupported(ctx)) {
+    if (next === "fast" && !isSupported(ctx)) {
       ctx.ui.notify("请先用 /model 选择 OpenAI Responses 或 Codex 模型。", "warning");
       return;
     }
     mode = next;
-    observation = "未发送";
-    activeModel = undefined;
+    // An already-sent response keeps its tier, verification and usage ledger.
+    // before_provider_request reads the new mode for the next request only.
+    if (!active) observation = "未发送";
     pi.appendEntry(ENTRY, { mode });
     render(ctx);
-
   }
 
   pi.registerCommand("fast", {
-    description: "OpenAI / Codex fast 开关（增加费用或额度消耗）；on / off / status",
+    description: "OpenAI / Codex fast 开关（增加费用或额度消耗）；on / off / auto / status",
     getArgumentCompletions: (prefix) => {
-      const matches = ["on", "off", "status"]
+      const matches = ["on", "off", "auto", "status"]
         .filter(value => value.startsWith(prefix))
         .map(value => ({ value, label: value }));
       return matches.length ? matches : null;
@@ -91,46 +99,83 @@ export default function codexSpeed(pi: ExtensionAPI) {
 
   pi.on("before_provider_request", (event, ctx) => {
     const payload = record(event.payload);
-    // The hook has no provider metadata. Require a supported active adapter
-    // and matching payload model; do not rewrite unrelated models.
+    // This hook has no provider metadata; same-ID third-party nested calls
+    // cannot be distinguished. Require the active adapter and payload model.
     const model = ctx.model;
     if (!model || !isSupported(ctx) || !payload || payload.model !== model.id) return;
-    activeModel = model.id;
+    const tier = mode === "auto" ? (isCodex(ctx) ? "default" : payload.service_tier ?? "default") : TIERS[mode];
+    active = {
+      mode,
+      model: { id: model.id, baseUrl: model.baseUrl, cost: structuredClone(model.cost), compat: structuredClone(model.compat) },
+      provider: model.provider, api: model.api,
+      requestedTier: typeof tier === "string" ? tier : null,
+      actualTier: null,
+      // Modern Responses uses prompt_cache_options; an explicit options object
+      // takes precedence over the legacy retention field, including no TTL.
+      retention: payload.prompt_cache_options !== undefined
+        ? record(payload.prompt_cache_options)?.ttl ?? null : payload.prompt_cache_retention,
+    };
     observation = "已请求，待确认";
     render(ctx);
-    return { ...payload, service_tier: TIERS[mode] };
+    return { ...payload, service_tier: tier };
   });
 
   pi.on("provider_stream_event", (event, ctx) => {
-    if (!isSupported(ctx) || event.provider !== ctx.model?.provider ||
-        event.api !== ctx.model?.api || event.model !== activeModel) return;
+    if (!active || !isSupported(ctx) || ctx.model?.provider !== active.provider || ctx.model.id !== active.model.id ||
+        event.provider !== active.provider || event.api !== active.api || event.model !== active.model.id) return;
     const data = record(event.data);
-    if (data?.type !== "response.completed") return;
-    const tier = record(data.response)?.service_tier;
-    if (typeof tier !== "string") observation = "服务端未报告档位";
-    else if (tier === TIERS[mode] || (!isCodex(ctx) && mode === "fast" && tier === "fast")) observation = "服务端已确认";
-    else if (tier === "default" && mode === "fast" && isCodex(ctx)) {
-      // Pi's Codex adapter explicitly tolerates priority requests reporting
-      // default. That response alone proves neither activation nor rejection.
-      observation = "已请求 · 返回 default，生效未知";
+    const response = record(data?.response);
+    // A retry may start a new response without another payload hook.
+    if (data?.type === "response.created") {
+      active.actualTier = null;
+      active.responseId = typeof response?.id === "string" ? response.id : undefined;
+      observation = "已请求，待确认";
+      return;
     }
-    else {
-      // Display only known values, not arbitrary remote text/control sequences.
+    if (data?.type !== "response.completed") return;
+    if (active.responseId && typeof response?.id === "string" && response.id !== active.responseId) return;
+    active.responseId = typeof response?.id === "string" ? response.id : active.responseId;
+    const tier = response?.service_tier;
+    active.actualTier = typeof tier === "string" ? tier : null;
+    if (typeof tier !== "string") observation = "服务端未报告档位";
+    else if (active.mode === "auto" && isOpenAI(ctx) && ["default", "flex", "ultrafast"].includes(tier)) observation = `服务端返回 ${tier}`;
+    else if ((["default", "priority", "fast"].includes(tier) && tier === active.requestedTier) ||
+        (!isCodex(ctx) && isFastTier(active.requestedTier) && isFastTier(tier))) observation = "服务端已确认";
+    else if (tier === "default" && isFastTier(active.requestedTier) && isCodex(ctx)) {
+      // The Codex adapter tolerates priority requests reporting default.
+      observation = "已请求 · 返回 default，生效未知";
+    } else {
       const actual = ["default", "priority", "ultrafast", "auto", "flex", "fast", "scale"].includes(tier)
         ? tier : "未知档位";
       observation = `服务端返回 ${actual}`;
-
     }
     render(ctx);
   });
 
   pi.on("message_end", (event, ctx) => {
     const msg = event.message;
-    if (msg.role !== "assistant" || !isSupported(ctx) || msg.provider !== ctx.model?.provider || msg.model !== activeModel) return;
+    if (msg.role !== "assistant" || !active || !isSupported(ctx) || ctx.model?.provider !== active.provider ||
+        ctx.model.id !== active.model.id || msg.provider !== active.provider ||
+        msg.model !== active.model.id || (msg.api && msg.api !== active.api)) return;
+    const request = active;
+    active = undefined;
+    const usage = readUsage(msg.usage);
+    if (isOpenAI(ctx) && usage && Number.isFinite(msg.timestamp)) {
+      const matched = !msg.responseId || !request.responseId || msg.responseId === request.responseId;
+      const actualTier = matched ? request.actualTier : null;
+      const cacheTtl: CacheTtl = matched && (request.retention === "30m" || request.retention === "12h") ? request.retention : null;
+      const responseId = msg.responseId || request.responseId;
+      pi.appendEntry("openai-api-usage", {
+        version: 1, messageTimestamp: msg.timestamp, model: msg.model,
+        requestedTier: matched ? request.requestedTier : null, actualTier, cacheTtl, usage,
+        ...estimateUsage(request.model, usage, actualTier, request.retention),
+        pricingSource: "catalog",
+        ...(responseId ? { responseId } : {}),
+      });
+    }
     if (msg.stopReason === "error" || msg.stopReason === "aborted") {
       observation = msg.stopReason === "error" ? "请求失败" : "已中止";
       render(ctx);
     }
-    activeModel = undefined;
   });
 }

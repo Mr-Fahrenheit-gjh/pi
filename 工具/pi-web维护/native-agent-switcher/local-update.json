@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "sourceDirectory": "../pi-web-source-0.12.1-custom",
-  "candidateDirectory": "~/.pi/pi-web-candidates/core-1.4.0-20261022/package",
+  "sourceDirectory": "../pi-web-source-core-1.5.0",
+  "candidateDirectory": "~/.pi/pi-web-candidates/claude-white-polish-20261106/package",
   "targetVersion": "0.12.1",
-  "historyFixtureFile": "../core-1.3.0-20261016/evidence/history-fixture.json"
+  "historyFixtureFile": "../claude-white-polish/history-fixture.json"
 }

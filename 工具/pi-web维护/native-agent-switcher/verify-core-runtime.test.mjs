@@ -7,9 +7,10 @@ import { verifyCoreRuntime } from './verify-core-runtime.mjs';
 const names = ['pi-agent-core', 'pi-ai', 'pi-codemode', 'pi-coding-agent', 'pi-mcp', 'pi-telemetry', 'pi-tui'];
 function fixture(version = '1.3.0') {
   const root = mkdtempSync(join(tmpdir(), 'pi-core-gate-'));
-  const deps = Object.fromEntries(names.map(name => ['@earendil-works/' + name, version]));
+  const packagesForVersion = [...names, ...(version === '1.5.0' ? ['pi-schema'] : [])];
+  const deps = Object.fromEntries(packagesForVersion.map(name => ['@earendil-works/' + name, version]));
   const packages = {};
-  for (const name of names) {
+  for (const name of packagesForVersion) {
     const relative = 'node_modules/@earendil-works/' + name;
     mkdirSync(join(root, relative), { recursive: true });
     writeFileSync(join(root, relative, 'package.json'), JSON.stringify({ name: '@earendil-works/' + name, version, main: './dist/index.js' }));
@@ -38,13 +39,13 @@ for (const [name, modify, pattern] of [
   try { modify(f); await assert.rejects(verifyCoreRuntime(f.root), pattern); }
   finally { rmSync(f.root, { recursive: true, force: true }); }
 });
-test('1.4 gate rejects a wrong target and still checks recovery hooks', async () => {
-  const f = fixture('1.4.0');
+for (const version of ['1.4.0', '1.5.0']) test(`${version} gate rejects a wrong target and still checks recovery hooks`, async () => {
+  const f = fixture(version);
   try {
     await assert.rejects(verifyCoreRuntime(f.root, '1.3.0'), /Expected values/);
     writeFileSync(f.normal, '');
-    await assert.rejects(verifyCoreRuntime(f.root, '1.4.0'), /Missing\/duplicate recovery hook/);
-    await assert.rejects(verifyCoreRuntime(f.root, '1.5.0'), /Unsupported core target/);
+    await assert.rejects(verifyCoreRuntime(f.root, version), /Missing\/duplicate recovery hook/);
+    await assert.rejects(verifyCoreRuntime(f.root, '1.6.0'), /Unsupported core target/);
   } finally { rmSync(f.root, { recursive: true, force: true }); }
 });
 test('core gate refuses an outside SDK even when its version is correct', async () => {

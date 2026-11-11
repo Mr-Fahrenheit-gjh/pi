@@ -485,6 +485,18 @@ class PreflightTests(unittest.TestCase):
             failed = {check['name'] for check in report['checks'] if not check['passed']}
             self.assertIn('candidate_inputs', failed); self.assertIn('development_tools', failed)
 
+    def test_candidate_meta_original_is_checked_before_build(self):
+        with tempfile.TemporaryDirectory() as temp:
+            here, source, candidate, live = self.fixture(Path(temp))
+            for directory in [source, candidate]:
+                marker = directory / 'bin/pi-meta-worker.cjs'
+                marker.parent.mkdir()
+                marker.write_text('fixture runtime')
+            with patch.object(preflight.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, '', '')):
+                report = preflight.preflight(here, live, 'candidate', require_history=False)
+            self.assertFalse(report['passed'])
+            self.assertTrue(any(check['name'] == 'candidate_meta_original' and not check['passed'] for check in report['checks']))
+
     def test_candidate_public_assets_are_runtime_inputs_but_root_readme_is_not(self):
         for name in ['client.test.js', 'help.md']:
             with self.subTest(asset=name), tempfile.TemporaryDirectory() as temp:
@@ -609,6 +621,20 @@ class CapabilityAndEvidenceTests(unittest.TestCase):
             for expected in ['general', 'models', 'en', 'zh-CN', 'quiet-tools', 'agent', 'components/ChatInput.tsx']:
                 self.assertIn(expected, text)
             self.assertNotIn('run、', text)
+
+    def test_candidate_server_binds_the_candidate_sdk_not_the_live_host(self):
+        root = Path('/candidate/verified')
+        with patch.dict(os.environ, {'PI_PACKAGE_DIR': '/live/old-sdk',
+                                    'PI_SUBAGENTS_PI_CODING_AGENT_PACKAGE_ROOT': '/live/old-sdk'}), \
+             patch.object(flow.subprocess, 'Popen') as start, \
+             patch.object(flow.urllib.request, 'urlopen'):
+            start.return_value.poll.return_value = None
+            server = flow.TempServer(root, None)
+            server.__enter__()
+            env = start.call_args.kwargs['env']
+            sdk = str(root / 'node_modules/@earendil-works/pi-coding-agent')
+            self.assertEqual(env['PI_PACKAGE_DIR'], sdk)
+            self.assertEqual(env['PI_SUBAGENTS_PI_CODING_AGENT_PACKAGE_ROOT'], sdk)
 
     def test_evidence_problems_bind_build_package_launchd_and_exact_history(self):
         with tempfile.TemporaryDirectory() as directory:

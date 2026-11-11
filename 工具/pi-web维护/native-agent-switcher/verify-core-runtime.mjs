@@ -9,14 +9,14 @@ import { configureHostSdk, HOST_ROOT_ENV } from '../../pi-subagents-quiet/host-s
 
 const names = ['pi-agent-core', 'pi-ai', 'pi-codemode', 'pi-coding-agent', 'pi-mcp', 'pi-telemetry', 'pi-tui'];
 export async function verifyCoreRuntime(packageRoot, expectedVersion = '1.3.0') {
-  assert.ok(['1.3.0', '1.4.0'].includes(expectedVersion), 'Unsupported core target');
+  assert.ok(['1.3.0', '1.4.0', '1.5.0'].includes(expectedVersion), 'Unsupported core target');
   const root = realpathSync(packageRoot);
   const sdkRoot = realpathSync(join(root, 'node_modules/@earendil-works/pi-coding-agent'));
   assert.ok(sdkRoot.startsWith(root + '/'), 'SDK must belong to this runtime');
   const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
   const lock = JSON.parse(readFileSync(join(root, 'package-lock.json'), 'utf8'));
   const requireFromSdk = createRequire(join(sdkRoot, 'package.json'));
-  for (const name of names) {
+  for (const name of [...names, ...(expectedVersion === '1.5.0' ? ['pi-schema'] : [])]) {
     const specifier = '@earendil-works/' + name;
     assert.equal(pkg.dependencies[specifier], expectedVersion);
     assert.equal(lock.packages['node_modules/' + specifier].version, expectedVersion);

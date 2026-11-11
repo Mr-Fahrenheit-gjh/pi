@@ -14,6 +14,7 @@ assert.deepEqual(aliases.missing, []);
 const load = createJiti(import.meta.url, { alias: aliases.aliases, moduleCache: false });
 const source = '/Users/guojiahang/.pi/agent/npm/node_modules/pi-subagents/src';
 const { DEFAULT_SUBAGENT_TOOL_DESCRIPTION, buildSubagentToolPromptMetadata } = await load.import(`${source}/extension/tool-description.js`);
+const { SubagentParams } = await load.import(`${source}/extension/schemas.js`);
 const { registerWaitTool } = await load.import(`${source}/runs/background/wait-tool.js`);
 const { formatAsyncStartedMessage } = await load.import(`${source}/runs/background/async-execution.js`);
 const receipt = interactive => ({ content: [{ type: 'text', text: formatAsyncStartedMessage('Async workflow [test-run]', interactive) }], details: { asyncId: 'test-run', asyncDir: '/tmp/test-run', mode: 'workflow', results: [] } });
@@ -32,6 +33,8 @@ test('subagent contract removes the opt-in gate and preserves execution boundari
   assert.doesNotMatch(changed.description, /Direct parent execution is the default|delegation is authorized by the operator/);
   assert.deepEqual(changed.promptGuidelines, []);
   assert.match(changed.promptSnippet, /^For delegation, use subagents;/);
+  assert.match(changed.promptSnippet, /one bounded child uses \{agent,task,async:true\}/);
+  assert.match(changed.promptSnippet, /one file-backed workflow call/);
   assert.equal(adaptToolContract(changed), changed);
   assert.match(tool.promptGuidelines[0], /Do not invoke subagents unless/);
   const prompt = buildSystemPrompt({ cwd: process.cwd(), selectedTools: ['subagent'], toolSnippets: { subagent: changed.promptSnippet }, toolGuidelines: { subagent: changed.promptGuidelines } });
@@ -41,6 +44,28 @@ test('subagent contract removes the opt-in gate and preserves execution boundari
   }
   assert.equal(changed.parameters, tool.parameters);
   assert.ok(tool.description.includes('Native async completion wakes'));
+});
+
+test('subagent prefers direct children and file-backed workflows without changing execution or schema semantics', () => {
+  const tool = { name: 'subagent', description: DEFAULT_SUBAGENT_TOOL_DESCRIPTION, parameters: SubagentParams, execute() {}, ...buildSubagentToolPromptMetadata() };
+  const originalDescription = tool.parameters.properties.workflow.description;
+  const changed = adaptToolContract(tool);
+  assert.match(changed.description, /For one bounded child, prefer direct \{agent,task,async:true\}/);
+  assert.match(changed.description, /first write.*unique file/);
+  assert.match(changed.description, /workflow:'\/absolute\/path\/workflow.js'/);
+  assert.match(changed.description, /same assistant message/);
+  assert.match(changed.description, /found 0.*file path.*instead of repeating workflow:true/);
+  assert.doesNotMatch(changed.description, /Workflow script: write it as one/);
+  assert.match(changed.parameters.properties.workflow.description, /Prefer a script file path/);
+  assert.match(changed.parameters.properties.workflow.description, /true remains valid/);
+  assert.deepEqual(omitDescriptions(changed.parameters), omitDescriptions(tool.parameters));
+  assert.equal(changed.execute, tool.execute);
+  assert.equal(tool.parameters.properties.workflow.description, originalDescription);
+  for (const [key, schema] of Object.entries(tool.parameters.properties)) {
+    if (key !== 'workflow') assert.equal(changed.parameters.properties[key], schema);
+  }
+  for (const symbol of Object.getOwnPropertySymbols(tool.parameters.properties.workflow)) assert.equal(changed.parameters.properties.workflow[symbol], tool.parameters.properties.workflow[symbol]);
+  assert.equal(adaptToolContract(changed), changed);
 });
 
 test('root and child wait tools have matching descriptions without changing schema semantics', () => {

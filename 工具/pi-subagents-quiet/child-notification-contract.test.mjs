@@ -15,6 +15,7 @@ const { default: childSharedTools } = await load.import('./child-shared-tools.ts
 const { createChildHooks } = await load.import('/Users/guojiahang/.pi/agent/npm/node_modules/pi-subagents/src/runs/shared/child-hooks.js');
 const { projectWindow } = await load.import('/Users/guojiahang/.pi/agent/npm/node_modules/notesoup/plugins/pi/window.ts');
 const { DEFAULT_SUBAGENT_TOOL_DESCRIPTION, buildSubagentToolPromptMetadata } = await load.import('/Users/guojiahang/.pi/agent/npm/node_modules/pi-subagents/src/extension/tool-description.js');
+const { SubagentParams } = await load.import('/Users/guojiahang/.pi/agent/npm/node_modules/pi-subagents/src/extension/schemas.js');
 const { buildSystemPrompt } = await import(`${host}/dist/core/system-prompt.js`);
 const { formatAsyncStartedMessage } = await load.import('/Users/guojiahang/.pi/agent/npm/node_modules/pi-subagents/src/runs/background/async-execution.js');
 
@@ -91,7 +92,7 @@ for (const order of ['before', 'after']) test(`real notesoup reset projection pr
 for (const order of [undefined, 'before', 'after']) test(`child request removes delegation gate from SDK prompt and tool deltas (${order ?? 'plain'})`, async t => {
   const { runner } = await fixture(t, order);
   const metadata = buildSubagentToolPromptMetadata();
-  const tool = { name: 'subagent', description: DEFAULT_SUBAGENT_TOOL_DESCRIPTION, parameters: { type: 'object' }, ...metadata };
+  const tool = { name: 'subagent', description: DEFAULT_SUBAGENT_TOOL_DESCRIPTION, parameters: JSON.parse(JSON.stringify(SubagentParams)), ...metadata };
   const built = buildSystemPrompt({ cwd: process.cwd(), selectedTools: ['subagent'], toolSnippets: { subagent: metadata.promptSnippet }, toolGuidelines: { subagent: metadata.promptGuidelines } });
   const content = built;
   assert.equal(typeof content, 'string');
@@ -105,6 +106,15 @@ for (const order of [undefined, 'before', 'after']) test(`child request removes 
   const output = await runner.emitContext(input);
   assert.deepEqual(input, original);
   assert.doesNotMatch(output.filter(m => m.role === 'system').map(m => JSON.stringify(m)).join('\n'), /Do not invoke subagents unless|For operator-requested delegation|Direct parent execution is the default/);
+  for (const message of output.filter(m => m.role === 'system')) {
+    assert.match(message.content, /one bounded child uses \{agent,task,async:true\}/);
+    assert.match(message.content, /one file-backed workflow call/);
+    for (const declaration of message.toolsAdded ?? []) {
+      assert.match(declaration.description, /For one bounded child, prefer direct/);
+      assert.match(declaration.description, /first write.*unique file/);
+      assert.match(declaration.parameters.properties.workflow.description, /Prefer a script file path/);
+    }
+  }
   assert.equal(output[2].content, input[2].content); // Never rewrite user or child reports.
   assert.equal(output[0].sections.untouched, 'Keep permissions');
   assert.equal(output[0].sections.removed, order ? undefined : null); // notesoup consumes section deletion patches.

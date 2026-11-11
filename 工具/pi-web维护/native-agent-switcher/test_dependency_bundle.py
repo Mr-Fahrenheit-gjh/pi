@@ -79,6 +79,35 @@ class BundleTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             bundle.validate_dependency_delta(live, target, bundle.CORE_MODE)
 
+    def test_core_15_requires_exact_seven_package_upgrade(self):
+        live = {'ghostty-web': '0.4.0', **{name: '1.4.0' for name in bundle.CORE_PACKAGES}}
+        target = {**live, **{name: '1.5.0' for name in bundle.CORE_PACKAGES},
+                  '@earendil-works/pi-schema': '1.5.0'}
+        bundle.validate_dependency_delta(live, target, bundle.CORE_15_MODE)
+        for candidate in [live, {**target, 'ghostty-web': '0.5.0'},
+                          {**target, bundle.CORE_PACKAGES[0]: '1.4.0'},
+                          {name: version for name, version in target.items() if name != '@earendil-works/pi-schema'}]:
+            with self.assertRaises(RuntimeError):
+                bundle.validate_dependency_delta(live, candidate, bundle.CORE_15_MODE)
+        with self.assertRaises(RuntimeError):
+            bundle.validate_dependency_delta(target, live, bundle.CORE_15_MODE)
+        with self.assertRaises(RuntimeError):
+            bundle.validate_dependency_delta(live, target, bundle.CORE_14_MODE)
+
+    def test_security_upgrade_is_exact_and_retains_core(self):
+        live = {'ghostty-web': '0.4.0', 'next': '16.3.8', 'undici': '8.11.0',
+                **{name: '1.5.0' for name in (*bundle.CORE_PACKAGES, '@earendil-works/pi-schema')}}
+        target = {**live, 'next': '16.4.4', 'undici': '8.12.3'}
+        bundle.validate_dependency_delta(live, target, bundle.SECURITY_MODE)
+        for candidate in [live, {**target, 'next': '17.0.0'}, {**target, 'ghostty-web': '0.5.0'},
+                          {**target, bundle.CORE_PACKAGES[0]: '1.4.0'}, {**target, 'extra': '1.0.0'}]:
+            with self.assertRaises(RuntimeError):
+                bundle.validate_dependency_delta(live, candidate, bundle.SECURITY_MODE)
+        with self.assertRaises(RuntimeError):
+            bundle.validate_dependency_delta(target, live, bundle.SECURITY_MODE)
+        with self.assertRaises(RuntimeError):
+            bundle.validate_dependency_delta(live, target)
+
     def test_bundle_refuses_removed_local_ui_before_install_validation(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

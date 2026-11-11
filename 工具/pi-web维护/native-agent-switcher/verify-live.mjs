@@ -12,7 +12,7 @@ const base = process.env.PI_WEB_VERIFY_BASE || 'http://127.0.0.1:30141';
 assert.equal((await readFile(`${packageRoot}/.next/BUILD_ID`, 'utf8')).trim(), expectedBuild);
 const installedVersion = JSON.parse(await readFile(`${packageRoot}/package.json`, 'utf8')).version;
 if (expectedVersion) assert.equal(installedVersion, expectedVersion);
-const coreVersion = ({ 'pi-core-1.3.0': '1.3.0', 'pi-core-1.4.0': '1.4.0' })[bundleMode];
+const coreVersion = ({ 'pi-core-1.3.0': '1.3.0', 'pi-core-1.4.0': '1.4.0', 'pi-core-1.5.0': '1.5.0', 'web-security-0.14.2': '1.5.0' })[bundleMode];
 const basicHistoryMode = !bundleMode || Boolean(coreVersion);
 const historyFixture = loadHistoryFixture(sessionId);
 // GET /subagents binds the parent runtime in every browser mode. Prove offline

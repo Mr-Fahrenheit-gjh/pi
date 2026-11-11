@@ -459,7 +459,9 @@ class TempServer:
         with socket.socket() as probe:
             probe.bind(('127.0.0.1', 0))
             port = probe.getsockname()[1]
-        env = dict(os.environ, NODE_ENV='production', PI_WEB_HOSTNAME='127.0.0.1', PI_WEB_PASSWORD='')
+        sdk = str(self.root / 'node_modules/@earendil-works/pi-coding-agent')
+        env = dict(os.environ, NODE_ENV='production', PI_WEB_HOSTNAME='127.0.0.1', PI_WEB_PASSWORD='',
+                   PI_PACKAGE_DIR=sdk, PI_SUBAGENTS_PI_CODING_AGENT_PACKAGE_ROOT=sdk)
         for key in ['PI_SESSION_ID', 'PI_SESSION_FILE', 'PI_WEB_VERIFY_BASE', 'PI_WEB_VERIFY_PACKAGE_ROOT']:
             env.pop(key, None)
         self.base = f'http://127.0.0.1:{port}'

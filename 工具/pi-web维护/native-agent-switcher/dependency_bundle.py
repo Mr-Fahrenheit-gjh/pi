@@ -10,8 +10,11 @@ EVIDENCE = HERE / 'dependency-bundle.json'
 MODE = 'ghostty-0.4.0'
 CORE_MODE = 'pi-core-1.3.0'
 CORE_14_MODE = 'pi-core-1.4.0'
-CORE_MIGRATIONS = {CORE_MODE: ('1.2.0', '1.3.0'), CORE_14_MODE: ('1.3.0', '1.4.0')}
-MODES = (MODE, *CORE_MIGRATIONS)
+CORE_15_MODE = 'pi-core-1.5.0'
+CORE_MIGRATIONS = {CORE_MODE: ('1.2.0', '1.3.0'), CORE_14_MODE: ('1.3.0', '1.4.0'), CORE_15_MODE: ('1.4.0', '1.5.0')}
+SECURITY_MODE = 'web-security-0.14.2'
+SECURITY_DELTA = {'next': ('16.3.8', '16.4.4'), 'undici': ('8.11.0', '8.12.3')}
+MODES = (MODE, *CORE_MIGRATIONS, SECURITY_MODE)
 CORE_PACKAGES = tuple('@earendil-works/' + name for name in (
     'pi-agent-core', 'pi-ai', 'pi-codemode', 'pi-coding-agent', 'pi-mcp', 'pi-telemetry', 'pi-tui'))
 APPROVED_DELTA = {
@@ -79,11 +82,20 @@ def assert_fingerprint(root, expected):
 
 def validate_dependency_delta(live, candidate, mode=MODE):
     delta = {name: (live.get(name), candidate.get(name)) for name in live.keys() | candidate.keys() if live.get(name) != candidate.get(name)}
+    if mode == SECURITY_MODE:
+        if delta != SECURITY_DELTA:
+            raise RuntimeError('Only the approved Next.js 16.4.4 and undici 8.12.3 delta is supported')
+        if any(candidate.get(name) != '1.5.0' for name in (*CORE_PACKAGES, '@earendil-works/pi-schema')):
+            raise RuntimeError('Security migration must retain the exact Pi 1.5.0 core')
+        return
     if mode in CORE_MIGRATIONS:
         versions = CORE_MIGRATIONS[mode]
         expected = {name: versions for name in CORE_PACKAGES}
+        if mode == CORE_15_MODE:
+            # Pi 1.5 introduces this required validator; pin it with its peers.
+            expected['@earendil-works/pi-schema'] = (None, '1.5.0')
         if delta != expected:
-            raise RuntimeError(f'Only the approved seven-package Pi {versions[0]} to {versions[1]} upgrade is supported')
+            raise RuntimeError(f'Only the approved Pi {versions[0]} to {versions[1]} package delta is supported')
         return
     if mode != MODE:
         raise RuntimeError('Unknown dependency migration mode')
@@ -144,6 +156,8 @@ def record(root, ui_evidence_root=None, mode=MODE):
         proofs += [ui_evidence_root / kind / 'result.json' for kind in ['motion', 'theme', 'terminal']]
     elif mode in CORE_MIGRATIONS:
         proofs += [root / 'test-results/core-upgrade/result.json']
+    elif mode == SECURITY_MODE:
+        pass  # Same-build quiet tools, launchd, and real history proofs above.
     else:
         raise RuntimeError('Unknown dependency migration mode')
     for path in proofs:

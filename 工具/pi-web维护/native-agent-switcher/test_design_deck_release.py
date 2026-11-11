@@ -22,7 +22,7 @@ def extension_fixture(root):
         (package/name).write_text('original '+name)
     script = root/'patch.mjs'
     script.write_text('import {readFileSync,writeFileSync} from "node:fs";\n'
-                      'for (const f of ["index.ts","form/js/deck-session.js"]) {\n'
+                      'for (const f of ["index.ts","form/js/deck-session.js","deck-server.ts"]) {\n'
                       'const p=process.argv[3]+"/"+f; writeFileSync(p,readFileSync(p,"utf8")+" patched"); }\n')
     return package, script
 
@@ -41,7 +41,7 @@ class DeckPayloadTests(unittest.TestCase):
     def prepare(self):
         return upgrade.deck.prepare(self.stage, self.script)
 
-    def test_prepare_is_offline_and_binds_both_files_and_permissions(self):
+    def test_prepare_is_offline_and_binds_all_files_and_permissions(self):
         (self.package/'index.ts').chmod(0o640)
         record = self.prepare()
         self.assertEqual(record['files']['index.ts']['after']['mode'], 0o640)
@@ -62,7 +62,7 @@ class DeckPayloadTests(unittest.TestCase):
 
     def test_drift_of_every_bound_input_prevents_activation(self):
         record = self.prepare()
-        paths = [self.script, self.package/'package.json', self.package/'index.ts',
+        paths = [self.script, self.package/'package.json', self.package/'index.ts', self.package/'deck-server.ts',
                  self.stage/upgrade.deck.PAYLOAD/'patch.mjs',
                  self.stage/upgrade.deck.PAYLOAD/'package/form/js/deck-session.js']
         for path in paths:
@@ -82,6 +82,15 @@ class DeckPayloadTests(unittest.TestCase):
         upgrade.deck.restore(record, self.backup)
         upgrade.deck.assert_prepared(record, self.stage)
         self.assertFalse(list(self.package.rglob('.pi-web-release-*')))
+
+    def test_legacy_two_file_plan_remains_recoverable(self):
+        self.script.write_text(self.script.read_text().replace(',"deck-server.ts"', ''))
+        with patch.object(upgrade.deck, 'FILES', ('index.ts', 'form/js/deck-session.js')):
+            record = self.prepare()
+        upgrade.deck.activate(record, self.stage, self.backup)
+        upgrade.deck.restore(record, self.backup)
+        upgrade.deck.assert_prepared(record, self.stage)
+        self.assertEqual((self.package/'deck-server.ts').read_bytes(), self.originals['deck-server.ts'])
 
     def test_second_replace_failure_is_recoverable(self):
         record = self.prepare()

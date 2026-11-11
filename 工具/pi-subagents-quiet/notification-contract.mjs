@@ -4,11 +4,18 @@ export const LOCAL_COMPLETION_POLICY = '本机普通子代理完成只保存记�
 const DELEGATION_GATE = 'Do not invoke subagents unless the operator requested delegation directly or through applicable instructions.';
 const DELEGATION_SAFETY_GATE = '• Direct parent execution is the default. Invoke subagents only when delegation is authorized by the operator\'s current request or applicable user/project instructions; task size, complexity, risk, tool-call count, or recipe fit do not independently authorize delegation.';
 
-// Remove the upstream opt-in gate; local delegation rules own when to delegate.
+const REPLY_WORKFLOW_GUIDANCE = "Workflow script: write it as one ```js workflow block in this reply, then call subagent({workflow:true,...}). workflow:'./path.js' (any value with '/') loads a file from request cwd; other strings name a resource.";
+const FILE_WORKFLOW_GUIDANCE = "Workflow script: first write a JavaScript statement body to a unique file in /tmp or the task directory, then call subagent({workflow:'/absolute/path/workflow.js',async:true,...}) with optional args. Keep the file until the workflow settles. Relative paths use request cwd; strings without '/' name resources. workflow:true is only for one closed ```js workflow block in the same assistant message as the tool call, not thinking or an earlier message. On found 0, retry using a file path instead of repeating workflow:true.";
+const WORKFLOW_PARAMETER_DESCRIPTION = 'Prefer a script file path containing "/" (write it before calling; relative paths use request cwd); strings without "/" name workflow resources. true remains valid only for one closed ```js workflow block in the same assistant message as the tool call; false is invalid. Raw scripts have no runs.host.';
+
+// Remove the upstream opt-in gate and prefer execution forms that do not depend on reply text.
 // Keep execution permissions, infrastructure handling and workflow contracts intact.
 export function adaptDelegationText(text) {
   return text.split('\n').filter(line => ![DELEGATION_GATE, `- ${DELEGATION_GATE}`, DELEGATION_SAFETY_GATE].includes(line.trim())).join('\n')
-    .replaceAll('For operator-requested delegation, use subagents;', 'For delegation, use subagents;');
+    .replaceAll('For operator-requested delegation, use subagents;', 'For delegation, use subagents;')
+    .replaceAll('For delegation, use subagents; compose multi-child work in one workflow call.', 'For delegation, use subagents; one bounded child uses {agent,task,async:true}; multi-step/parallel work uses one file-backed workflow call.')
+    .replaceAll('Delegate one child with {agent,task?}; otherwise set exactly one workflow source, with optional args.', 'For one bounded child, prefer direct {agent,task,async:true}; reserve workflows for multi-step/parallel work.')
+    .replaceAll(REPLY_WORKFLOW_GUIDANCE, FILE_WORKFLOW_GUIDANCE);
 }
 
 const NATIVE_ASYNC_GUIDANCE = 'Native async completion wakes this session: return control, no sleep/poll or bg_wait merely for a wake. bg_wait is for provider/detached work without native notification needing a same-turn result.';
@@ -28,8 +35,12 @@ export function adaptToolContract(tool) {
     const description = adaptDelegationText(tool.description).replaceAll(NATIVE_ASYNC_GUIDANCE, LOCAL_ASYNC_GUIDANCE);
     const promptSnippet = tool.promptSnippet === undefined ? undefined : adaptDelegationText(tool.promptSnippet);
     const promptGuidelines = tool.promptGuidelines?.filter(line => line !== DELEGATION_GATE);
-    if (description === tool.description && promptSnippet === tool.promptSnippet && promptGuidelines?.length === tool.promptGuidelines?.length) return tool;
-    return { ...tool, description,
+    const workflow = tool.parameters?.properties?.workflow;
+    const parameters = workflow && workflow.description !== WORKFLOW_PARAMETER_DESCRIPTION
+      ? { ...tool.parameters, properties: { ...tool.parameters.properties, workflow: { ...workflow, description: WORKFLOW_PARAMETER_DESCRIPTION } } }
+      : tool.parameters;
+    if (description === tool.description && promptSnippet === tool.promptSnippet && promptGuidelines?.length === tool.promptGuidelines?.length && parameters === tool.parameters) return tool;
+    return { ...tool, description, ...(parameters === tool.parameters ? {} : { parameters }),
       ...(tool.promptSnippet === undefined ? {} : { promptSnippet }),
       ...(tool.promptGuidelines === undefined ? {} : { promptGuidelines }),
     };

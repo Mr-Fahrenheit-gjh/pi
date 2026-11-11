@@ -16,7 +16,7 @@ function fixture(version = '1.2.0') {
   return { root, sdk, normal, bundled };
 }
 
-for (const version of ['1.2.0', '1.3.0', '1.4.0']) test(`candidate ${version} adapter is idempotent and validates regular and bundled hooks`, () => {
+for (const version of ['1.2.0', '1.3.0', '1.4.0', '1.5.0']) test(`candidate ${version} adapter is idempotent and validates regular and bundled hooks`, () => {
   const f = fixture(version);
   try {
     assert.throws(() => patchCandidateRecovery(f.root, { checkOnly: true }), /missing/);
@@ -48,11 +48,27 @@ for (const order of ['recovery-first', 'interrupt-first']) test(`candidate adapt
   } finally { rmSync(f.root, { recursive: true, force: true }); }
 });
 
+for (const version of ['1.4.0', '1.5.0']) for (const [revision, names] of [
+  ['v1', 'presentFileReferences'], ['v2', 'presentTypedFileReferences as presentFileReferences'],
+]) test(`recovery preserves the exact ${revision} attachment and interrupt prefix on SDK ${version}`, () => {
+  const f = fixture(version);
+  try {
+    const prefix = `// pi-attachment-presentation-${revision}\nimport { ${names} } from "../../pi-file-references.mjs";\nimport { installInterruptSteer as piInstallInterruptSteer } from '../../pi-interrupt-engine.mjs';\n`;
+    writeFileSync(f.bundled, prefix + readFileSync(f.bundled, 'utf8'));
+    assert.equal(patchCandidateRecovery(f.root).changedFiles.length, 2);
+    assert.ok(readFileSync(f.bundled, 'utf8').startsWith(prefix));
+    assert.equal(patchCandidateRecovery(f.root, { checkOnly: true }).passed, true);
+    assert.equal(patchCandidateRecovery(f.root).changedFiles.length, 0);
+    writeFileSync(f.bundled, readFileSync(f.bundled, 'utf8').replace(`presentation-${revision}`, 'presentation-v99'));
+    assert.throws(() => patchCandidateRecovery(f.root), /Unsupported attachment prefix/);
+  } finally { rmSync(f.root, { recursive: true, force: true }); }
+});
+
 test('unsupported SDK and changed patch targets leave both files untouched', () => {
   const f = fixture();
   try {
     const before = readFileSync(f.normal, 'utf8');
-    writeFileSync(join(f.sdk, 'package.json'), JSON.stringify({ version: '1.5.0' }));
+    writeFileSync(join(f.sdk, 'package.json'), JSON.stringify({ version: '1.6.0' }));
     assert.throws(() => patchCandidateRecovery(f.root), /tested recovery adapter/);
     writeFileSync(join(f.sdk, 'package.json'), JSON.stringify({ version: '1.2.0' }));
     writeFileSync(f.bundled, 'async _prepareRetry(message){changed}');

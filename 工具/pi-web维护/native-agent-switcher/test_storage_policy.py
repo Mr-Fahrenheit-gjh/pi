@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import time
@@ -50,6 +51,37 @@ class StoragePolicyTests(unittest.TestCase):
 
     def run_cleanup(self, apply=False, references=''):
         return storage.cleanup(self.here, self.home, self.live, references, apply)
+
+    def test_quota_preserves_but_excludes_verified_metadata_only_records(self):
+        roots = [self.backup(n) for n in range(1, 5)]
+        import shutil
+        for root in roots[:2]:
+            shutil.rmtree(root / 'package')
+        self.assertEqual(storage.backup_quota_count(self.backups), 2)
+        self.assertTrue(all((root / 'manifest.json').is_file() for root in roots))
+        # A failed payload still consumes quota, even with a nonstandard name.
+        (roots[0] / 'withdrawn-package').mkdir()
+        self.assertEqual(storage.backup_quota_count(self.backups), 3)
+        # A record naming another backup is unknown, so it still counts.
+        (roots[1] / 'manifest.json').write_text(json.dumps({'backup': '/elsewhere', 'oldBuild': '1', 'buildId': '2'}))
+        self.assertEqual(storage.backup_quota_count(self.backups), 4)
+        (roots[1] / 'manifest.json').write_text('invalid json')
+        self.assertEqual(storage.backup_quota_count(self.backups), 4)
+
+    @unittest.skipUnless(hasattr(os, 'mkfifo'), 'requires POSIX FIFO')
+    def test_quota_counts_nonregular_or_linked_manifest_without_reading(self):
+        import shutil
+        root = self.backup(1)
+        shutil.rmtree(root / 'package')
+        manifest = root / 'manifest.json'
+        manifest.unlink()
+        os.mkfifo(manifest)
+        self.assertEqual(storage.backup_quota_count(self.backups), 1)
+        manifest.unlink()
+        target = self.home / 'metadata.json'
+        target.write_text(json.dumps({'backup': str(root), 'oldBuild': '1', 'buildId': '2'}))
+        manifest.symlink_to(target)
+        self.assertEqual(storage.backup_quota_count(self.backups), 1)
 
     def test_two_backups_and_current_candidate_retained_with_idempotence(self):
         backups = [self.backup(n) for n in range(1, 5)]
@@ -107,6 +139,23 @@ class StoragePolicyTests(unittest.TestCase):
         pending = self.here.parent / '待上线'; pending.mkdir()
         (pending / 'a.json').write_text(json.dumps({'status': 'pending', 'codeLocations': [str(old)]}))
         self.assertNotIn(str(old), self.run_cleanup()['remove'])
+
+    def test_prose_slash_is_not_a_root_reference_but_explicit_paths_stay_protected(self):
+        old, referenced = self.backup(1), self.backup(2)
+        self.accept_live()
+        pending = self.here.parent / '待上线'; pending.mkdir()
+        record = pending / 'a.json'
+        record.write_text(json.dumps({'status': 'pending',
+            'sourceSessions': ['session-a / session-b'],
+            'verification': ['Pi 1.4.0 / Beautiful TUI 0.2.4'],
+            'codeLocations': [f'first / second; retained `{referenced}`']}))
+        plan = self.run_cleanup()
+        self.assertIn(str(old), plan['remove'])
+        self.assertNotIn(str(referenced), plan['remove'])
+        for root in ['/', '\t/\t', '\n/\n', '"/"', "'/'", '` / `', '\u2000/\u2000']:
+            with self.subTest(root=root):
+                record.write_text(json.dumps({'status': 'pending', 'codeLocations': [root]}))
+                self.assertEqual(self.run_cleanup()['remove'], [])
 
     def test_zero_retention_journal_cannot_override_new_unfinished_release(self):
         backups = [self.backup(n) for n in (1, 2)]

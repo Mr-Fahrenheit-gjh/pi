@@ -7,32 +7,32 @@ const here = dirname(fileURLToPath(import.meta.url));
 export const enginePath = resolve(here, '../pi-web维护/pi-web-source-0.12.1-custom/lib/interrupt-steer.mjs');
 const marker = '// pi-interrupt-steer-adapter:1';
 export function patch(source, bundled = false) {
-  // The independently enabled attachment adapter owns this exact leading block.
-  // Preserve it while retaining strict validation of our own import/suffix.
-  const attachmentPrefix = '// pi-attachment-presentation-v1\nimport { presentFileReferences } from "../../pi-file-references.mjs";\n';
-  if (bundled && source.startsWith(attachmentPrefix)) {
-    return attachmentPrefix + patch(source.slice(attachmentPrefix.length), bundled);
-  }
   const importLine = `import { installInterruptSteer as piInstallInterruptSteer } from '${bundled ? '../../' : '../'}pi-interrupt-engine.mjs';\n`;
   const suffix = `\n${marker}\npiInstallInterruptSteer(AgentSession);\n`;
+  // Attachment presentation precedes our import in the shared CLI chunk.
+  // Accept only its exact versioned import, never arbitrary leading source.
+  const attachmentHeaders = ['presentFileReferences', 'presentTypedFileReferences as presentFileReferences'].map((name, index) =>
+    `// pi-attachment-presentation-v${index + 1}\nimport { ${name} } from "../../pi-file-references.mjs";\n`);
+  const header = bundled ? attachmentHeaders.find((value) => source.startsWith(value)) ?? '' : '';
+  const prefix = header + importLine;
   const applied = source.includes(marker);
-  if (applied && (!source.startsWith(importLine) || !source.endsWith(suffix))) {
+  if (applied && (!source.startsWith(prefix) || !source.endsWith(suffix) || source.split(importLine).length !== 2 || source.split(marker).length !== 2)) {
     throw new Error('Unrecognized interrupt patch shape');
   }
-  const original = applied ? source.slice(importLine.length, -suffix.length) : source;
+  const original = applied ? source.slice(prefix.length, -suffix.length) : source.slice(header.length);
   const anchors = bundled
     ? ['var AgentSession=class{', 'async _startRun(trigger,onStarted){', 'async _emitAgentSettled(){', 'async _queueSteer(text,images){', 'async waitForIdle(){this.isIdle||await this._getIdleWaitPromise()}']
     : ['export class AgentSession {', '    async _startRun(trigger, onStarted) {', '    async _emitAgentSettled() {', '    async _queueSteer(text, images) {', '    async abort() {'];
   for (const anchor of anchors) {
     if (original.split(anchor).length !== 2) throw new Error(`Unsupported AgentSession source: ${anchor}`);
   }
-  return applied ? source : importLine + original + suffix;
+  return applied ? source : prefix + original + suffix;
 }
 
 export function plan(sdkRoot) {
   const root = realpathSync(sdkRoot);
   const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-  if (manifest.name !== '@earendil-works/pi-coding-agent' || !['1.3.0', '1.4.0'].includes(manifest.version)) {
+  if (manifest.name !== '@earendil-works/pi-coding-agent' || !['1.3.0', '1.4.0', '1.5.0'].includes(manifest.version)) {
     throw new Error(`Unsupported SDK identity: ${manifest.name}@${manifest.version}`);
   }
   const chunks = join(root, 'dist/bundle/chunks');

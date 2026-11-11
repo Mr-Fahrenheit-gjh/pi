@@ -254,6 +254,24 @@ class SyncTests(unittest.TestCase):
         with self.assertRaisesRegex(sync.SyncError, "GitHub token"):
             sync.scan_content("lib/mcp-secrets.test.mjs", example + b"\n" + b"ghp_" + b"A" * 36)
 
+    def test_api_fixture_exceptions_are_exact_and_path_scoped(self):
+        fixtures = (
+            ("e2e/api-workbench.mjs", b"FIXTURE-NOT-A-REAL-KEY"),
+            ("lib/openai-api-request.test.mjs", b"sk-fixture-not-real"),
+        )
+        for path, value in fixtures:
+            with self.subTest(path=path):
+                example = b"apiKey:'" + value + b"'"
+                sync.scan_content(path, example)
+                with self.assertRaisesRegex(sync.SyncError, "密钥赋值"):
+                    sync.scan_content("another-file.mjs", example)
+                changed = b"apiKey:'" + value + b"-CHANGED'"
+                with self.assertRaisesRegex(sync.SyncError, "密钥赋值"):
+                    sync.scan_content(path, changed)
+                mixed = example + b"\napiKey:'unreviewed-synthetic-value'"
+                with self.assertRaisesRegex(sync.SyncError, "密钥赋值"):
+                    sync.scan_content(path, mixed)
+
     def test_session_example_allowed_but_real_record_blocked(self):
         example = (b'{"type":"session","version":3,"id":"<uuid>","timestamp":"...",'
                    b'"cwd":"/path","parentSession":"/abs/path/to/parent.jsonl"}')

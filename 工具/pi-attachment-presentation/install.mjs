@@ -3,6 +3,7 @@ import { join, dirname, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
 import { ATTACHMENT_KINDS } from './file-references.mjs';
+import { patch as patchTuiBackground } from '../pi-tui-session-background/install.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const stamp = '// pi-attachment-presentation-v1';
@@ -100,6 +101,13 @@ function patchTypedRenderer(source, specifier, bundled, original, legacyPatch) {
   const legacy = legacyPatch(original, specifier, bundled);
   let after = once(legacy, stamp, editorStamp);
   after = once(after, '{ presentFileReferences } from', '{ presentTypedFileReferences as presentFileReferences } from');
+  // run() is shared with the TUI background adapter. Verify its complete,
+  // deterministic output against our original rather than stripping markers.
+  if (legacyPatch === patchInteractiveV1 && source.includes('// pi-tui-session-background:1') && !original.includes('// pi-tui-session-background:1')) {
+    const composed = patchTuiBackground(after, bundled);
+    if (source !== composed) throw new Error('Unknown attachment/background composition');
+    return composed;
+  }
   if (source !== original && source !== legacy && source !== after) throw new Error('Unknown or modified attachment renderer');
   return after;
 }
@@ -118,7 +126,7 @@ export function patchDialogEditor(source) {
 export function plan(sdkRoot) {
   const root = realpathSync(sdkRoot);
   const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-  if (pkg.name !== '@earendil-works/pi-coding-agent' || pkg.version !== '1.4.0') throw new Error(`Unsupported SDK ${pkg.name}@${pkg.version}`);
+  if (pkg.name !== '@earendil-works/pi-coding-agent' || !['1.4.0', '1.5.0'].includes(pkg.version)) throw new Error(`Unsupported SDK ${pkg.name}@${pkg.version}`);
   const helper = join(root, 'dist/pi-file-references.mjs');
   assertContained(root, helper);
   const chunks = join(root, 'dist/bundle/chunks');

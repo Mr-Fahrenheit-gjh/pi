@@ -163,6 +163,15 @@ def preflight(here=HERE, live=None, phase='source', dependency_mode=None, requir
                     if result.returncode:
                         raise RuntimeError('Candidate interrupt-steer adapter is missing/unsupported: ' + result.stderr[-1200:])
                 check('candidate_interrupt_steer', interrupt_steer)
+                def meta_original():
+                    marker = candidate / 'bin/pi-meta-worker.cjs'
+                    original = candidate / 'node_modules/.pi-meta-original'
+                    if marker.exists() or marker.is_symlink() or original.exists() or original.is_symlink():
+                        if marker.is_symlink() or not marker.is_file():
+                            raise RuntimeError('Pi Meta original exists without a regular runtime marker')
+                        release = load_module('meta_original_preflight', HERE / 'upgrade_when_idle.py')
+                        release.inspect_meta_original(candidate)
+                check('candidate_meta_original', meta_original)
                 def dev_tools():
                     for path in ['node_modules/typescript/bin/tsc', 'node_modules/eslint/bin/eslint.js', 'node_modules/next/dist/bin/next']:
                         if not (candidate / path).is_file():
@@ -194,7 +203,7 @@ def preflight(here=HERE, live=None, phase='source', dependency_mode=None, requir
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--phase', choices=['source', 'candidate', 'release'], default='source')
-    parser.add_argument('--dependency-mode', choices=['ghostty-0.4.0', 'pi-core-1.3.0', 'pi-core-1.4.0'])
+    parser.add_argument('--dependency-mode', choices=['ghostty-0.4.0', 'pi-core-1.3.0', 'pi-core-1.4.0', 'pi-core-1.5.0', 'web-security-0.14.2'])
     args = parser.parse_args()
     result = preflight(phase=args.phase, dependency_mode=args.dependency_mode)
     print(json.dumps(result, ensure_ascii=False, indent=2))

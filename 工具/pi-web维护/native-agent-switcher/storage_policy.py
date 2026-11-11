@@ -97,8 +97,13 @@ def reference_paths(value, bases):
     if values is not None:
         return [path for item in values for path in reference_paths(item, bases)]
     paths = []
-    for token in dict.fromkeys([value.strip('` '), *re.findall(r"[^\s`\"'<>|,，;；()（）]+", value)]):
+    whole = value.strip('` ')
+    for token in dict.fromkeys([whole, *re.findall(r"[^\s`\"'<>|,，;；()（）]+", value)]):
         if not token or len(token) > 4096:
+            continue
+        # A prose separator ("session-a / session-b") is not a filesystem root.
+        # Keep explicit standalone root references fail-closed, as before.
+        if token == '/' and not re.fullmatch(r"[\s`\"']*/[\s`\"']*", value):
             continue
         if token.startswith('n/'):
             token = token[1:]  # lsof -Fn field
@@ -413,6 +418,28 @@ def preflight_space(target, reserve=5 * GIB, growth=3 * GIB):
         raise RuntimeError(f'Pi Web storage: need {(reserve + growth) / GIB:.1f} GiB free, have {free / GIB:.1f}; clean artifacts before copying/building')
 
 
+def backup_quota_count(backups):
+    """Count payload/unknown directories, not verified manifest-only recovery records."""
+    count = 0
+    for path in backups.glob('pi-web-upgrade-0.12-*'):
+        if not path.is_dir():
+            continue
+        try:
+            if (not path.is_symlink()
+                    and re.fullmatch(r'pi-web-upgrade-0\.12-\d{8}-\d{6}', path.name)
+                    and {item.name for item in path.iterdir()} == {'manifest.json'}
+                    and not (path / 'manifest.json').is_symlink()
+                    and (path / 'manifest.json').is_file()):
+                data = read_json(path / 'manifest.json')
+                if (isinstance(data, dict) and data.get('backup') == str(path)
+                        and all(isinstance(data.get(key), str) and data[key] for key in ('oldBuild', 'buildId'))):
+                    continue  # Preserve this metadata; there is no package consuming the quota.
+        except (OSError, ValueError, RuntimeError):
+            pass  # Unknown or unreadable data continues to count, never delete it.
+        count += 1
+    return count
+
+
 def maintain(here=HERE, enforce_limits=True):
     result = cleanup(here=here, apply=True)
     # Never auto-delete an unknown candidate. Refuse more growth instead.
@@ -420,7 +447,7 @@ def maintain(here=HERE, enforce_limits=True):
     if enforce_limits and root.exists() and len([p for p in root.iterdir() if (p / 'package').exists()]) > 3:
         raise RuntimeError('More than 3 candidate directories remain (protected/unknown); resolve them before creating another build')
     backups = Path.home() / '.pi/backups'
-    if enforce_limits and len([p for p in backups.glob('pi-web-upgrade-0.12-*') if p.is_dir()]) > 3:
+    if enforce_limits and backup_quota_count(backups) > 3:
         raise RuntimeError('More than 3 upgrade backups remain (protected/unknown); resolve them before another release')
     return result
 

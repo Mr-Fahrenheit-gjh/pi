@@ -1,5 +1,5 @@
 import importlib.util
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 import unittest
 import tempfile
@@ -8,7 +8,7 @@ import os
 import shutil
 import signal
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 spec = importlib.util.spec_from_file_location('upgrade', Path(__file__).with_name('upgrade_when_idle.py'))
 upgrade = importlib.util.module_from_spec(spec)
@@ -46,6 +46,9 @@ class UpgradeTests(unittest.TestCase):
         config = patch.object(upgrade, 'CONFIG', {k: v for k, v in upgrade.CONFIG.items() if k != 'historyFixtureFile'})
         config.start()
         self.addCleanup(config.stop)
+        api = patch.object(upgrade.core, 'api', side_effect=AssertionError('Unit tests must stub core.api; live services are forbidden'))
+        api.start()
+        self.addCleanup(api.stop)
 
     def test_normal_release_replays_verified_interrupt_only_into_offline_stage(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -219,13 +222,13 @@ class UpgradeTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     upgrade.running_session_ids()
 
-    def test_meta_deployment_holds_lease_through_the_guarded_stop(self):
+    def test_meta_deployment_commits_then_disconnects_before_the_guarded_stop(self):
         with tempfile.TemporaryDirectory() as directory:
             live = Path(directory)/'live'
             (live/'bin').mkdir(parents=True)
             (live/'bin/pi-meta-worker.cjs').write_text('fixture')
             (live/'node_modules/.pi-meta-original').mkdir(parents=True)
-            state = {'held': False, 'closed': False, 'events': []}
+            state = {'held': False, 'closed': False, 'committed': False, 'events': []}
             lease_id = '11111111-1111-4111-8111-111111111111'
             class Response:
                 def readline(self, limit):
@@ -234,8 +237,10 @@ class UpgradeTests(unittest.TestCase):
                         raise AssertionError('unexpected response limit')
                     return json.dumps({'ok': True, 'leaseId': lease_id}).encode()+b'\n'
                 def close(self):
-                    state['held'] = False
+                    if state['closed']: return
                     state['closed'] = True
+                    state['events'].append('disconnect')
+                    if not state['committed']: state['held'] = False
             def open_lease(request, timeout):
                 self.assertEqual(request.get_method(), 'POST')
                 self.assertEqual(json.loads(request.data), {'confirmed': True})
@@ -247,18 +252,25 @@ class UpgradeTests(unittest.TestCase):
                     state['events'].append('verify')
                     return {'owns': state['held']}
                 return {'runningSessionIds': [], 'otherRuntimeRunningSessionIds': ['service:restarting'] if state['held'] else [], 'piMetaDeploymentLease': 1}
+            def commit(_id, action):
+                self.assertEqual(action, 'commit')
+                self.assertFalse(state['closed'], 'The uncommitted lease must retain its transport')
+                state['committed'] = True
+                state['events'].append(action)
             def command(*args):
                 self.assertTrue(state['held'])
+                self.assertTrue(state['committed'])
+                self.assertTrue(state['closed'], 'The updater must not keep its own HTTP stream open during shutdown')
                 state['events'].append('stop')
             with patch.object(upgrade, 'LIVE', live), patch.object(upgrade.core, 'api', side_effect=api), \
                  patch.object(upgrade, 'active_terminal_pids', return_value=[]), \
                  patch.object(upgrade.urllib.request, 'build_opener', return_value=SimpleNamespace(open=open_lease)), \
-                 patch.object(upgrade, 'meta_lease_action', side_effect=lambda _id, action: state['events'].append(action)), \
+                 patch.object(upgrade, 'meta_lease_action', side_effect=commit), \
                  patch.object(upgrade.core, 'command', side_effect=command), patch.object(upgrade.core, 'wait_stopped'):
                 upgrade.stop_idle_service()
-            self.assertEqual(state['events'], ['verify', 'verify', 'commit', 'stop'])
+            self.assertEqual(state['events'], ['verify', 'verify', 'commit', 'disconnect', 'stop'])
             self.assertTrue(state['closed'])
-            self.assertFalse(state['held'])
+            self.assertTrue(state['held'], 'Committed admission remains closed despite transport disconnect')
 
     def test_meta_lease_races_and_lost_leases_never_stop_work(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -310,14 +322,14 @@ class UpgradeTests(unittest.TestCase):
             with patch.object(upgrade, 'LIVE', live), patch.object(upgrade.core, 'api', return_value=snapshot), \
                  patch.object(upgrade.urllib.request, 'build_opener', return_value=SimpleNamespace(open=lambda _req, timeout: response)):
                 with upgrade.meta_deployment_lease() as actual:
-                    self.assertEqual(actual, lease_id)
+                    self.assertEqual(actual.id, lease_id)
             self.assertTrue(response.closed)
 
     def test_meta_commit_disconnect_and_uncertain_stop_keep_admission_safe(self):
         lease_id = '11111111-1111-4111-8111-111111111111'
         @contextmanager
         def lease():
-            yield lease_id
+            yield SimpleNamespace(id=lease_id, close_transport=lambda: None)
         for mode in ['disconnect-before-commit', 'unknown-stop', 'wait-failure', 'spawn-failure']:
             with self.subTest(mode=mode), \
                  patch.object(upgrade, 'meta_deployment_lease', side_effect=lease), \
@@ -369,6 +381,7 @@ class UpgradeTests(unittest.TestCase):
              patch.object(upgrade, 'active_terminal_pids', return_value=[]), \
              patch.object(upgrade.core, 'assert_baseline') as baseline, \
              patch.object(upgrade.core, 'command') as command, \
+             patch.object(upgrade, 'meta_deployment_lease', return_value=nullcontext(None)), \
              patch.object(upgrade.os, 'kill') as kill, patch.object(upgrade.core, 'wait_stopped') as wait:
             upgrade.stop_with_idle_retry(plan)
             baseline.assert_called_once_with(plan)
@@ -415,7 +428,8 @@ class UpgradeTests(unittest.TestCase):
         with patch.object(upgrade, 'RESTART_SESSION_ID', 'current'), \
              patch.object(upgrade.core, 'api', return_value={'runningSessionIds': ['current']}), \
              patch.object(upgrade, 'active_terminal_pids', return_value=[]), \
-             patch.object(upgrade.core, 'command'), patch.object(upgrade.core, 'wait_stopped'):
+             patch.object(upgrade.core, 'command'), patch.object(upgrade.core, 'wait_stopped'), \
+             patch.object(upgrade, 'meta_deployment_lease', return_value=nullcontext(None)):
             upgrade.stop_idle_service()
             self.assertIsNone(upgrade.RESTART_SESSION_ID)
             self.assertEqual(upgrade.blocking_sessions(['current']), ['current'])
@@ -425,7 +439,8 @@ class UpgradeTests(unittest.TestCase):
              patch.object(upgrade, 'running_session_ids', return_value=['current']), \
              patch.object(upgrade, 'active_terminal_pids', return_value=[]), \
              patch.object(upgrade.core, 'command') as command, \
-             patch.object(upgrade.core, 'wait_stopped', side_effect=RuntimeError('job still unloading')):
+             patch.object(upgrade.core, 'wait_stopped', side_effect=RuntimeError('job still unloading')), \
+             patch.object(upgrade, 'meta_deployment_lease', return_value=nullcontext(None)):
             with self.assertRaisesRegex(upgrade.ServiceStopIncomplete, 'job still unloading'):
                 upgrade.stop_idle_service()
             command.assert_called_once_with('/bin/launchctl', 'bootout', upgrade.core.SERVICE)
@@ -528,6 +543,24 @@ class UpgradeTests(unittest.TestCase):
              patch.object(upgrade.core, 'command', return_value=SimpleNamespace(stdout='100 1 ??\n200 100 ttys009\n201 100 ??\n202 9 ttys001\n')):
             self.assertEqual(upgrade.active_terminal_pids(), [200])
 
+    def test_terminal_detection_ignores_only_listener_inherited_tty(self):
+        snapshot = '100 1 ttys000\n200 100 ttys000\n201 100 ??\n202 9 ttys009\n'
+        with patch.object(upgrade.core, 'listener', return_value=100), \
+             patch.object(upgrade.core, 'command', return_value=SimpleNamespace(stdout=snapshot)):
+            self.assertEqual(upgrade.active_terminal_pids(), [])
+        with patch.object(upgrade.core, 'listener', return_value=100), \
+             patch.object(upgrade.core, 'command', return_value=SimpleNamespace(stdout=snapshot+'203 100 ttys007\n')):
+            self.assertEqual(upgrade.active_terminal_pids(), [203])
+
+    def test_terminal_detection_rejects_unknown_process_snapshot(self):
+        for snapshot in ['', '200 100 ttys009\n', '100 1\n', '100 1 ??\ninvalid 100 ??\n',
+                         '100 1 ??\n200 invalid ??\n', '100 1 ??\n100 1 ttys000\n']:
+            with self.subTest(snapshot=snapshot), \
+                 patch.object(upgrade.core, 'listener', return_value=100), \
+                 patch.object(upgrade.core, 'command', return_value=SimpleNamespace(stdout=snapshot)):
+                with self.assertRaisesRegex(RuntimeError, 'Cannot determine live terminal state'):
+                    upgrade.active_terminal_pids()
+
     def test_terminal_closure_is_required_for_idle_gate(self):
         with patch.object(upgrade.core, 'api', return_value={'runningSessionIds': []}), \
              patch.object(upgrade, 'active_terminal_pids', side_effect=[[123], [], [], [], [], []]) as terminals, \
@@ -559,7 +592,8 @@ class PreSwitchRecoveryTests(unittest.TestCase):
             (root/'.next').mkdir(parents=True)
             (root/'.next/BUILD_ID').write_text(build)
         self.plan = {'buildId': 'new', 'oldBuild': 'old', 'staged': str(self.stage), 'backup': str(self.backup),
-                     'sessionId': 'history', 'payloadFingerprint': {'bound': True}, 'managed': True}
+                     'sessionId': 'history', 'payloadFingerprint': {'bound': True}, 'managed': True,
+                     'listener': 10, 'listenerIdentity': 'identity-10', 'parent': 11, 'parentIdentity': 'identity-11'}
         self.backup.mkdir()
         (self.backup/'manifest.json').write_text(json.dumps(self.plan))
         (self.root/'plan.json').write_text(json.dumps(self.plan))
@@ -600,6 +634,65 @@ class PreSwitchRecoveryTests(unittest.TestCase):
         self.history.assert_called_once_with(plan)
         self.deck.assert_called_once_with(None, self.stage)
         self.fingerprint.assert_called_once_with(self.stage, self.plan['payloadFingerprint'])
+
+    def test_failed_lease_can_refresh_only_after_explicit_managed_restoration(self):
+        plan = {**self.plan, 'managed': False}
+        (self.root/'plan.json').write_text(json.dumps(plan))
+        (self.root/'state.json').write_text(json.dumps({'status': 'failed', 'error': 'Could not acquire Pi Meta deployment lease', **plan}))
+        self.loaded.return_value = True
+        upgrade.refresh_owner('new', 'operator authorized maintenance restored managed service')
+        self.assertTrue(json.loads((self.root/'plan.json').read_text())['managed'])
+        self.assertEqual(json.loads((self.root/'state.json').read_text())['status'], 'prepared')
+
+    def test_failed_lease_recovery_never_authorizes_an_unmanaged_stop(self):
+        for error, originally_managed in [('Could not acquire Pi Meta deployment lease', False),
+                                          ('unrelated failure', False),
+                                          ('Could not acquire Pi Meta deployment lease', True)]:
+            plan = {**self.plan, 'managed': originally_managed}
+            (self.root/'plan.json').write_text(json.dumps(plan))
+            (self.root/'state.json').write_text(json.dumps({'status': 'failed', 'error': error, **plan}))
+            self.loaded.return_value = error != 'Could not acquire Pi Meta deployment lease' or originally_managed
+            with self.subTest(error=error, managed=originally_managed):
+                with self.assertRaises(RuntimeError):
+                    upgrade.refresh_owner('new', 'recover')
+            self.assertTrue(self.backup.exists())
+
+    def test_interrupted_stop_rebinds_only_after_both_old_processes_exit(self):
+        (self.root/'state.json').write_text(json.dumps({'status': 'waiting_for_idle', **self.plan}))
+        with patch.object(upgrade.core, 'bound_process_alive', return_value=False) as alive:
+            upgrade.refresh_owner('new', 'recover interrupted service stop')
+        self.assertEqual(alive.call_args_list, [call(10, 'identity-10'), call(11, 'identity-11')])
+        state = json.loads((self.root/'state.json').read_text())
+        self.assertEqual(state['status'], 'prepared')
+        self.assertFalse(state['managed'])
+        archive = Path(state['ownerRefreshArchive'])
+        self.assertEqual(json.loads((archive/'state.json').read_text())['status'], 'waiting_for_idle')
+        self.assertEqual(json.loads((archive/'unused-backup-initialization/manifest.json').read_text()), self.plan)
+
+    def test_interrupted_stop_refuses_live_or_unknown_old_processes(self):
+        (self.root/'state.json').write_text(json.dumps({'status': 'waiting_for_idle', **self.plan}))
+        for replies in [[True], [False, True], RuntimeError('identity unavailable')]:
+            with self.subTest(replies=replies), patch.object(upgrade.core, 'bound_process_alive', side_effect=replies):
+                with self.assertRaises(RuntimeError):
+                    upgrade.refresh_owner('new', 'recover interrupted stop')
+            self.assertTrue(self.backup.exists())
+            self.assertEqual(json.loads((self.root/'plan.json').read_text()), self.plan)
+
+    def test_waiting_without_initialization_cannot_adopt_unmanaged_owner(self):
+        (self.root/'state.json').write_text(json.dumps({'status': 'waiting_for_idle', **self.plan}))
+        (self.backup/'manifest.json').unlink(); self.backup.rmdir()
+        with self.assertRaisesRegex(RuntimeError, 'unknown service owner'):
+            upgrade.refresh_owner('new', 'refresh paused plan')
+
+    def test_interrupted_stop_requires_original_managed_owner_and_payload_binding(self):
+        for change in [{'managed': False}, {'payloadFingerprint': None}]:
+            plan = {**self.plan, **change}
+            (self.root/'plan.json').write_text(json.dumps(plan))
+            (self.root/'state.json').write_text(json.dumps({'status': 'waiting_for_idle', **plan}))
+            with self.subTest(change=change), patch.object(upgrade.core, 'bound_process_alive', return_value=False):
+                with self.assertRaises(RuntimeError):
+                    upgrade.refresh_owner('new', 'recover interrupted stop')
+            self.assertTrue(self.backup.exists())
 
     def test_recovery_requires_unused_manifest_and_never_touches_package_backup(self):
         (self.backup/'package').mkdir()
