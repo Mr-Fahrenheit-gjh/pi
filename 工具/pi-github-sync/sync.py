@@ -22,6 +22,7 @@ REPOSITORY = "Mr-Fahrenheit-gjh/pi"
 REMOTE_URL = f"https://github.com/{REPOSITORY}.git"
 WEB_CONFIG = "工具/pi-web维护/native-agent-switcher/local-update.json"
 WEB_ORIGIN = "https://github.com/agegr/pi-web.git"
+GITHUB_README_SOURCE = "工具/pi-github-sync/GITHUB-README.md"
 
 # These are source roots, not whole workspace or running configuration backups.
 PI_SOURCE_ROOTS = (
@@ -321,6 +322,12 @@ def committed_pi(repo: Path, commit: str) -> tuple[list[tuple[str, str, str]], d
         for path in sorted(object_paths[oid]):
             scan_content(path, content)
         contents[oid] = content
+    for mode, oid, path in entries:
+        if path == GITHUB_README_SOURCE:
+            # Export a root copy; never read the workspace root README.
+            scan_content("README.md", contents[oid])
+            entries.append((mode, oid, "README.md"))
+            break
     return entries, contents
 
 

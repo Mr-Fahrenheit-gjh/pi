@@ -84,6 +84,70 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(result["pi-web"], self.remote_rev("refs/heads/pi-web"))
         self.assertEqual(self.private_checks, 4)
 
+    def test_github_readme_exports_committed_source_and_updates(self):
+        source = "工具/pi-github-sync/GITHUB-README.md"
+        save(self.root, source, "Committed GitHub overview\n")
+        save(self.root, "README.md", "Private workspace overview\n")
+        commit(self.root)
+        save(self.root, source, "Staged GitHub overview\n")
+        command("git", "-C", str(self.root), "add", source)
+        save(self.root, source, "Unstaged GitHub overview\n")
+        before = command(
+            "git", "-C", str(self.root), "status", "--porcelain=v1"
+        )
+        initial = self.synchronize()
+        for path in ("README.md", source):
+            self.assertEqual(
+                command("git", "--git-dir", str(self.remote),
+                        "show", f"main:{path}"),
+                "Committed GitHub overview",
+            )
+        self.assertEqual(
+            before,
+            command("git", "-C", str(self.root), "status", "--porcelain=v1"),
+        )
+        self.assertEqual(
+            (self.root / "README.md").read_text(),
+            "Private workspace overview\n",
+        )
+        save(self.root, source, "Updated GitHub overview\n")
+        commit(self.root)
+        updated = self.synchronize()
+        self.assertNotEqual(initial["main"], updated["main"])
+        self.assertEqual(
+            command("git", "--git-dir", str(self.remote),
+                    "show", "main:README.md"),
+            "Updated GitHub overview",
+        )
+        self.assertEqual(updated, self.synchronize())
+
+    def test_github_readme_secret_blocks_both_pushes(self):
+        source = "工具/pi-github-sync/GITHUB-README.md"
+        save(self.root, source, "sk-" + "A" * 40)
+        commit(self.root)
+        with self.assertRaisesRegex(sync.SyncError, "API token"):
+            self.synchronize()
+        self.assertEqual(
+            command("git", "--git-dir", str(self.remote),
+                    "for-each-ref", "--format=%(refname)"),
+            "",
+        )
+
+    def test_github_readme_alias_preserves_path_scoped_checks(self):
+        source = "工具/pi-github-sync/GITHUB-README.md"
+        token = "ghp_" + "A" * 36
+        save(self.root, source, token)
+        commit(self.root)
+        digest = hashlib.sha256(token.encode()).hexdigest()
+        with mock.patch.dict(sync.FIXTURE_HASHES, {source: {digest}}):
+            with self.assertRaisesRegex(sync.SyncError, "README.md"):
+                self.synchronize()
+        self.assertEqual(
+            command("git", "--git-dir", str(self.remote),
+                    "for-each-ref", "--format=%(refname)"),
+            "",
+        )
+
     def test_pinned_workspace_revision_avoids_mixed_source_identity(self):
         pinned = sync.git_head(self.root)
         save(self.root, "工具/pi-interrupt/install.mjs", "newer committed Pi\n")
