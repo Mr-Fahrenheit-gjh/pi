@@ -15,6 +15,7 @@ import { checkQuestionSidebar, checkQuestionSidebarTheme } from "./question-side
 import { checkChatAppearance } from "./chat-appearance.mjs";
 import { checkCodeBackground } from "./code-background.mjs";
 import { checkModelDiscovery } from "./model-discovery.mjs";
+import { checkModelMenuScrolling } from "./fast-mode.mjs";
 import { checkFilesPlacement, checkSidebarDocumentVisibility, showSidebarSessions } from "./sidebar.mjs";
 import { checkSessionNavigation } from "./session-navigation.mjs";
 import { checkReadState } from "./read-state.mjs";
@@ -24,7 +25,7 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const mode = process.env.E2E_SERVER_MODE || "dev";
 const focus = process.env.E2E_FOCUS || "all";
 const browserOptions = { headless: true, ...(process.env.E2E_BROWSER_CHANNEL ? { channel: process.env.E2E_BROWSER_CHANNEL } : {}) };
-assert.ok(["all", "session-navigation", "read-state", "voice", "sidebar", "extension-dialog"].includes(focus), "Unknown E2E_FOCUS");
+assert.ok(["all", "session-navigation", "read-state", "voice", "sidebar", "extension-dialog", "model-menu"].includes(focus), "Unknown E2E_FOCUS");
 assert.ok(mode === "dev" || mode === "start", "E2E_SERVER_MODE must be dev or start");
 assert.ok(mode !== "dev" || !existsSync(join(root, ".next/dev/lock")), "Use a checkout without an active dev server");
 const artifacts = join(root, "test-results/e2e");
@@ -574,6 +575,11 @@ try {
       console.log("Isolated fixture only. Use /e2e-dialog preview to repeat. Stop this task to clean up.");
       await serverExited;
     }
+  } else if (focus === "model-menu") {
+    context = await browser.newContext({ locale: "en-US" });
+    page = await context.newPage();
+    page.setDefaultTimeout(15_000);
+    await checkModelMenuScrolling(page, { baseURL: base });
   } else if (focus === "sidebar") {
     context = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: "en-US" });
     page = await context.newPage();

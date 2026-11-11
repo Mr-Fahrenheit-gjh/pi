@@ -391,8 +391,9 @@ export function ModelSelector({
                 />
               </div>
             )}
+            <div data-model-selector-scroll style={{ minHeight: 0, overflowY: "auto", overscrollBehavior: "contain" }}>
             <fieldset role="listbox" aria-label={ariaLabel} disabled={modelSelectionDisabled}
-              style={{ minHeight: 0, minWidth: 0, margin: 0, padding: 0, border: "none", overflowY: "auto", opacity: modelSelectionDisabled ? 0.5 : 1 }}>
+              style={{ minWidth: 0, margin: 0, padding: 0, border: "none", opacity: modelSelectionDisabled ? 0.5 : 1 }}>
               {onClear && !filter.trim() && (
                 <SelectorRow active={!value} gutter={Boolean(onSetDefault)} onSelect={() => {
                   setOpen(false);
@@ -434,6 +435,7 @@ export function ModelSelector({
                 </div>
               ))}
             </fieldset>
+            </div>
           </div>
         );
       })()}
