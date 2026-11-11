@@ -1074,11 +1074,14 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
 
   useEffect(function restoreComposerFocus() {
     if (compact) return;
+    let reconnectOnReturn = false;
     const focusInput = (entering = false) => {
+      if (document.visibilityState !== "visible" || !document.hasFocus()) return;
+      const reconnect = reconnectOnReturn;
+      reconnectOnReturn = false;
       const textarea = textareaRef.current;
       // Check the live viewport: useIsMobile initially reports the SSR desktop value.
       if (!textarea || window.matchMedia("(max-width: 640px), (pointer: coarse)").matches
-        || document.visibilityState !== "visible" || !document.hasFocus()
         || !textarea.isConnected || textarea.getClientRects().length === 0
         || textarea.closest('[inert], [aria-hidden="true"]')) return;
       if (Array.from(document.querySelectorAll('dialog[open], [role="dialog"], [role="alertdialog"], [role="menu"], [aria-modal="true"]'))
@@ -1086,20 +1089,45 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
       if (window.getSelection()?.isCollapsed === false) return;
 
       const active = document.activeElement;
-      if (active === textarea) return; // Keep the existing caret/selection untouched.
+      if (active === textarea) {
+        // A tab/window return can retain DOM focus but lose the native IME
+        // connection. Rebind only after departure, never during live composition.
+        // The same node retains its draft, selection and native undo history.
+        if (reconnect && !isComposingRef.current) {
+          textarea.blur();
+          textarea.focus({ preventScroll: true });
+        }
+        return;
+      }
       const clickedNavigation = entering && active?.matches('.session-tree-main, .sidebar-new-button, .sidebar-quick-new')
         && !active.matches(":focus-visible");
       if (active && active !== document.body && active !== document.documentElement && !clickedNavigation) return;
       textarea.focus({ preventScroll: true });
     };
-    const restoreFocus = () => focusInput();
-    const frame = requestAnimationFrame(() => focusInput(true));
+    let frame = requestAnimationFrame(() => focusInput(true));
+    const restoreFocus = () => {
+      // Browser focus/visibility events can precede native window activation.
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => focusInput());
+    };
+    const suspendInput = () => {
+      if (document.activeElement !== textareaRef.current) return;
+      reconnectOnReturn = true;
+      // Some browsers omit compositionend when a composing tab loses focus.
+      isComposingRef.current = false;
+    };
+    const visibilityChanged = () => {
+      if (document.visibilityState === "hidden") suspendInput();
+      else restoreFocus();
+    };
+    window.addEventListener("blur", suspendInput);
     window.addEventListener("focus", restoreFocus);
-    document.addEventListener("visibilitychange", restoreFocus);
+    document.addEventListener("visibilitychange", visibilityChanged);
     return () => {
       cancelAnimationFrame(frame);
+      window.removeEventListener("blur", suspendInput);
       window.removeEventListener("focus", restoreFocus);
-      document.removeEventListener("visibilitychange", restoreFocus);
+      document.removeEventListener("visibilitychange", visibilityChanged);
     };
   }, [compact, draftKey]);
 

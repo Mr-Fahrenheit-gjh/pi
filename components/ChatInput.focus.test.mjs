@@ -20,7 +20,9 @@ function harness() {
   const windowListeners = new Map();
   const documentListeners = new Map();
   const frames = new Map();
-  const state = { mobile: false, focused: true, selected: false, hidden: false, inert: false, overlays: [], focusCalls: [] };
+  let nextFrame = 0;
+  const isComposingRef = { current: false };
+  const state = { mobile: false, focused: true, selected: false, hidden: false, inert: false, overlays: [], focusCalls: [], blurCalls: 0 };
   const document = {
     body: { matches: () => false }, documentElement: { matches: () => false }, activeElement: null, visibilityState: "visible",
     hasFocus: () => state.focused,
@@ -32,6 +34,7 @@ function harness() {
     isConnected: true,
     getClientRects: () => state.hidden ? [] : [{}],
     closest: () => state.inert ? {} : null,
+    blur() { state.blurCalls++; document.activeElement = document.body; },
     focus(options) { state.focusCalls.push({ ...options }); document.activeElement = textarea; },
   };
   const window = {
@@ -42,17 +45,19 @@ function harness() {
   };
   document.activeElement = document.body;
   return {
-    state, document, textarea, windowListeners, documentListeners, frames,
+    state, document, textarea, windowListeners, documentListeners, frames, isComposingRef,
     mount(compact = false) {
       return script.runInNewContext({
-        compact, textareaRef: { current: textarea }, document, window,
-        requestAnimationFrame: (fn) => { frames.set(1, fn); return 1; },
+        compact, textareaRef: { current: textarea }, isComposingRef, document, window,
+        requestAnimationFrame: (fn) => { const id = ++nextFrame; frames.set(id, fn); return id; },
         cancelAnimationFrame: (id) => frames.delete(id),
       })();
     },
-    flush() { for (const fn of frames.values()) fn(); frames.clear(); },
+    flush() { const pending = [...frames.values()]; frames.clear(); for (const fn of pending) fn(); },
+    leaveWindow() { windowListeners.get("blur")?.(); },
+    hidePage() { document.visibilityState = "hidden"; documentListeners.get("visibilitychange")?.(); },
     returnToWindow() { windowListeners.get("focus")?.(); },
-    showPage() { documentListeners.get("visibilitychange")?.(); },
+    showPage() { document.visibilityState = "visible"; documentListeners.get("visibilitychange")?.(); },
   };
 }
 
@@ -68,6 +73,7 @@ test("entering a conversation focuses the composer once without scrolling", () =
   assert.deepEqual(h.state.focusCalls, [{ preventScroll: true }]);
   h.returnToWindow();
   h.showPage();
+  h.flush();
   assert.equal(h.state.focusCalls.length, 1, "leave an existing caret/selection alone");
   assert.equal(effect.arguments[1].getText(source), "[compact, draftKey]", "session changes, not streamed replies, trigger entry focus");
 });
@@ -78,9 +84,57 @@ test("returning to the window or tab restores an idle composer", () => {
   h.flush();
   h.document.activeElement = h.document.body;
   h.returnToWindow();
+  h.flush();
   h.document.activeElement = h.document.documentElement;
   h.showPage();
+  h.flush();
   assert.equal(h.state.focusCalls.length, 3);
+});
+
+test("tab/window return reconnects native input even when the textarea stayed active", () => {
+  for (const leave of ["leaveWindow", "hidePage"]) {
+    const h = harness();
+    h.mount(); h.flush();
+    h.isComposingRef.current = true; // The browser may omit compositionend on departure.
+    h[leave]();
+    assert.equal(h.isComposingRef.current, false, "abandoned composition cannot block future keys");
+    h.returnToWindow(); h.showPage();
+    assert.equal(h.state.blurCalls, 0, "wait for browser activation to settle");
+    h.flush();
+    assert.equal(h.state.blurCalls, 1);
+    assert.equal(h.state.focusCalls.length, 2, "focus + visibility return coalesce into one reconnect");
+    assert.equal(h.document.activeElement, h.textarea);
+    h.returnToWindow(); h.flush();
+    assert.equal(h.state.blurCalls, 1, "ordinary focus events must not keep resetting the IME");
+  }
+});
+
+test("deferred return rechecks ownership, overlays and a newly started composition", () => {
+  for (const change of [
+    h => { h.document.activeElement = control(); },
+    h => { h.state.overlays = [{ getClientRects: () => [{}] }]; },
+    h => { h.isComposingRef.current = true; },
+    h => { h.state.selected = true; },
+    h => { h.state.focused = false; },
+  ]) {
+    const h = harness();
+    h.mount(); h.flush(); h.leaveWindow(); h.returnToWindow();
+    change(h); h.flush();
+    assert.equal(h.state.blurCalls, 0);
+    assert.equal(h.state.focusCalls.length, 1);
+  }
+});
+
+test("return while still hidden waits for visibility and unmount cancels pending reconnect", () => {
+  const h = harness();
+  const cleanup = h.mount(); h.flush();
+  h.hidePage(); h.returnToWindow(); h.flush();
+  assert.equal(h.state.blurCalls, 0);
+  h.showPage(); h.flush();
+  assert.equal(h.state.blurCalls, 1);
+  h.leaveWindow(); h.returnToWindow(); cleanup(); h.flush();
+  assert.equal(h.state.blurCalls, 1);
+  assert.equal(h.windowListeners.size + h.documentListeners.size, 0);
 });
 
 test("mouse session/New navigation hands off focus, keyboard navigation keeps it", () => {
@@ -113,7 +167,8 @@ for (const [name, prepare] of [
     h.mount();
     h.flush();
     h.returnToWindow();
-    h.showPage();
+    h.documentListeners.get("visibilitychange")?.();
+    h.flush();
     assert.equal(h.state.focusCalls.length, 0);
   });
 }

@@ -38,6 +38,65 @@ export async function checkComposerFocus(page, { base, sessionId }) {
   }
   checks.push("composer: window/tab return handlers restore idle focus and preserve selection");
 
+  // Headless Chrome has no OS input-method picker and keeps background pages
+  // visible. Exercise the actual activation handlers plus Chromium's native
+  // composition protocol; do not claim this simulates a system IME switch.
+  const cdp = await page.context().newCDPSession(page);
+  const sides = [
+    { panel: "#session-sidebar.sidebar-open", toggle: "[data-sidebar-toggle]" },
+    { panel: "#file-panel.right-panel-open", toggle: "[data-right-panel-toggle]" },
+  ];
+  const originalPanels = await Promise.all(sides.map(side => page.locator(side.panel).count().then(Boolean)));
+  const setPanels = async (open) => {
+    for (const [index, side] of sides.entries()) {
+      if (Boolean(await page.locator(side.panel).count()) !== open[index]) await page.locator(side.toggle).click();
+    }
+    await page.mouse.move(640, 450);
+    await page.waitForFunction(() => ["session-sidebar", "file-panel"].every(id =>
+      document.getElementById(id).getAnimations().length === 0));
+  };
+  try {
+    for (const open of [[true, false], [false, true], [true, true]]) {
+      await setPanels(open);
+      await input.fill("");
+      await input.focus();
+      const draft = "草稿 abcd";
+      await page.keyboard.insertText(draft);
+      await input.evaluate(node => node.setSelectionRange(3, 7));
+      const events = await input.evaluate(async node => {
+        const events = [];
+        const record = event => events.push(event.type);
+        node.addEventListener("blur", record); node.addEventListener("focus", record);
+        try {
+          window.dispatchEvent(new Event("blur"));
+          window.dispatchEvent(new Event("focus"));
+          document.dispatchEvent(new Event("visibilitychange"));
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          return events;
+        } finally {
+          node.removeEventListener("blur", record); node.removeEventListener("focus", record);
+        }
+      });
+      assert.deepEqual(events, ["blur", "focus"], "return must reconnect a still-active textarea exactly once");
+      assert.equal(await input.inputValue(), draft);
+      assert.deepEqual(await input.evaluate(node => [node.selectionStart, node.selectionEnd]), [3, 7]);
+      await page.keyboard.press("ControlOrMeta+z");
+      assert.equal(await input.inputValue(), "", "native undo history survives reconnection");
+      await page.keyboard.press("ControlOrMeta+Shift+z");
+      assert.equal(await input.inputValue(), draft);
+      await input.evaluate(node => node.setSelectionRange(node.value.length, node.value.length));
+      await cdp.send("Input.imeSetComposition", { text: "zhong", selectionStart: 5, selectionEnd: 5 });
+      assert.equal(await input.inputValue(), `${draft}zhong`);
+      await cdp.send("Input.insertText", { text: "中文" });
+      assert.equal(await input.inputValue(), `${draft}中文`, "native preedit commits Chinese after return");
+      checks.push(`composer: ${open.join("/")} sidebars reconnect once; draft, selection, undo and native composition preserved`);
+    }
+  } finally {
+    await cdp.detach();
+    await input.fill("");
+    await setPanels(originalPanels);
+  }
+
   await page.locator('.sidebar-quick-search').click();
   const searchDialog = page.locator('.quick-actions-surface[data-mode="chat"]');
   const search = searchDialog.locator('input[role="combobox"]');
