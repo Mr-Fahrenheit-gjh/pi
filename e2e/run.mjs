@@ -157,6 +157,14 @@ try {
     writeSession("e2e-other-project", [message("other", null, "user", "Other project fixture")], otherProject);
   }
 
+  // Seed kept previews before the first session catalogue is cached.
+  if (process.env.E2E_KEEP_PREVIEW === "1") {
+    writeSession("question-sidebar-preview", [
+      message("preview-user", null, "user", "右栏提问交互预览"),
+      message("preview-answer", "preview-user", "assistant", [{ type: "text", text: "## 问答面板调整\n\n- 选项与输入框放在同一页。\n- 选择或输入后，统一点击发送。\n- 收起后保留草稿。" }]),
+    ]);
+  }
+
   const probe = createServer();
   probe.listen(0, "127.0.0.1");
   await once(probe, "listening");
@@ -202,7 +210,7 @@ try {
     const response = await fetch(`${base}/api/sessions`, { signal: AbortSignal.timeout(5000) }).catch(() => null);
     if (response?.ok) {
       const { sessions } = await response.json();
-      assert.deepEqual(sessions.map((session) => session.id).sort(), [LONG, BRANCH, RICH, COMPACTED, APPEND, CODE_BACKGROUND, ...(focus === "sidebar" ? ["e2e-other-project"] : [])].sort());
+      assert.deepEqual(sessions.map((session) => session.id).sort(), [LONG, BRANCH, RICH, COMPACTED, APPEND, CODE_BACKGROUND, ...(focus === "sidebar" ? ["e2e-other-project"] : []), ...(process.env.E2E_KEEP_PREVIEW === "1" ? ["question-sidebar-preview"] : [])].sort());
       break;
     }
     assert.ok(Date.now() < deadline, "Server readiness timed out; see server.log");
@@ -550,16 +558,13 @@ try {
     }
     if (process.env.E2E_KEEP_PREVIEW === "1") {
       const previewSession = "question-sidebar-preview";
-      writeSession(previewSession, [
-        message("preview-user", null, "user", "右栏提问交互预览"),
-        message("preview-answer", "preview-user", "assistant", [{ type: "text", text: "## 问答面板调整\n\n- 选项与输入框放在同一页。\n- 选择或输入后，统一点击发送。\n- 收起后保留草稿。" }]),
-      ]);
       await page.setViewportSize({ width: 1440, height: 950 });
       await page.goto(`${base}/?session=${previewSession}`, { waitUntil: "domcontentloaded" });
       await page.locator(".markdown-assistant-message").first().waitFor();
       await page.locator(".chat-input-textarea").first().fill("/e2e-dialog preview");
       await page.getByRole("button", { name: "Send", exact: true }).click();
       await page.locator("[data-question-panel]").waitFor();
+      await page.locator("#file-panel").evaluate(node => Promise.all(node.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {}))));
       await page.screenshot({ path: join(artifacts, "question-sidebar-preview.png") });
       await browser.close();
       browser = undefined;
