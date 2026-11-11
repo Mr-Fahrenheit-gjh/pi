@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { checkFilePanel, filePanelFixture } from "./file-panel.mjs";
 import { checkExtensionDialogSizing, checkExtensionDialogs, extensionSource } from "./extension-dialog.mjs";
+import { checkQuestionSidebar, checkQuestionSidebarTheme } from "./question-sidebar.mjs";
 import { checkChatAppearance } from "./chat-appearance.mjs";
 import { checkCodeBackground } from "./code-background.mjs";
 import { checkModelDiscovery } from "./model-discovery.mjs";
@@ -23,7 +24,7 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const mode = process.env.E2E_SERVER_MODE || "dev";
 const focus = process.env.E2E_FOCUS || "all";
 const browserOptions = { headless: true, ...(process.env.E2E_BROWSER_CHANNEL ? { channel: process.env.E2E_BROWSER_CHANNEL } : {}) };
-assert.ok(["all", "session-navigation", "read-state", "voice", "sidebar"].includes(focus), "E2E_FOCUS must be all, session-navigation, read-state, voice or sidebar");
+assert.ok(["all", "session-navigation", "read-state", "voice", "sidebar", "extension-dialog"].includes(focus), "Unknown E2E_FOCUS");
 assert.ok(mode === "dev" || mode === "start", "E2E_SERVER_MODE must be dev or start");
 assert.ok(mode !== "dev" || !existsSync(join(root, ".next/dev/lock")), "Use a checkout without an active dev server");
 const artifacts = join(root, "test-results/e2e");
@@ -168,6 +169,11 @@ try {
     stdio: ["ignore", "pipe", "pipe"],
   });
   server.once("error", (error) => { serverError = error; });
+  server.stderr.on("data", chunk => {
+    if (/Module not found: Can\u0027t resolve|Could not find the Next.js package/.test(String(chunk))) {
+      serverError = new Error("Development server module resolution failed; see server.log");
+    }
+  });
   serverExited = once(server, "exit");
   server.stdout.pipe(serverLog, { end: false });
   server.stderr.pipe(serverLog, { end: false });
@@ -525,7 +531,45 @@ try {
   browser ??= await chromium.launch(browserOptions);
   // Last, in its own context and tabs, so the checks above run as before. It
   // restores the sidebar state (pins, archive) and deletes the fork it makes.
-  if (focus === "sidebar") {
+  if (focus === "extension-dialog") {
+    context = await browser.newContext({ viewport: { width: 1440, height: 950 }, locale: "en-US" });
+    page = await context.newPage();
+    page.setDefaultTimeout(30_000);
+    await page.goto(`${base}/?session=${RICH}`, { waitUntil: "domcontentloaded" });
+    await page.locator(".markdown-code-block pre").waitFor();
+    const dialogScope = process.env.E2E_DIALOG_SCOPE;
+    if (dialogScope !== "dialogs" && dialogScope !== "preview") {
+      if (dialogScope !== "theme") await checkQuestionSidebar(page, { artifacts, filePath: previewFile });
+      await checkQuestionSidebarTheme(page, { artifacts });
+    }
+    if (dialogScope !== "theme" && dialogScope !== "preview") {
+      await checkExtensionDialogs(page, artifacts, 1440);
+      await checkExtensionDialogSizing(page, 1440);
+      await page.setViewportSize({ width: 1100, height: 800 });
+      await checkExtensionDialogs(page, artifacts, 1100);
+    }
+    if (process.env.E2E_KEEP_PREVIEW === "1") {
+      const previewSession = "question-sidebar-preview";
+      writeSession(previewSession, [
+        message("preview-user", null, "user", "右栏提问交互预览"),
+        message("preview-answer", "preview-user", "assistant", [{ type: "text", text: "## 问答面板调整\n\n- 选项与输入框放在同一页。\n- 选择或输入后，统一点击发送。\n- 收起后保留草稿。" }]),
+      ]);
+      await page.setViewportSize({ width: 1440, height: 950 });
+      await page.goto(`${base}/?session=${previewSession}`, { waitUntil: "domcontentloaded" });
+      await page.locator(".markdown-assistant-message").first().waitFor();
+      await page.locator(".chat-input-textarea").first().fill("/e2e-dialog preview");
+      await page.getByRole("button", { name: "Send", exact: true }).click();
+      await page.locator("[data-question-panel]").waitFor();
+      await page.screenshot({ path: join(artifacts, "question-sidebar-preview.png") });
+      await browser.close();
+      browser = undefined;
+      context = undefined;
+      page = undefined;
+      console.log(`PREVIEW_READY ${base}/?session=${previewSession}`);
+      console.log("Isolated fixture only. Use /e2e-dialog preview to repeat. Stop this task to clean up.");
+      await serverExited;
+    }
+  } else if (focus === "sidebar") {
     context = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: "en-US" });
     page = await context.newPage();
     page.setDefaultTimeout(30_000);

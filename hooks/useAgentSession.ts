@@ -473,6 +473,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const [noticeState, dispatchNotice] = useReducer(noticeReducer, { visible: [], pending: [] });
   const [sessionStatsOverride, setSessionStatsOverride] = useState<SessionStatsInfo | null>(null);
   const [extensionDialogs, setExtensionDialogs] = useState<ExtensionUiDialogRequest[]>([]);
+  const [extensionUiSnapshot, setExtensionUiSnapshot] = useState<{ version: number; pendingIds: string[] }>({ version: 0, pendingIds: [] });
   const [extensionCustomUis, setExtensionCustomUis] = useState<ExtensionUiCustomRequest[]>([]);
   const [extensionStatuses, setExtensionStatuses] = useState<ExtensionStatusItem[]>([]);
   const [fastModeState, setFastModeState] = useState<FastModeState | null>(null);
@@ -1282,17 +1283,25 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   ) => {
     const sid = sessionIdRef.current;
     setExtensionDialogs((queue) => removeExtensionUiRequest(queue, request.id));
-    if (!sid) return;
+    if (!sid) return false;
     try {
       await sendAgentCommand(sid, {
         type: "extension_ui_response",
         id: request.id,
         ...response,
       });
+      return true;
     } catch (e) {
       console.error("Failed to send extension UI response:", e);
+      // The response may have reached the server. Reconcile its pending IDs;
+      // never blindly restore the old request or resend the answer.
+      if (sessionHookMountedRef.current && sessionIdRef.current === sid) {
+        closeEvents();
+        maintainEventsConnected(sid);
+      }
+      return false;
     }
-  }, []);
+  }, [closeEvents, maintainEventsConnected]);
 
   const sendExtensionCustomInput = useCallback(async (request: ExtensionUiCustomRequest, data: string) => {
     const sid = sessionIdRef.current;
@@ -1705,7 +1714,9 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         dispatch({ type: "end" });
         if (Array.isArray(event.pendingExtensionUiIds)) {
           // The server replays what it still holds right after this event.
-          const pending = new Set(event.pendingExtensionUiIds as string[]);
+          const pendingIds = event.pendingExtensionUiIds as string[];
+          setExtensionUiSnapshot(snapshot => ({ version: snapshot.version + 1, pendingIds }));
+          const pending = new Set(pendingIds);
           setExtensionDialogs((queue) => retainExtensionUiRequests(queue, pending));
           setExtensionCustomUis((queue) => retainExtensionUiRequests(queue, pending));
         }
@@ -3320,7 +3331,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     retryInfo, contextUsage, systemPrompt, forkingEntryId,
     isCompacting, compactError, compactResult, currentModel, displayModel, modelSwitching, sessionStats, autoCompactionEnabled,
     slashCommands, slashCommandsLoading, queuedMessages,
-    notices: noticeState.visible, extensionDialog, waitingExtensionDialogCount, extensionCustomUi, waitingExtensionCustomUiCount, extensionStatuses, extensionWidgets, respondToExtensionUi, sendExtensionCustomInput,
+    notices: noticeState.visible, extensionDialog, extensionUiSnapshot, waitingExtensionDialogCount, extensionCustomUi, waitingExtensionCustomUiCount, extensionStatuses, extensionWidgets, respondToExtensionUi, sendExtensionCustomInput,
     isAutoModelSelection: isNew && newSessionModel === null,
     isAutoThinkingSelection: isNew && newSessionThinkingLevel === null,
     defaultModel: newSessionDefaultModel,

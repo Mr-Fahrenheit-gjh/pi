@@ -9,7 +9,7 @@ export interface Tab {
   id: string;
   label: string;
   filePath: string;
-  kind?: "terminal" | "agent" | "todo" | "outputs" | "design-deck";
+  kind?: "terminal" | "agent" | "todo" | "outputs" | "design-deck" | "question";
   closing?: boolean;
   /** A workspace entry, not a closeable document. */
   pinned?: boolean;
@@ -111,6 +111,8 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab }: Props) {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m3 6 2 2 3-4m3 3h10M3 13h4m4 0h10M3 19h4m4 0h10" /></svg>
               ) : tab.kind === "design-deck" ? (
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M12 4v16" /></svg>
+              ) : tab.kind === "question" ? (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 5 .5c0 2-2.5 2-2.5 4M12 17h.01" /></svg>
               ) : tab.kind === "outputs" ? (
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 3h8l4 4v14H5V3h2Zm7 0v5h5M8 12h8M8 16h6" /></svg>
               ) : getFileIcon(tab.label, 13)}

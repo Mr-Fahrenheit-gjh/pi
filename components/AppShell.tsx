@@ -340,6 +340,32 @@ export function AppShell() {
     return () => document.removeEventListener("keydown", close);
   }, [rightPanelPreviewOpen, clearRightPanelHoverTimer, closeRightPanelPreview]);
   const [rightPanelExpanded, setRightPanelExpanded] = useState(false);
+  const [questionPanelTarget, setQuestionPanelTarget] = useState<HTMLDivElement | null>(null);
+  const [questionPanelId, setQuestionPanelId] = useState<string | null>(null);
+  const [questionPanelSelected, setQuestionPanelSelected] = useState(false);
+  const rightPanelBeforeQuestion = useRef<{ open: boolean; expanded: boolean } | null>(null);
+  const collapseQuestionPanel = useCallback(() => setRightPanelOpen(false), []);
+  useEffect(() => {
+    if (questionPanelId) {
+      if (!rightPanelBeforeQuestion.current) {
+        rightPanelBeforeQuestion.current = { open: rightPanelOpen, expanded: rightPanelExpanded };
+        setQuestionPanelSelected(true);
+        setRightPanelExpanded(false);
+        setRightPanelOpen(true);
+      }
+      return;
+    }
+    const previous = rightPanelBeforeQuestion.current;
+    if (!previous) return;
+    rightPanelBeforeQuestion.current = null;
+    // Do not override a file/tab the reader deliberately switched to, or reopen a
+    // panel they closed while answering. The original file selection is untouched.
+    if (questionPanelSelected && rightPanelOpen) {
+      setRightPanelOpen(previous.open);
+      setRightPanelExpanded(previous.expanded);
+    }
+    setQuestionPanelSelected(false);
+  }, [questionPanelId, questionPanelSelected, rightPanelOpen, rightPanelExpanded]);
   const rightPanelFullWidth = rightPanelOpen && rightPanelExpanded && !isMobile;
   useEffect(() => {
     if (!rightPanelOpen || isMobile) setRightPanelExpanded(false);
@@ -615,8 +641,9 @@ export function AppShell() {
       setActiveTopPanel(null);
       setMobileToolbarMoreOpen(false);
     }
+    if (!rightPanelOpen && questionPanelId) setQuestionPanelSelected(true);
     setRightPanelOpen((open) => !open);
-  }, [isMobile]);
+  }, [isMobile, rightPanelOpen, questionPanelId]);
 
   const handleRightPanelExpandToggle = useCallback(() => {
     setActiveTopPanel(null);
@@ -698,6 +725,7 @@ export function AppShell() {
   const selectedDesignDeck = designDecks.find(deck => deck.sessionId === selectedSession?.id);
   const selectedDesignDeckId = selectedDesignDeck?.id;
   const panelTabs: Tab[] = [
+    ...(questionPanelId ? [{ id: "questions:pending", label: translate("chat.extensionPending"), filePath: "", kind: "question" as const, pinned: true }] : []),
     ...(selectedSession ? [
       { id: "todo:overview", label: translate("workspace.todos"), filePath: "", kind: "todo" as const, pinned: true },
       { id: "agent:overview", label: translate("common.agents"), filePath: "", kind: "agent" as const, pinned: true },
@@ -1565,7 +1593,10 @@ export function AppShell() {
     if (isMobile) setSidebarOpen(false);
   }, [selectedDesignDeckId, isMobile]);
 
-  const activePanelTabId = activeFileTabId ?? (selectedSession ? "todo:overview" : "");
+  const activeContentTabId = activeFileTabId ?? (selectedSession ? "todo:overview" : "");
+  const activePanelTabId = questionPanelId && questionPanelSelected
+    ? "questions:pending"
+    : activeContentTabId;
   const activeFileTab = fileTabs.find((tab) => tab.id === activeFileTabId) ?? null;
   const quickCwd = secondaryActive ? splitContext.cwd : selectedSession?.cwd ?? newSessionCwd ?? activeCwd;
   const openWorkspace = (id: string) => {
@@ -1757,6 +1788,7 @@ export function AppShell() {
         type="button"
         className="workspace-right-panel-toggle"
         data-right-panel-toggle
+        data-question-pending={questionPanelId ? true : undefined}
         onPointerEnter={previewRightPanel}
         onPointerLeave={dismissRightPanelPreview}
         onClick={handleRightPanelToggle}
@@ -1765,10 +1797,11 @@ export function AppShell() {
         aria-controls="file-panel"
         aria-expanded={rightPanelOpen || rightPanelPreviewOpen}
         aria-hidden={covered ? true : undefined}
-        title={rightPanelOpen ? translate("files.hidePanel") : translate("files.showPanel")}
-        aria-label={rightPanelOpen ? translate("files.hidePanel") : translate("files.showPanel")}
+        title={questionPanelId ? translate("chat.extensionPending") : rightPanelOpen ? translate("files.hidePanel") : translate("files.showPanel")}
+        aria-label={questionPanelId ? translate("chat.extensionPending") : rightPanelOpen ? translate("files.hidePanel") : translate("files.showPanel")}
         data-mobile-toolbar-file={mobile ? "true" : undefined}
         style={{
+          position: "relative",
           marginLeft: !mobile && !sessionStats && !contextUsage ? "auto" : 0,
           display: "flex", alignItems: "center", justifyContent: "center",
           width: TOP_BAR_ICON_BUTTON_SIZE, height: TOP_BAR_ICON_BUTTON_SIZE, padding: 0,
@@ -1785,6 +1818,7 @@ export function AppShell() {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" />
         </svg>
+        {questionPanelId && <span aria-hidden="true" style={{ position: "absolute", top: 3, right: 3, width: 6, height: 6, borderRadius: "50%", background: "var(--accent)" }} />}
       </button>
     );
   };
@@ -2323,6 +2357,9 @@ export function AppShell() {
               onNewSessionChoicesChange={handleNewSessionChoicesChange}
               onAgentEnd={handleAgentEnd}
               onAttentionNeeded={handleAttentionNeeded}
+              questionPanelTarget={questionPanelTarget}
+              onQuestionPanelChange={setQuestionPanelId}
+              onQuestionPanelCollapse={collapseQuestionPanel}
               onSessionCreated={handleSessionCreated}
               onSessionForked={handleSessionForked}
               chatInputRef={chatInputRef}
@@ -2456,7 +2493,10 @@ export function AppShell() {
             <TabBar
               tabs={panelTabs}
               activeTabId={activePanelTabId}
-              onSelectTab={setActiveFileTabId}
+              onSelectTab={(id) => {
+                setQuestionPanelSelected(id === "questions:pending");
+                if (id !== "questions:pending") setActiveFileTabId(id);
+              }}
               onCloseTab={handleCloseFileTab}
             />
           </div>
@@ -2480,7 +2520,10 @@ export function AppShell() {
 
         {/* Only the active viewer is mounted. Lightweight per-tab state is restored on activation. */}
         <div style={{ flex: 1, minHeight: 0, overflow: "hidden", paddingBottom: "env(safe-area-inset-bottom)" }}>
-          {activePanelTabId === "outputs:overview" && selectedSession ? ((rightPanelOpen || rightPanelPreviewOpen) && <OutputsWorkspace key={`${selectedSession.id}:${selectedSession.cwd}`} sessionId={selectedSession.id} cwd={selectedSession.cwd} leafId={runningSessionIds.has(selectedSession.id) ? null : branchActiveLeafId} refreshKey={explorerRefreshKey} onOpen={path => handleOpenFile(path, getFileName(path), { sourceSessionId: selectedSession.id })} />) : activePanelTabId === "todo:overview" && selectedSession ? ((rightPanelOpen || rightPanelPreviewOpen) && <TodoWorkspace key={selectedSession.id} sessionId={selectedSession.id} />) : activePanelTabId === "agent:overview" && selectedSession ? ((rightPanelOpen || rightPanelPreviewOpen) && (
+          <div ref={setQuestionPanelTarget} hidden={activePanelTabId !== "questions:pending" || !(rightPanelOpen || rightPanelPreviewOpen)} style={{ width: "100%", height: "100%" }} />
+          {/* Park, do not unmount, the reader's file/terminal while a question is shown. */}
+          <div hidden={activePanelTabId === "questions:pending"} style={{ width: "100%", height: "100%" }}>
+          {activeContentTabId === "outputs:overview" && selectedSession ? ((rightPanelOpen || rightPanelPreviewOpen) && <OutputsWorkspace key={`${selectedSession.id}:${selectedSession.cwd}`} sessionId={selectedSession.id} cwd={selectedSession.cwd} leafId={runningSessionIds.has(selectedSession.id) ? null : branchActiveLeafId} refreshKey={explorerRefreshKey} onOpen={path => handleOpenFile(path, getFileName(path), { sourceSessionId: selectedSession.id })} />) : activeContentTabId === "todo:overview" && selectedSession ? ((rightPanelOpen || rightPanelPreviewOpen) && <TodoWorkspace key={selectedSession.id} sessionId={selectedSession.id} />) : activeContentTabId === "agent:overview" && selectedSession ? ((rightPanelOpen || rightPanelPreviewOpen) && (
             <AgentWorkspace
               key={selectedSession.id}
               session={selectedSession}
@@ -2515,22 +2558,22 @@ export function AppShell() {
                 { sourceSessionId: activeFileTab.sourceSessionId, page },
               )}
             />
-          ) : activePanelTabId !== "design-deck:active" && !terminalTabs.some((tab) => tab.id === activeFileTabId) && !activeAgentTab ? (
+          ) : activeContentTabId !== "design-deck:active" && !terminalTabs.some((tab) => tab.id === activeFileTabId) && !activeAgentTab ? (
             <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-dim)", fontSize: 12 }}>
                {translate("files.noneOpen")}
             </div>
           ) : null}
           {designDecks.map(deck => {
-            const selected = deck.id === selectedDesignDeckId && activePanelTabId === "design-deck:active";
+            const selected = deck.id === selectedDesignDeckId && activeContentTabId === "design-deck:active";
             return <div key={deck.id} hidden={!selected} style={{ width: "100%", height: "100%" }}>
-              <DesignDeckWorkspace deck={deck} active={selected && (rightPanelOpen || rightPanelPreviewOpen)} />
+              <DesignDeckWorkspace deck={deck} active={selected && !questionPanelSelected && (rightPanelOpen || rightPanelPreviewOpen)} />
             </div>;
           })}
           {terminalTabs.map((tab) => (
             <div key={tab.id} hidden={tab.id !== activeFileTabId} style={{ width: "100%", height: "100%" }}>
               <TerminalPanel
                 tab={tab}
-                active={rightPanelOpen && tab.id === activeFileTabId}
+                active={rightPanelOpen && !questionPanelSelected && tab.id === activeFileTabId}
                 onRestart={() => setTerminalTabs((tabs) => tabs.map((item) => item.id === tab.id ? { ...item, closing: "restart" } : item))}
                 onClosed={() => handleTerminalClosed(tab)}
                 onCloseError={() => setTerminalTabs((tabs) => tabs.map((item) => item.id === tab.id ? { ...item, closing: undefined } : item))}
@@ -2546,6 +2589,7 @@ export function AppShell() {
               onOpenFile={handleOpenLinkedFile}
             />
           )}
+          </div>
         </div>
       </div>
     </div>

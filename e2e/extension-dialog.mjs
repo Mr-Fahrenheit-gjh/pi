@@ -5,7 +5,22 @@ export const extensionSource = `export default function (pi) {
   pi.registerCommand("e2e-dialog", {
     handler: async (mode, ctx) => {
       let result;
-      if (mode === "timeout") {
+      if (mode === "walk" || mode === "preview") {
+        const options = mode === "preview" ? [
+          "1. 继续精修当前方案 (Recommended) — 保留现有主题，把层次、留白和细节打磨到位。",
+          "2. 先体验完整流程 — 实际试一轮选择、补充与收起，再决定下一步。",
+          "3. Type something.",
+        ] : ["紧凑选项 — 边看回复边回答", "自己补充想法"];
+        const title = mode === "preview" ? "[界面优化] 下一步希望怎么继续？" : "提问放在右栏，主对话继续保留";
+        for (;;) {
+          const choice = await ctx.ui.select(title, options);
+          if (choice !== options.at(-1)) { result = choice; break; }
+          const customTitle = mode === "preview" ? title + "\\n\\n" + options.slice(0, -1).join("\\n") + "\\n\\nType your answer:" : "补充你的想法";
+          result = await ctx.ui.input(customTitle, "");
+          if (mode !== "preview" || (result != null && result.trim().length > 0)) break;
+        }
+        if (mode === "walk") result = await ctx.ui.input("E2E walk follow-up", "Continue the questionnaire");
+      } else if (mode === "timeout") {
         await ctx.ui.select("E2E timeout", ["Wait"], { timeout: 4000 });
         result = await ctx.ui.input("E2E after timeout");
       } else if (mode === "select") {
@@ -44,7 +59,7 @@ export async function checkExtensionDialogs(page, artifacts, width) {
     const input = page.locator("textarea").last();
     await input.fill(`/e2e-dialog ${mode}`);
     await page.getByRole("button", { name: "Send", exact: true }).click();
-    const dialog = page.getByRole("dialog", { name: `E2E ${mode}`, exact: true });
+    const dialog = page.getByRole(mode === "confirm" ? "dialog" : "region", { name: `E2E ${mode}`, exact: true });
     await dialog.waitFor();
     return dialog;
   };
@@ -55,7 +70,8 @@ export async function checkExtensionDialogs(page, artifacts, width) {
 
   try {
     const select = await start("select");
-    await page.waitForFunction(() => document.activeElement?.textContent === "Option 1");
+    // The non-modal workspace must not steal focus from the conversation.
+    await select.getByRole("button", { name: "Option 1", exact: true }).focus();
     for (const [key, expected] of [["ArrowUp", "Option 30"], ["ArrowDown", "Option 1"], ["ArrowRight", "Option 2"], ["ArrowLeft", "Option 1"], ["End", "Option 30"], ["Home", "Option 1"], ["End", "Option 30"]]) {
       await page.keyboard.press(key);
       assert.equal(await page.locator(":focus").textContent(), expected);
@@ -72,16 +88,16 @@ export async function checkExtensionDialogs(page, artifacts, width) {
 
     for (const mode of ["select", "confirm", "input", "editor"]) {
       const dialog = await start(mode);
-      assert.ok(await page.locator(":focus").evaluate(element => element.closest('[role="dialog"]')));
+      if (mode === "confirm") assert.ok(await page.locator(":focus").evaluate(element => element.closest('[role="dialog"]')));
       if (mode === "input" || mode === "editor") {
         await dialog.getByRole("textbox").fill("Preserved draft");
         await dialog.getByRole("button", { name: "Collapse", exact: true }).click();
-        await page.getByRole("button", { name: new RegExp(`Awaiting response.*E2E ${mode}`) }).click();
+        await page.locator("[data-right-panel-toggle][data-question-pending]").filter({ visible: true }).click();
         assert.equal(await dialog.getByRole("textbox").inputValue(), "Preserved draft");
       }
-      if (mode === "input" || mode === "editor") await dialog.getByRole("button", { name: "Cancel", exact: true }).focus();
       const before = commands.length;
-      await page.keyboard.press("Escape");
+      if (mode === "confirm") await page.keyboard.press("Escape");
+      else await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
       await dialog.waitFor({ state: "hidden" });
       await finish(mode, mode === "confirm" ? "false" : "undefined");
       assert.equal(commands.slice(before).filter(command => command.type === "extension_ui_response").length, 1);
@@ -93,18 +109,24 @@ export async function checkExtensionDialogs(page, artifacts, width) {
     await countdown.waitFor();
     const initialCountdown = await countdown.innerText();
     await page.waitForFunction(initial => {
-      const text = document.querySelector('[role="dialog"]')?.textContent;
+      const text = document.querySelector('[data-question-panel]')?.textContent;
       return text?.includes("expires in") && !text.includes(initial);
     }, initialCountdown);
     const before = commands.length;
     await timed.getByRole("button", { name: "Collapse", exact: true }).click();
-    await page.getByRole("button", { name: /Awaiting response.*E2E timeout.*expires in/ }).waitFor();
-    const afterTimeout = page.getByRole("dialog", { name: "E2E after timeout", exact: true });
+    const pending = page.locator("[data-right-panel-toggle][data-question-pending]").filter({ visible: true });
+    await pending.waitFor();
+    await page.waitForFunction(() => document.querySelector('[data-question-panel]')?.getAttribute('aria-label') === 'E2E after timeout');
+    const afterTimeout = page.getByRole("region", { name: "E2E after timeout", exact: true });
+    // A server expiry may close one request and surface the next in separate SSE
+    // frames. Let the panel transition settle before deciding whether to open it.
+    await settledWidth(page, page.locator("#file-panel"));
+    if (!await afterTimeout.isVisible()) await pending.click();
     await afterTimeout.waitFor();
     assert.equal(commands.slice(before).some(command => command.type === "extension_ui_response"), false, "Only the server closes expired requests");
     assert.equal(await afterTimeout.getByText(/expires in/).count(), 0);
     await afterTimeout.getByRole("textbox").fill("Still answerable");
-    await page.keyboard.press("Enter");
+    await afterTimeout.getByRole("textbox").press("Enter");
     await finish("timeout", "Still answerable");
     console.log(`PASS: ${width}px extension keyboard navigation, cancel, draft preservation, and server expiry`);
   } finally {

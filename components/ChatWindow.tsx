@@ -9,6 +9,8 @@ import type { AgentMessage, AssistantContentBlock, AssistantMessage, BashExecuti
 import { normalizeCustomPanelLines } from "@/lib/ansi";
 import { splitNoticeText } from "@/lib/notice-text";
 import { EXTENSION_DIALOG_BASE_WIDTH, fitExtensionDialogWidth } from "@/lib/extension-dialog-fit";
+import { getQuestionnaire, presentQuestionOption, presentQuestionTitle, type QuestionnairePresentation } from "@/lib/question-presentation";
+import { QuestionnaireForm, type QuestionnaireFormProps } from "./QuestionnaireForm";
 import { asBracketedPaste, toTerminalKeyData } from "@/lib/terminal-input";
 import { countToolCallBlocks, getAssistantErrorMessage, hasAssistantAnswer,  isAssistantTruncated, isHiddenCustomMessage, isMessageGroupAnchor, splitAssistantVisibleBlocks, splitFinalAssistantBlocks } from "@/lib/message-display";
 import { extractTurnWrittenFiles, type WrittenFile } from "@/lib/turn-written-files";
@@ -71,6 +73,10 @@ interface Props {
   onAgentEnd?: (end: AgentEndInfo) => void;
   onToolEnd?: (toolName: string) => void;
   onAttentionNeeded?: (request: BlockingExtensionUiRequest) => void;
+  /** The main workspace can host non-permission questions without covering the reply. */
+  questionPanelTarget?: HTMLElement | null;
+  onQuestionPanelChange?: (requestId: string | null) => void;
+  onQuestionPanelCollapse?: () => void;
   onSessionCreated?: (session: SessionInfo, sourceDraftKey: string) => void;
   onSessionForked?: (newSessionId: string) => void;
   modelsRefreshKey?: number;
@@ -238,7 +244,7 @@ function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = fa
   );
 }
 
-export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget, showSubagentPanel = false, onCloseSubagentPanel, searchTarget, onSearchTargetHandled, initialScrollPosition, onScrollPositionChange, sessionRunning, newSessionCwd, newSessionDraftKey, newSessionContextBar, initialNewSessionChoices, onNewSessionChoicesChange, onAgentEnd, onToolEnd, onAttentionNeeded, onSessionCreated, onSessionForked, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSystemToolsChange, onSystemInfoLoaderChange, onSessionStatsChange, onSessionStatsPanelOpen, onOpenSettings, onContextUsageChange, onOpenFile, onOpenSubagent, onAskInNewChat, quoteSelectionEnabled = false, initialPrompt, onInitialPromptConsumed, soundEnabled = true, onSoundToggle, playDoneSound = () => {}, unlockAudio, holdAudio }: Props) {
+export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget, showSubagentPanel = false, onCloseSubagentPanel, searchTarget, onSearchTargetHandled, initialScrollPosition, onScrollPositionChange, sessionRunning, newSessionCwd, newSessionDraftKey, newSessionContextBar, initialNewSessionChoices, onNewSessionChoicesChange, onAgentEnd, onToolEnd, onAttentionNeeded, questionPanelTarget, onQuestionPanelChange, onQuestionPanelCollapse, onSessionCreated, onSessionForked, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSystemToolsChange, onSystemInfoLoaderChange, onSessionStatsChange, onSessionStatsPanelOpen, onOpenSettings, onContextUsageChange, onOpenFile, onOpenSubagent, onAskInNewChat, quoteSelectionEnabled = false, initialPrompt, onInitialPromptConsumed, soundEnabled = true, onSoundToggle, playDoneSound = () => {}, unlockAudio, holdAudio }: Props) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const [greeting, setGreeting] = useState("");
@@ -275,7 +281,11 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
   const soundEnabledRef = useRef(soundEnabled);
   soundEnabledRef.current = soundEnabled;
   const extensionDialogShownRef = useRef(false);
+  const [questionAnchor, setQuestionAnchor] = useState<{ viewId: string; request: ExtensionDialogRequest; model: QuestionnairePresentation; syncVersion: number; needsSync: boolean } | null>(null);
+  const [submittingQuestion, setSubmittingQuestion] = useState<ExtensionDialogRequest | null>(null);
   const wrappedOnAgentEnd = useCallback((end: AgentEndInfo) => {
+    setQuestionAnchor(null);
+    setSubmittingQuestion(null);
     // A run someone stopped did not finish anything.
     if (completionNotificationsEnabled && soundEnabledRef.current && !end.aborted) {
       playDoneSoundRef.current();
@@ -296,7 +306,7 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
     retryInfo, contextUsage, forkingEntryId,
     isCompacting, compactError, compactResult, displayModel: displayModelValue, modelSwitching, sessionStats,
     slashCommands, slashCommandsLoading, queuedMessages,
-    notices, extensionDialog, waitingExtensionDialogCount, extensionCustomUi, waitingExtensionCustomUiCount, extensionStatuses, extensionWidgets, respondToExtensionUi, sendExtensionCustomInput, setNoticePaused, addNotice,
+    notices, extensionDialog, extensionUiSnapshot, waitingExtensionDialogCount, extensionCustomUi, waitingExtensionCustomUiCount, extensionStatuses, extensionWidgets, respondToExtensionUi, sendExtensionCustomInput, setNoticePaused, addNotice,
     isAutoModelSelection,
     isAutoThinkingSelection,
     defaultModel,
@@ -307,12 +317,12 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
     showScrollToBottom,
     sessionIdRef, scrollContainerRef,
     lastUserMsgRef, promptAnchorActive,
-    handleSend, handleAbort, handleContinueTask, taskCanContinue, handleFork, handleEditContent, cancelEdit, handleModelChange,
+    handleSend, handleAbort: abortAgent, handleContinueTask, taskCanContinue, handleFork, handleEditContent, cancelEdit, handleModelChange,
+    fastModeState, fastModeBusy, handleFastModeChange,
     handleCompact, handleSteer, handleFollowUp, handlePromptWithStreamingBehavior, handleAbortCompaction,
     dismissCompactError,
     handleRecallQueue,
     handleBuiltinSlashCommand,
-    fastModeState, fastModeBusy, handleFastModeChange,
     handleToolPresetChange, handleThinkingLevelChange, handleSetDefaultModel, handleSetDefaultThinkingLevel, loadSlashCommands, loadAllModels, scrollUserMsgToTop,
     loadContext, activeLeafId, voiceNavigation, scrollToBottom, scrollToMessage,
   } = useAgentSession({
@@ -321,6 +331,72 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
     onOpenSettings, t,
     deferInitialScroll: Boolean(pendingScrollRestore),
   });
+  const handleAbort = useCallback(() => {
+    setQuestionAnchor(null);
+    setSubmittingQuestion(null);
+    return abortAgent();
+  }, [abortAgent]);
+  const rawQuestionnaire = useMemo(() => getQuestionnaire(extensionDialog, questionAnchor?.model), [extensionDialog, questionAnchor?.model]);
+  const activeAnchor = rawQuestionnaire && questionAnchor?.model.key !== rawQuestionnaire.key ? null : questionAnchor;
+  const questionnaireModel = rawQuestionnaire ?? (!extensionDialog ? activeAnchor?.model : null);
+  const sidebarQuestion = onQuestionPanelChange && extensionDialog?.method !== "confirm"
+    ? questionnaireModel
+      ? { ...(extensionDialog ?? activeAnchor!.request), title: questionnaireModel.title }
+      : extensionDialog ?? submittingQuestion
+    : null;
+  const questionViewId = activeAnchor?.viewId ?? sidebarQuestion?.id ?? null;
+  const sidebarQuestionId = sidebarQuestion ? questionViewId : null;
+  const liveQuestionRef = useRef({ request: extensionDialog, model: rawQuestionnaire, snapshot: extensionUiSnapshot });
+  liveQuestionRef.current = { request: extensionDialog, model: rawQuestionnaire, snapshot: extensionUiSnapshot };
+  useEffect(() => {
+    if (extensionDialog && (!rawQuestionnaire || rawQuestionnaire.key !== questionAnchor?.model.key)) {
+      setQuestionAnchor(null);
+    } else if (questionAnchor?.needsSync && extensionUiSnapshot.version > questionAnchor.syncVersion) {
+      setQuestionAnchor(current => current?.viewId !== questionAnchor.viewId ? current
+        : extensionUiSnapshot.pendingIds.length === 0 ? null : { ...current, needsSync: false });
+    }
+  }, [extensionDialog, rawQuestionnaire, questionAnchor, extensionUiSnapshot]);
+  const respondToQuestionnaire = useCallback(async (
+    request: Parameters<QuestionnaireFormProps["onAnswer"]>[0],
+    response: Parameters<QuestionnaireFormProps["onAnswer"]>[1],
+    prepare: boolean,
+  ) => {
+    const live = liveQuestionRef.current;
+    // A cached presentation is never authority to answer a request.
+    if (!live.request || live.request.id !== request.id || live.request.method !== request.method
+      || !live.model || (request.expiresAt !== undefined && request.expiresAt <= Date.now())
+      || (questionAnchor?.needsSync && live.snapshot.version <= questionAnchor.syncVersion)
+      || ("value" in response && request.method === "select" && !request.options.includes(response.value))) return false;
+    const viewId = questionViewId ?? request.id;
+    setQuestionAnchor({ viewId, request, model: live.model, syncVersion: live.snapshot.version, needsSync: false });
+    const ok = await respondToExtensionUi(request, response);
+    setQuestionAnchor(current => {
+      if (current?.viewId !== viewId) return current;
+      if (!ok) return { ...current, needsSync: true, syncVersion: live.snapshot.version };
+      return prepare ? current : null;
+    });
+    return ok;
+  }, [questionAnchor?.needsSync, questionAnchor?.syncVersion, questionViewId, respondToExtensionUi]);
+  const questionnaireWire = rawQuestionnaire?.key === questionnaireModel?.key
+    && (extensionDialog?.method === "select" || extensionDialog?.method === "input")
+    && !(activeAnchor?.needsSync && extensionUiSnapshot.version <= activeAnchor.syncVersion)
+    ? extensionDialog : null;
+  useEffect(() => {
+    onQuestionPanelChange?.(sidebarQuestionId);
+  }, [onQuestionPanelChange, sidebarQuestionId]);
+  useEffect(() => () => onQuestionPanelChange?.(null), [onQuestionPanelChange]);
+  const respondToSidebarQuestion = useCallback(async (
+    request: ExtensionDialogRequest,
+    response: { value: string } | { confirmed: boolean } | { cancelled: true },
+  ) => {
+    // Keep the workspace mounted while the RPC walker advances to its next step.
+    setSubmittingQuestion(request);
+    try {
+      await respondToExtensionUi(request, response);
+    } finally {
+      setSubmittingQuestion(current => current?.id === request.id ? null : current);
+    }
+  }, [respondToExtensionUi]);
   // Only whether a reply is streaming and has content yet: the chunks themselves
   // re-render StreamingReply alone.
   const isStreaming = useStreamingSelector(streamingStore, selectIsStreaming);
@@ -979,6 +1055,10 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
       allModelList={allModelList}
       onLoadAllModels={isModelScopeActive ? loadAllModels : undefined}
       onModelChange={handleModelChange}
+      fastModeState={fastModeState}
+      fastModeBusy={fastModeBusy}
+      onFastModeOpen={() => { void handleFastModeChange?.(); }}
+      onFastModeChange={handleFastModeChange}
       modelSwitching={modelSwitching}
       defaultModel={defaultModel}
       onSetDefaultModel={handleSetDefaultModel}
@@ -1004,10 +1084,6 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
       slashCommands={slashCommands}
       slashCommandsLoading={slashCommandsLoading}
       onLoadSlashCommands={loadSlashCommands}
-      fastModeState={fastModeState}
-      fastModeBusy={fastModeBusy}
-      onFastModeOpen={() => { void handleFastModeChange?.(); }}
-      onFastModeChange={handleFastModeChange}
       onBuiltinCommand={handleBuiltinSlashCommand}
       soundEnabled={soundEnabled}
       onSoundToggle={onSoundToggle}
@@ -1050,7 +1126,16 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {extensionDialog && <ExtensionDialog key={extensionDialog.id} request={extensionDialog} waitingCount={waitingExtensionDialogCount} onRespond={respondToExtensionUi} />}
+      {extensionDialog && (extensionDialog.method === "confirm" || !sidebarQuestion) && <ExtensionDialog key={extensionDialog.id} request={extensionDialog} waitingCount={waitingExtensionDialogCount} onRespond={respondToExtensionUi} />}
+      {sidebarQuestion && questionPanelTarget && createPortal(
+        <div style={{ height: "100%" }} inert={!questionnaireModel && submittingQuestion?.id === sidebarQuestion.id} aria-busy={!questionnaireModel && submittingQuestion?.id === sidebarQuestion.id}>
+          <ExtensionDialog key={questionViewId} request={sidebarQuestion} waitingCount={waitingExtensionDialogCount} onRespond={respondToSidebarQuestion} embedded onCollapse={onQuestionPanelCollapse}
+            questionnaireForm={questionnaireModel ? <QuestionnaireForm model={questionnaireModel} wireRequest={questionnaireWire}
+              onPrepare={(request, response) => respondToQuestionnaire(request, response, true)}
+              onAnswer={(request, response) => respondToQuestionnaire(request, response, false)}
+              onDismiss={() => setQuestionAnchor(null)} /> : undefined} />
+        </div>, questionPanelTarget,
+      )}
       {extensionCustomUi && <ExtensionCustomPanel key={extensionCustomUi.id} request={extensionCustomUi} waitingCount={waitingExtensionCustomUiCount} onInput={sendExtensionCustomInput} />}
       {session && packageTarget && <PackageSubagentChat key={`${session.id}:${packageTarget.id}`} session={session} target={packageTarget}
         onOpenFile={onOpenFile} />}
@@ -1724,11 +1809,17 @@ function ExtensionDialog({
   request,
   waitingCount,
   onRespond,
+  embedded = false,
+  onCollapse,
+  questionnaireForm,
 }: {
   request: ExtensionDialogRequest;
   /** Further dialogs queued behind this one; each opens after this one is answered. */
   waitingCount: number;
   onRespond: (request: ExtensionDialogRequest, response: { value: string } | { confirmed: boolean } | { cancelled: true }) => void;
+  embedded?: boolean;
+  onCollapse?: () => void;
+  questionnaireForm?: ReactNode;
 }) {
   const { t } = useI18n();
   const [value, setValue] = useState(request.method === "editor" ? request.prefill ?? "" : "");
@@ -1742,14 +1833,17 @@ function ExtensionDialog({
   const [full, setFull] = useState(false);
   const toggleFull = useCallback(() => setFull((prev) => !prev), []);
   const [now, setNow] = useState(() => Date.now());
-  const focusFirstOption = useCallback((element: HTMLDivElement | null) => element?.focus(), []);
+  const focusFirstOption = useCallback((element: HTMLDivElement | null) => {
+    if (!embedded) element?.focus();
+  }, [embedded]);
   const summary = getExtensionDialogSummary(request);
+  const titlePresentation = presentQuestionTitle(request.title);
   const remainingSeconds = request.expiresAt === undefined
     ? null
     : Math.max(0, Math.ceil((request.expiresAt - now) / 1000));
 
   useLayoutEffect(() => {
-    if (collapsed) return;
+    if (collapsed || embedded) return;
     const dialog = dialogRef.current;
     const body = bodyRef.current;
     if (!dialog || !body) return;
@@ -1775,7 +1869,7 @@ function ExtensionDialog({
       disposed = true;
       mutations.disconnect();
     };
-  }, [collapsed]);
+  }, [collapsed, embedded]);
 
   useEffect(() => {
     if (request.expiresAt === undefined) return;
@@ -1804,17 +1898,19 @@ function ExtensionDialog({
         if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
         event.preventDefault();
         event.stopPropagation();
-        onRespond(request, { cancelled: true });
+        if (embedded) onCollapse?.();
+        else onRespond(request, { cancelled: true });
       }}
       style={{
-        position: "absolute",
-        inset: 0,
-        zIndex: 90,
+        position: embedded ? "relative" : "absolute",
+        height: embedded ? "100%" : undefined,
+        inset: embedded ? undefined : 0,
+        zIndex: embedded ? undefined : 90,
         display: "flex",
         alignItems: collapsed ? "flex-start" : "center",
         justifyContent: "center",
-        padding: 20,
-        pointerEvents: "none",
+        padding: embedded ? 0 : 20,
+        pointerEvents: embedded ? "auto" : "none",
       }}
     >
       {collapsed ? (
@@ -1859,35 +1955,42 @@ function ExtensionDialog({
       ) : (
       <div
         ref={dialogRef}
-        role="dialog"
+        role={embedded ? "region" : "dialog"}
         aria-label={request.title}
+        data-question-panel={embedded || undefined}
+        className={embedded ? "question-workspace" : undefined}
         style={{
           pointerEvents: "auto",
           // "Full" fills the content region above the composer: the overlay is inset:0 with
           // 20px padding, so 100% keeps that breathing room without covering the input.
-          width: full ? "100%" : `min(${fitWidth ?? EXTENSION_DIALOG_BASE_WIDTH}px, 100%)`,
-          maxHeight: full ? "100%" : "min(760px, 100%)",
+          width: embedded || full ? "100%" : `min(${fitWidth ?? EXTENSION_DIALOG_BASE_WIDTH}px, 100%)`,
+          height: embedded ? "100%" : undefined,
+          maxHeight: embedded || full ? "100%" : "min(760px, 100%)",
           display: "flex",
           flexDirection: "column",
-          border: "1px solid var(--border)",
-          borderRadius: 8,
+          border: embedded ? "none" : "1px solid var(--border)",
+          borderRadius: embedded ? 0 : 8,
           background: "var(--bg)",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.28)",
+          boxShadow: embedded ? "none" : "0 20px 60px rgba(0,0,0,0.28)",
           overflow: "hidden",
         }}
       >
-        <div style={{ flexShrink: 1, minHeight: 0, display: "flex", alignItems: "flex-start", gap: 8, padding: "12px 14px", borderBottom: "1px solid var(--border)", maxHeight: "50vh", overflowY: "auto" }}>
+        <div className={embedded ? "question-workspace-header" : undefined} style={embedded ? undefined : { flexShrink: 1, minHeight: 0, display: "flex", alignItems: "flex-start", gap: 8, padding: "12px 14px", borderBottom: "1px solid var(--border)", maxHeight: "50vh", overflowY: "auto" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             {/* Pi's TUI shows the title verbatim, newlines included; select/input have no
                 separate message field, so extensions put multi-line text here. */}
-            <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 650, lineHeight: 1.45, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{request.title}</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 3, color: "var(--text-dim)", fontSize: 11, fontFamily: "var(--font-mono)" }}>
-              <span>{t("chat.extensionRequest")}</span>
+            {embedded ? <>
+              {titlePresentation.category && <div className="question-workspace-category">{titlePresentation.category}</div>}
+              <h2 className="question-workspace-title">{titlePresentation.heading}</h2>
+              {titlePresentation.detail && <div className="question-workspace-detail">{titlePresentation.detail}</div>}
+            </> : <div style={{ color: "var(--text)", fontSize: 14, fontWeight: 650, lineHeight: 1.45, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{request.title}</div>}
+            <div className={embedded ? "question-workspace-meta" : undefined} style={embedded ? undefined : { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 3, color: "var(--text-dim)", fontSize: 11, fontFamily: "var(--font-mono)" }}>
+              {!embedded && <span>{t("chat.extensionRequest")}</span>}
               <ExtensionWaitingCount count={waitingCount} />
               {countdown}
             </div>
           </div>
-          <button
+          {!embedded && <button
             type="button"
             onClick={toggleFull}
             title={full ? t("chat.extensionRestoreSize") : t("chat.extensionMaximize")}
@@ -1906,14 +2009,15 @@ function ExtensionDialog({
             }}
           >
             <ExtensionSizeIcon expanded={full} />
-          </button>
+          </button>}
           <button
             type="button"
-            onClick={() => setCollapsed(true)}
-            aria-expanded={true}
+            onClick={() => embedded ? onCollapse?.() : setCollapsed(true)}
+            aria-expanded={embedded ? undefined : true}
             title={t("chat.extensionCollapse")}
             aria-label={t("chat.extensionCollapse")}
-            style={{
+            className={embedded ? "quiet-action-button" : undefined}
+            style={embedded ? undefined : {
               display: "grid",
               placeItems: "center",
               width: 28,
@@ -1927,14 +2031,15 @@ function ExtensionDialog({
             }}
           >
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <polyline points="2 3.5 5 6.5 8 3.5" />
+              <polyline points={embedded ? "3.5 2 6.5 5 3.5 8" : "2 3.5 5 6.5 8 3.5"} />
             </svg>
           </button>
         </div>
 
-        <div
+        {questionnaireForm ?? <><div
           ref={bodyRef}
-          style={{
+          className={embedded ? "question-workspace-body" : undefined}
+          style={embedded ? undefined : {
             padding: 14,
             flex: "1 1 auto", minHeight: 0, overflowY: "auto",
           }}
@@ -1956,23 +2061,27 @@ function ExtensionDialog({
                 buttons[next].focus({ preventScroll: true });
                 buttons[next].scrollIntoView({ block: "nearest" });
               }}
-              style={{ display: "grid", gap: 8 }}
+              className={embedded ? "question-workspace-options" : undefined}
+              style={embedded ? undefined : { display: "grid", gap: 8 }}
             >
-              {request.options.map((option, index) => (
-                <div
+              {request.options.map((option, index) => {
+                const presented = presentQuestionOption(option, index);
+                return <div
                   key={option}
                   role="button"
                   tabIndex={0}
                   data-extension-option
+                  data-question-recommended={embedded && presented.recommendation ? true : undefined}
                   aria-label={option}
                   ref={index === 0 ? focusFirstOption : undefined}
                   onClick={() => onRespond(request, { value: option })}
                   onKeyDown={(event) => {
-                    if (event.key !== "Enter" && event.key !== " ") return;
+                    if (event.nativeEvent.isComposing || (event.key !== "Enter" && event.key !== " ")) return;
                     event.preventDefault();
                     onRespond(request, { value: option });
                   }}
-                  style={{
+                  className={embedded ? "question-workspace-option" : undefined}
+                  style={embedded ? undefined : {
                     width: "100%",
                     padding: "9px 10px",
                     borderRadius: 7,
@@ -1989,23 +2098,33 @@ function ExtensionDialog({
                     scrollMargin: 14,
                   }}
                 >
-                  <div inert>
-                    <MarkdownBody>{option}</MarkdownBody>
+                  {embedded && presented.number && <span className="question-workspace-option-number" aria-hidden="true">{presented.number}.</span>}
+                  <div inert className={embedded ? "question-workspace-option-copy" : undefined}>
+                    {embedded && presented.number ? <>
+                      <div className="question-workspace-option-title">
+                        <span>{presented.label}</span>
+                        {presented.recommendation && <span className="question-workspace-recommendation">{presented.recommendation}</span>}
+                      </div>
+                      {presented.description && <div className="question-workspace-option-description"><MarkdownBody>{presented.description}</MarkdownBody></div>}
+                    </> : <MarkdownBody>{option}</MarkdownBody>}
                   </div>
-                </div>
-              ))}
+                  {embedded && <svg className="question-workspace-option-arrow" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 8h9M8 4l4 4-4 4" /></svg>}
+                </div>;
+              })}
             </div>
           )}
           {request.method === "input" && (
             <input
-              autoFocus
+              autoFocus={!embedded}
+              aria-label={request.title}
+              className={embedded ? "question-workspace-input" : undefined}
               value={value}
               placeholder={request.placeholder}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.nativeEvent.isComposing) submitValue();
               }}
-              style={{
+              style={embedded ? undefined : {
                 width: "100%",
                 padding: "9px 10px",
                 borderRadius: 7,
@@ -2019,13 +2138,15 @@ function ExtensionDialog({
           )}
           {request.method === "editor" && (
             <textarea
-              autoFocus
+              autoFocus={!embedded}
+              aria-label={request.title}
+              className={embedded ? "question-workspace-input question-workspace-editor" : undefined}
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={(e) => {
                 if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !e.nativeEvent.isComposing) submitValue();
               }}
-              style={{
+              style={embedded ? undefined : {
                 width: "100%",
                 minHeight: 220,
                 padding: 10,
@@ -2043,11 +2164,12 @@ function ExtensionDialog({
           )}
         </div>
 
-        <div style={{ flexShrink: 0, display: "flex", justifyContent: "flex-end", gap: 8, padding: "10px 14px", borderTop: "1px solid var(--border)", background: "var(--bg-panel)" }}>
+        <div className={embedded ? "question-workspace-actions" : undefined} style={embedded ? undefined : { flexShrink: 0, display: "flex", justifyContent: "flex-end", gap: 8, padding: "10px 14px", borderTop: "1px solid var(--border)", background: "var(--bg-panel)" }}>
           <button
-            autoFocus={request.method === "confirm" || (request.method === "select" && request.options.length === 0)}
+            autoFocus={!embedded && (request.method === "confirm" || (request.method === "select" && request.options.length === 0))}
             onClick={() => onRespond(request, { cancelled: true })}
-            style={{
+            className={embedded ? "question-workspace-cancel" : undefined}
+            style={embedded ? undefined : {
               padding: "6px 10px",
               borderRadius: 6,
               border: "1px solid var(--border)",
@@ -2075,7 +2197,8 @@ function ExtensionDialog({
           ) : request.method !== "select" ? (
             <button
               onClick={submitValue}
-              style={{
+              className={embedded ? "question-workspace-submit" : undefined}
+              style={embedded ? undefined : {
                 padding: "6px 10px",
                 borderRadius: 6,
                 border: "1px solid var(--accent)",
@@ -2087,7 +2210,7 @@ function ExtensionDialog({
                {t("chat.submit")}
             </button>
           ) : null}
-        </div>
+        </div></>}
       </div>
       )}
     </div>
