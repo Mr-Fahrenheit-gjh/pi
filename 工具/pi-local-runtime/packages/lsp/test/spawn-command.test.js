@@ -43,9 +43,13 @@ test('Windows global tsc PATH resolves extensionless Node bin; Svelte also resol
 });
 
 test('POSIX and native exe launches are unchanged; unknown cmd fails closed', t => {
-    const { binary } = fixture(t);
+    const { binary, binDir } = fixture(t);
     assert.deepEqual(resolve_server_spawn(binary, ['--stdio'], { platform: 'linux' }), { command: binary, args: ['--stdio'] });
-    assert.deepEqual(resolve_server_spawn('rust-analyzer.exe', [], { platform: 'win32' }), { command: 'rust-analyzer.exe', args: [] });
+    // The runner may already have Rust installed; this branch needs an empty PATH.
+    assert.deepEqual(resolve_server_spawn('rust-analyzer.exe', [], { platform: 'win32', env: {} }), { command: 'rust-analyzer.exe', args: [] });
+    const native = join(binDir, 'rust-analyzer.exe');
+    writeFileSync(native, 'fixture');
+    assert.deepEqual(resolve_server_spawn('rust-analyzer.exe', ['--stdio'], { platform: 'win32', env: { Path: binDir } }), { command: native, args: ['--stdio'] });
     assert.throws(() => resolve_server_spawn(binary + '-unknown.cmd', [], { platform: 'win32' }), /Cannot resolve npm LSP JS CLI/);
     assert.doesNotMatch(readFileSync(new URL('../src/spawn-command.js', import.meta.url), 'utf8'), /shell\s*:\s*true/);
     for (const file of ['client.js', 'servers.js']) assert.match(readFileSync(new URL('../src/' + file, import.meta.url), 'utf8'), /resolve_server_spawn/);
