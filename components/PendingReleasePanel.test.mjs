@@ -32,15 +32,16 @@ test("API is read-only and accepts no request-controlled filesystem path", () =>
   assert.doesNotMatch(route, /function (?:POST|PUT|PATCH|DELETE)|request\.|searchParams|readFile|startRpc|sendAgent/);
 });
 
-test("footer only mounts Settings, without release polling or restart entry", () => {
+test("footer mounts Settings and terminal, without release polling or restart entry", () => {
   assert.match(shell, /<SettingsPanel/);
   assert.doesNotMatch(shell, /PendingReleasePanel|usePendingReleases|pendingReleaseOpen/);
   const footer = shell.match(/<div className="workspace-settings-entry">([\s\S]*?)<\/div>/)?.[1] ?? "";
-  assert.equal((footer.match(/<button/g) ?? []).length, 1);
+  assert.equal((footer.match(/<button/g) ?? []).length, 2);
   assert.match(footer, /translate\("common.settings"\)/);
+  assert.match(footer, /translate\("terminal.open"\)/);
 });
 
-test("single Settings action keeps a visible label and aligned navigation typography", async () => {
+test("Settings action shares the footer with terminal and keeps aligned navigation typography", async () => {
   const workspace = await read("../app/workspace.css");
   const footer = workspace.match(/\.workspace-settings-entry > button \{([^}]+)\}/)?.[1] ?? "";
   assert.match(footer, /font-family: var\(--font-sidebar\)/);
@@ -48,7 +49,8 @@ test("single Settings action keeps a visible label and aligned navigation typogr
   assert.match(footer, /font-weight: 435/);
   assert.match(footer, /min-height: 32px/);
   assert.match(footer, /justify-content: flex-start/);
-  assert.match(footer, /width: 100%/);
+  assert.match(footer, /width: auto/);
+  assert.match(footer, /flex: 1 1 auto/);
   assert.doesNotMatch(workspace, /@container sidebar-actions/);
 });
 
