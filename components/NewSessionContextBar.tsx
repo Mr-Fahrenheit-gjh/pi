@@ -1,5 +1,4 @@
 "use client";
-import { runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
 
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/hooks/useI18n";

@@ -1,5 +1,4 @@
 "use client";
-import { runtimeApi, runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
 
 import { memo, useState, useRef, useEffect, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
@@ -1976,7 +1975,7 @@ function imageSource(img: ImageContent): string {
   if (img.source) {
     return img.source.type === "base64"
       ? `data:${img.source.media_type};base64,${img.source.data}`
-      : runtimeApi(img.source.url ?? "");
+      : img.source.url ?? "";
   }
   return flat.data ? `data:${flat.mimeType};base64,${flat.data}` : "";
 }
@@ -2035,7 +2034,7 @@ function BashExecutionView({ message, sessionId }: { message: BashExecutionMessa
   const isPending = !message.output && message.exitCode === undefined && !message.cancelled;
   const isError = message.cancelled || (message.exitCode !== undefined && message.exitCode !== 0);
   const fullOutputUrl = sessionId && message.fullOutputPath
-    ? runtimeApi(`/api/agent/${encodeURIComponent(sessionId)}/bash-output?path=${encodeURIComponent(message.fullOutputPath)}`)
+    ? `/api/agent/${encodeURIComponent(sessionId)}/bash-output?path=${encodeURIComponent(message.fullOutputPath)}`
     : null;
   const showFullButton = message.truncated && fullOutputUrl && fullOutput === null;
   const displayOutput = fullOutput ?? message.output;

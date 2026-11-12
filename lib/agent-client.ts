@@ -1,4 +1,3 @@
-import { pageRuntime, runtimeFetch as fetch } from "./runtime-client.mjs";
 import { getInlineVisualsEnabled } from "./inline-visual-preference";
 // Client-side helper for POST /api/agent/[id].
 //
@@ -34,7 +33,7 @@ export async function sendAgentCommand<T = unknown>(
   const res = await fetch(`/api/agent/${encodeURIComponent(sessionId)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(pageRuntime() === "pi" && ["prompt", "steer", "follow_up"].includes(String(command.type))
+    body: JSON.stringify(["prompt", "steer", "follow_up"].includes(String(command.type))
       ? { ...command, inlineVisuals: getInlineVisualsEnabled() }
       : command),
   });

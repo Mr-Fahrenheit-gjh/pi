@@ -16,8 +16,7 @@ export async function checkQuickActionShortcuts(page, { base, sessionId, outputD
   await open();
   const options = dialog.getByRole("option");
   const count = await options.count();
-  assert.equal(count, 9, 'command mode includes the Pi Meta switch, Intelligence UI toggle and split action but no conversations');
-  assert.equal(await options.filter({ hasText: 'Pi Meta' }).count(), 1);
+  assert.equal(count, 8, 'command mode includes the native workspace actions but no conversations');
   assert.equal(await options.filter({ hasText: 'Numbered conversation' }).count(), 0);
   assert.equal(await dialog.locator('.quick-action-preview').count(), 0);
   const numbered = count;
@@ -42,11 +41,11 @@ export async function checkQuickActionShortcuts(page, { base, sessionId, outputD
   assert.equal(await dialog.locator('.quick-actions-surface').getAttribute('data-mode'), 'chat');
   assert.equal(await options.count(), 9);
   await dialog.getByRole('button', { name: 'Command' }).click();
-  assert.equal(await options.count(), 9);
+  assert.equal(await options.count(), 8);
   await dialog.getByRole('button', { name: 'Chat' }).click();
   assert.equal(await input.evaluate(node => document.activeElement === node), true);
   await page.keyboard.press('ControlOrMeta+k');
-  assert.equal(await options.count(), 9);
+  assert.equal(await options.count(), 8);
   await page.keyboard.press('Escape');
   await open('chat');
   assert.equal(await options.count(), 9);

@@ -6,7 +6,6 @@ import { useI18n } from "@/hooks/useI18n";
 import { copyText } from "@/lib/clipboard";
 import { parsePdfPageFragment, resolveLocalFileHref, shouldOpenLocalFileInApp } from "@/lib/file-links";
 import { encodeFilePathForApi } from "@/lib/file-paths";
-import { runtimeApi } from "@/lib/runtime-client.mjs";
 import { markdownAppUrlTransform, markdownRehypePlugins, markdownRemarkPlugins, markdownTextLayoutRemarkPlugins, markdownUrlTransform, markdownUserRemarkPlugins, normalizeDisplayMath } from "@/lib/markdown";
 import { splitMarkdownBlocks } from "@/lib/markdown-blocks";
 import { ImagePreview } from "./ImagePreview";
@@ -65,7 +64,7 @@ function MarkdownImage({
   const href = typeof src === "string" ? src : undefined;
   const filePath = href ? resolveLocalFileHref(href, cwd) : null;
   const imageSrc = filePath
-    ? runtimeApi(`/api/files/${encodeFilePathForApi(filePath)}?type=read`)
+    ? `/api/files/${encodeFilePathForApi(filePath)}?type=read`
     : href;
   // Dynamic local paths are served directly by the file API.
   // eslint-disable-next-line @next/next/no-img-element

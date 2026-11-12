@@ -10,14 +10,12 @@ const script = new Script(ts.transpileModule(source, { compilerOptions: { target
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
 function fixture() {
-  const cells = [], effects = [], requests = []; let cursor = 0, runtime = 'pi';
+  const cells = [], effects = [], requests = []; let cursor = 0;
   const exports = {};
-  script.runInNewContext({ exports, AbortController, URLSearchParams, require(id) {
+  script.runInNewContext({ exports, AbortController, URLSearchParams,
+    fetch: (url, options) => new Promise((resolve, reject) => requests.push({ url, signal: options.signal, resolve, reject })),
+    require(id) {
     if (id === '@/lib/task-outputs') return paths;
-    if (id === '@/lib/runtime-client.mjs') return {
-      pageRuntime: () => runtime,
-      runtimeFetch: (url, options) => new Promise((resolve, reject) => requests.push({ url, signal: options.signal, resolve, reject })),
-    };
     if (id === 'react') return {
       useState(initial) { const i = cursor++; if (!(i in cells)) cells[i] = initial; return [cells[i], value => { cells[i] = typeof value === 'function' ? value(cells[i]) : value; }]; },
       useEffect(fn, deps) {
@@ -36,7 +34,6 @@ function fixture() {
     flush() { for (const fn of effects.splice(0)) fn(); },
     async respond(index, data, ok = true) { requests[index].resolve({ ok, json: async () => data }); await tick(); },
     unmount() { for (const cell of cells) cell?.cleanup?.(); },
-    runtime(value) { runtime = value; },
   };
 }
 
@@ -71,9 +68,9 @@ test('existing tool/run/focus refresh keeps current results while loading; expli
   r = f.render('a', '/project', 'leaf-a', 1); assert.equal(r.failed, false); assert.deepEqual(Array.from(r.paths), ['/project/second.md']);
 });
 
-test('runtime and cwd isolate the scope and unmount stops outstanding reads', async () => {
+test('cwd isolates the scope and unmount stops outstanding reads', async () => {
   const f = fixture(); f.render(); f.flush(); await f.respond(0, { sessionId: 'a', paths: ['pi.md'] });
-  f.runtime('feynman'); assert.deepEqual(Array.from(f.render().paths), []); f.flush();
+  assert.deepEqual(Array.from(f.render('a', '/another').paths), []); f.flush();
   assert.equal(f.requests[0].signal.aborted, true); f.unmount(); assert.equal(f.requests[1].signal.aborted, true);
   assert.deepEqual(Array.from(f.render('a', '/another').paths), []);
 });

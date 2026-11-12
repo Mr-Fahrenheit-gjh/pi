@@ -1,4 +1,3 @@
-import { runtimeStorageKey } from "./runtime-client.mjs";
 /**
  * Per-workspace "last open session" memory.
  *
@@ -31,7 +30,7 @@ function getBrowserStorage(): StorageLike | null {
 }
 
 function readMap(storage: StorageLike): Record<string, string | undefined> {
-  const raw = storage.getItem(runtimeStorageKey(STORAGE_KEY));
+  const raw = storage.getItem(STORAGE_KEY);
   if (!raw) return {};
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -66,7 +65,7 @@ export function setLastOpenSession(
   try {
     const map = readMap(storage);
     map[workspaceKey] = sessionId;
-    storage.setItem(runtimeStorageKey(STORAGE_KEY), JSON.stringify(map));
+    storage.setItem(STORAGE_KEY, JSON.stringify(map));
   } catch {
     // storage unavailable — memory is best-effort
   }
@@ -82,8 +81,8 @@ export function clearLastOpen(
     if (!(workspaceKey in map)) return;
     delete map[workspaceKey];
     // Keep the store clean: drop the key entirely when nothing is remembered.
-    if (Object.keys(map).length === 0) storage.removeItem(runtimeStorageKey(STORAGE_KEY));
-    else storage.setItem(runtimeStorageKey(STORAGE_KEY), JSON.stringify(map));
+    if (Object.keys(map).length === 0) storage.removeItem(STORAGE_KEY);
+    else storage.setItem(STORAGE_KEY, JSON.stringify(map));
   } catch {
     // ignore
   }

@@ -1,5 +1,4 @@
 "use client";
-import { runtimeFetch as fetch, pageRuntime } from "@/lib/runtime-client.mjs";
 import { VoiceControls } from "./VoiceControls";
 
 import React, { memo, useRef, useState, useCallback, useEffect, useLayoutEffect, useImperativeHandle, forwardRef, KeyboardEvent } from "react";
@@ -2115,7 +2114,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
           </div>
         )}
 
-        {!compact && pageRuntime() === "pi" && <div className="voice-surface-slot" ref={setVoiceSurface} />}
+        {!compact && <div className="voice-surface-slot" ref={setVoiceSurface} />}
         {/* Keep the draft mounted and unchanged while inline capture occupies its surface. */}
         <div className={compact ? undefined : "composer-draft"} style={{ position: "relative", minWidth: 0 }}>
           {historyMenuOpen && inputHistory.length > 0 && (
@@ -2554,7 +2553,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
               {promptSuggestionPlaceholder}
             </div>
           )}
-          {!compact && pageRuntime() === "pi" && <div className="voice-dictation-waveform-slot" ref={setVoiceWaveformSurface} aria-hidden="true"/>}
+          {!compact && <div className="voice-dictation-waveform-slot" ref={setVoiceWaveformSurface} aria-hidden="true"/>}
           {(!welcome || compact) && sendButton}
 
 
@@ -2581,7 +2580,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
           {/* LEFT: separate, evenly spaced attachment and voice actions. */}
           <div style={{ flex: isMobile ? "1 1 auto" : "0 0 auto", minWidth: 0, display: "flex", alignItems: "center", gap: 12 }}>
             {welcome ? welcomeToolbar : attachButton}
-            {pageRuntime() === "pi" && <VoiceControls
+            <VoiceControls
               key={`${draftKey ?? ""}:${cwd ?? ""}:${voiceNavigation ?? 0}:${voiceEpoch}:${voiceActive}`}
               active={voiceActive} sessionId={voiceSessionId} leafId={voiceLeafId}
               surface={voiceSurface} waveformSurface={voiceWaveformSurface} onSurfaceActive={setVoiceSurfaceActive}
@@ -2592,7 +2591,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                 valueRef.current = next;
                 setText(next);
               }}
-            />}
+            />
 
           </div>
 

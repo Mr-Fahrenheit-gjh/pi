@@ -26,7 +26,6 @@ import { hasActiveSessionLivenessProvider } from "./session-liveness";
 import { assertServiceNotRestarting } from "./service-restart-state";
 import { createPackageSubagentExtension } from "./package-subagent-bridge";
 import { createDesignDeckExtension } from "./design-deck-bridge";
-import { createRuntimePeerExtension } from "./runtime-peer-extension";
 import type { SlashCommandInfo } from "@earendil-works/pi-coding-agent";
 import type { AgentSessionLike, ExtensionUiContextLike, ToolInfo } from "./pi-types";
 import type {
@@ -74,8 +73,7 @@ import {
 
 import { getInterruptSteerState, installInterruptSteer, isInterruptSteerBusy } from "./interrupt-steer.mjs";
 
-// Pi Meta uses the verified original AgentSession, without the local interrupt patch.
-if (process.env.PI_META_PROCESS !== "1") installInterruptSteer(AgentSession);
+installInterruptSteer(AgentSession);
 
 // ============================================================================
 // Types
@@ -2830,11 +2828,6 @@ export async function startRpcSession(
   const chatOnly = selectedToolNames?.length === 0 && !subagentLoadsResources;
   const finishStartingSession = trackStartingSession(sessionCwd);
   const starting = (async () => {
-    const piMeta = process.env.PI_META_PROCESS === "1";
-    if (piMeta && (Reflect.get(globalThis, Symbol.for("pi-web:meta-original-agent-session/v1")) !== true ||
-        "hasPendingInterruptSteer" in AgentSession.prototype)) {
-      throw new Error("Pi Meta original kernel was not loaded; refusing to start a session");
-    }
     // Some extensions access the SDK's global theme even outside the terminal UI.
     if (!chatOnly) initTheme();
     const agentDir = getAgentDir();
@@ -2928,34 +2921,25 @@ export async function startRpcSession(
             appendSystemPrompt: subagentResources.appendSystemPrompt,
           }
         : chatOnly
-          ? { ...CHAT_ONLY_RESOURCE_LOADER_OPTIONS, extensionFactories: [exactSystemPromptExtension, ...(piMeta ? [] : [createInlineVisualExtension(inlineVisualPreference)])] }
+          ? { ...CHAT_ONLY_RESOURCE_LOADER_OPTIONS, extensionFactories: [exactSystemPromptExtension, createInlineVisualExtension(inlineVisualPreference)] }
         : {
-            ...(piMeta ? {
-              noSkills: true,
-              noContextFiles: true,
-              systemPromptOverride: () => undefined,
-              appendSystemPrompt: [],
-            } : {}),
             extensionFactories: [
               ...(builtins?.extensions ?? []),
               createReadOnlyMcpPolicyExtension(),
-              ...(piMeta ? [] : [
-                createInlineVisualExtension(inlineVisualPreference),
-                createPackageSubagentExtension(),
-                createDesignDeckExtension(),
-                createRuntimePeerExtension(),
-                createProjectCommandBashExtension({
-                  cwd: sessionCwd,
-                  settings: settingsManager,
-                }),
-                createSubagentExtension(
-                  SUBAGENT_CONTROLLER.extensionRuntime,
-                  () => listSubagentProfiles(sessionCwd),
-                  isBuiltInSubagentsEnabled,
-                ),
-              ]),
+              createInlineVisualExtension(inlineVisualPreference),
+              createPackageSubagentExtension(),
+              createDesignDeckExtension(),
+              createProjectCommandBashExtension({
+                cwd: sessionCwd,
+                settings: settingsManager,
+              }),
+              createSubagentExtension(
+                SUBAGENT_CONTROLLER.extensionRuntime,
+                () => listSubagentProfiles(sessionCwd),
+                isBuiltInSubagentsEnabled,
+              ),
             ],
-            extensionsOverride: (base) => preferUserBashExtension(piMeta ? base : preferPiWebSubagentExtension(base)),
+            extensionsOverride: (base) => preferUserBashExtension(preferPiWebSubagentExtension(base)),
           },
       ...(trustReloadOptions ? { resourceLoaderReloadOptions: trustReloadOptions } : {}),
     });
@@ -3069,7 +3053,7 @@ export async function startRpcSession(
     }
 
     skillsBinding?.setActiveToolsGetter(() => inner.getActiveToolNames());
-    if (!subagentResources && !piMeta) bindInlineVisualPrompt(inner.agent, inlineVisualPreference);
+    if (!subagentResources) bindInlineVisualPrompt(inner.agent, inlineVisualPreference);
     const exactSystemPrompt = subagentResources
       ? skillsBinding!.getExactSystemPrompt
       : chatOnly
@@ -3079,7 +3063,7 @@ export async function startRpcSession(
     const mcpHost = builtins?.mcpHost ?? subagentMcp?.mcpHost;
     const wrapper = new AgentSessionWrapper(inner, {
       exactSystemPrompt,
-      ...(!subagentResources && !piMeta ? { inlineVisualPreference } : {}),
+      ...(!subagentResources ? { inlineVisualPreference } : {}),
       chatOnly,
       onAgentRunStart: (id) => persistReadLifecycle(id, "start"),
       onAgentRunComplete: (completedSessionId, sessionName) => {

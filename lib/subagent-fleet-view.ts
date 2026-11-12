@@ -1,4 +1,3 @@
-import { runtimeFetch as fetch } from "./runtime-client.mjs";
 import { englishText } from "./i18n/english.mjs";
 import type { UiTranslate } from "./i18n/types";
 // Client-safe projections. Fleet keys and workflow child ids are never control targets.

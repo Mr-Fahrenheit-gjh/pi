@@ -1,4 +1,3 @@
-import { runtimeFetch as fetch } from "./runtime-client.mjs";
 import type { BrowserCommand, BrowserPageState } from "./browser-types";
 export async function browserRequest(path: string, options?: RequestInit): Promise<{ state?: BrowserPageState; text?: string }> {
   const response = await fetch(path, { ...options, signal: AbortSignal.timeout(20000) });

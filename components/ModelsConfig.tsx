@@ -1,5 +1,4 @@
 "use client";
-import { runtimeApi, runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
 
 import { useState, useEffect, useCallback, useId, useRef } from "react";
 import { useI18n } from "@/hooks/useI18n";
@@ -1334,7 +1333,7 @@ function OAuthDetail({ provider, onRefresh, enabledModels }: {
     setLoginState({ phase: "connecting" });
     setInputValue("");
 
-    const es = new EventSource(runtimeApi(`/api/auth/login/${encodeURIComponent(provider.id)}`));
+    const es = new EventSource(`/api/auth/login/${encodeURIComponent(provider.id)}`);
     eventSourceRef.current = es;
 
     es.onmessage = (e) => {

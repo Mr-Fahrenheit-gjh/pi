@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { runtimeFetch as fetch, pageRuntime } from "@/lib/runtime-client.mjs";
 import { MAX_TASK_OUTPUTS, taskOutputPath } from "@/lib/task-outputs";
 
 /** Mounted only for the visible Outputs tab; hidden views do not poll or load history. */
 export function useTaskOutputs(sessionId: string, cwd: string, leafId: string | null, refreshKey: number) {
-  const scope = JSON.stringify([pageRuntime(), sessionId, cwd, leafId]);
+  const scope = JSON.stringify([sessionId, cwd, leafId]);
   const [retry, setRetry] = useState(0);
   const [state, setState] = useState<{ scope: string; paths: string[]; loading: boolean; failed: boolean; truncated: boolean }>({ scope: "", paths: [], loading: true, failed: false, truncated: false });
   useEffect(() => {

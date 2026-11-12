@@ -1,4 +1,3 @@
-import { runtimeStorageKey } from "./runtime-client.mjs";
 import { isToolPreset, type ToolPreset } from "./tool-presets";
 
 const STORAGE_KEY = "pi-tool-preset";
@@ -28,7 +27,7 @@ export function getPreferredToolPreset(
 ): ToolPreset {
   if (!storage) return DEFAULT_TOOL_PRESET;
   try {
-    const value = storage.getItem(runtimeStorageKey(STORAGE_KEY));
+    const value = storage.getItem(STORAGE_KEY);
     return isToolPreset(value) ? value : DEFAULT_TOOL_PRESET;
   } catch {
     return DEFAULT_TOOL_PRESET;
@@ -41,7 +40,7 @@ export function setPreferredToolPreset(
 ): void {
   if (!storage) return;
   try {
-    storage.setItem(runtimeStorageKey(STORAGE_KEY), preset);
+    storage.setItem(STORAGE_KEY, preset);
   } catch {
     // Browser storage is best-effort.
   }

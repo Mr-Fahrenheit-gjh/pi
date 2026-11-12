@@ -10,9 +10,6 @@ const { I18nProvider } = await jiti.import("@/hooks/useI18n.tsx");
 const {
   BRAND_TEXT,
   PiWebTitle,
-  RUNTIME_SWITCH_MOTION_KEY,
-  RUNTIME_SWITCH_MOTION_MS,
-  consumeRuntimeSwitchMotion,
   SCRAMBLE_CHARS,
   VERSION_SHOWN_MS,
   brandVersionText,
@@ -69,24 +66,10 @@ test("the scramble keeps the length and the spaces and settles left to right", (
   assert.equal(scrambleFrameCount(versions), versions.length * 4);
 });
 
-test("runtime-switch arrivals animate both directions once, not direct visits or reloads", () => {
-  for (const target of ["pi", "feynman"]) {
-    const values = new Map([[RUNTIME_SWITCH_MOTION_KEY, JSON.stringify({ target, at: 1000 })]]);
-    const storage = { getItem: (key) => values.get(key) ?? null, removeItem: (key) => values.delete(key) };
-    assert.equal(consumeRuntimeSwitchMotion(storage, target, 1200), true);
-    assert.equal(consumeRuntimeSwitchMotion(storage, target, 1201), false);
-  }
-  assert.equal(RUNTIME_SWITCH_MOTION_MS, 400);
-  for (const value of ["broken", "null", JSON.stringify({ target: "feynman", at: 1000 }), JSON.stringify({ target: "pi", at: -10000 }), JSON.stringify({ target: "pi", at: 2000 })]) {
-    const storage = { getItem: () => value, removeItem() {} };
-    assert.equal(consumeRuntimeSwitchMotion(storage, "pi", 1200), false);
-  }
-  assert.equal(consumeRuntimeSwitchMotion({ getItem() { throw new Error("denied"); }, removeItem() {} }, "pi"), false);
-});
-
 test("the brand is a button named for what its click shows, with the brand's text", () => {
   const html = renderToStaticMarkup(React.createElement(I18nProvider, null, React.createElement(PiWebTitle)));
-  assert.equal(html, `<button type="button" class="sidebar-brand" aria-label="Switch agent" aria-haspopup="menu" aria-expanded="false">Pi Web</button>`);
+  assert.equal(html, `<button type="button" class="sidebar-brand" aria-label="Show versions">Pi Web</button>`);
+  assert.doesNotMatch(html, /aria-haspopup|aria-expanded/, "the brand is not a runtime menu");
   assert.doesNotMatch(html, /style=/, "no inline styles: its look is app/sidebar.css's");
   // In every language, with the visible name in it.
   for (const locale of ["en", "zh-CN", "zh-TW"]) {

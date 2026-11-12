@@ -646,28 +646,16 @@ test("renders custom-message images as buttons that open a larger preview", () =
   assert.match(html, /<img[^>]+src="data:image\/png;base64,YWJj"/);
 });
 
-test("Pi Meta bash output download stays in its runtime", () => {
-  const originalWindow = globalThis.window;
-  try {
-    globalThis.window = { location: { pathname: "/pi-meta" } };
-    const html = renderMessage({ role: "bashExecution", command: "echo test", output: "truncated", exitCode: 0, truncated: true, fullOutputPath: "/tmp/out.log" }, { sessionId: "session-1" });
-    assert.match(html, /href="\/api\/runtime\/meta\/agent\/session-1\/bash-output\?path=%2Ftmp%2Fout\.log&amp;download=1"/);
-  } finally {
-    if (originalWindow === undefined) delete globalThis.window; else globalThis.window = originalWindow;
-  }
+test("bash output download uses the native agent endpoint", () => {
+  const html = renderMessage({ role: "bashExecution", command: "echo test", output: "truncated", exitCode: 0, truncated: true, fullOutputPath: "/tmp/out.log" }, { sessionId: "session-1" });
+  assert.match(html, /href="\/api\/agent\/session-1\/bash-output\?path=%2Ftmp%2Fout\.log&amp;download=1"/);
 });
 
-test("tool-result image URLs use the current Pi Meta runtime", () => {
-  const originalWindow = globalThis.window;
-  try {
-    globalThis.window = { location: { pathname: "/pi-meta" } };
-    const block = { type: "toolCall", toolCallId: "image-1", toolName: "read", input: {} };
-    const result = { role: "toolResult", toolCallId: "image-1", content: [{ type: "image", source: { type: "url", url: "/api/sessions/s1/entries/e1/tool-result-image?blockIndex=1" } }] };
-    const html = renderMessage({ role: "assistant", content: [block] }, { toolResults: new Map([[block.toolCallId, result]]) });
-    assert.match(html, /src="\/api\/runtime\/meta\/sessions\/s1\/entries\/e1\/tool-result-image\?blockIndex=1"/);
-  } finally {
-    if (originalWindow === undefined) delete globalThis.window; else globalThis.window = originalWindow;
-  }
+test("tool-result image URLs retain the native session endpoint", () => {
+  const block = { type: "toolCall", toolCallId: "image-1", toolName: "read", input: {} };
+  const result = { role: "toolResult", toolCallId: "image-1", content: [{ type: "image", source: { type: "url", url: "/api/sessions/s1/entries/e1/tool-result-image?blockIndex=1" } }] };
+  const html = renderMessage({ role: "assistant", content: [block] }, { toolResults: new Map([[block.toolCallId, result]]) });
+  assert.match(html, /src="\/api\/sessions\/s1\/entries\/e1\/tool-result-image\?blockIndex=1"/);
 });
 
 test("shows tool-result images while the tool details stay collapsed", () => {

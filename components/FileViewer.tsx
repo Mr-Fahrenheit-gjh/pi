@@ -1,5 +1,4 @@
 "use client";
-import { runtimeApi, runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
 
 import { useEffect, useState, useRef, useCallback, useMemo, type CSSProperties, type MouseEvent } from "react";
 import type { SyntaxHighlighterProps } from "react-syntax-highlighter";
@@ -243,7 +242,7 @@ function getFileApiUrl(
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined) searchParams.set(key, String(value));
   }
-  return runtimeApi(`/api/files/${encoded}?${searchParams.toString()}`);
+  return `/api/files/${encoded}?${searchParams.toString()}`;
 }
 
 function FileActions({ filePath, sourceSessionId }: { filePath: string; sourceSessionId?: string | null }) {

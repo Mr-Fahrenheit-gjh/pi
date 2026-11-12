@@ -17,8 +17,6 @@ try {
 const gfmAutolinkEmailLoader = join(configDir, "lib/gfm-autolink-email-loader.cjs");
 
 const nextConfig: NextConfig = {
-  // A development Meta worker needs its own Next lock and cache.
-  ...(process.env.NODE_ENV === "development" && process.env.PI_META_PROCESS === "1" ? { distDir: ".next-pi-meta" } : {}),
   // Local release pipeline runs tsc explicitly before building in an isolated tree.
   typescript: { ignoreBuildErrors: process.env.PI_WEB_PRECHECKED_TYPES === "1" },
   outputFileTracingRoot: configDir,
@@ -49,7 +47,6 @@ const nextConfig: NextConfig = {
   // lazy diagram chunks are full of class `static {}` blocks (#753).
   transpilePackages: ["mermaid", "@mermaid-js/parser"],
   serverExternalPackages: [
-    // The Meta preload must wrap the same lock module used by Web.
     "proper-lockfile",
     "node-pty",
     "undici",

@@ -13,11 +13,10 @@ const menu = readFileSync(new URL('./QuickActions.tsx', import.meta.url), 'utf8'
 const evaluate = (source, context) => new Script(ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS } }).outputText).runInNewContext(context);
 const section = (source, start, end) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
 
-function actionsFixture(selectedSession = { id: 'current', cwd: '/conversation' }, runtime = 'pi', inlineVisualsEnabled = true) {
+function actionsFixture(selectedSession = { id: 'current', cwd: '/conversation' }, inlineVisualsEnabled = true) {
   const calls = [];
   const context = {
-    quickCwd: '/browser-folder', selectedSession, pageRuntime: () => runtime, translate: key => enLocale.messages[key],
-    runtimePage: target => target === 'meta' ? '/pi-meta' : '/', window: { location: { assign: path => calls.push(['navigate', path]) } },
+    quickCwd: '/browser-folder', selectedSession, translate: key => enLocale.messages[key],
     inlineVisualsEnabled, setInlineVisualsEnabled: value => calls.push(['inlineVisuals', value]),
     isMobile: false, splitOpen: false, setSplitOpen: value => calls.push(['splitOpen', value]),
     setActiveChatPane: value => calls.push(['activePane', value]), setRightPanelOpen: value => calls.push(['rightPanel', value]),
@@ -53,27 +52,24 @@ test('failed search batches preserve only results from that exact query', () => 
 });
 
 test('command and chat modes never mix commands with conversation or file results', () => {
-  assert.deepEqual(rows(), ['action:new', 'action:terminal', 'action:outputs', 'action:rename', 'action:fork', 'action:finder', 'action:inline-visuals', 'action:runtime-meta', 'action:split']);
+  assert.deepEqual(rows(), ['action:new', 'action:terminal', 'action:outputs', 'action:rename', 'action:fork', 'action:finder', 'action:inline-visuals', 'action:split']);
   assert.deepEqual(rows('file'), ['action:outputs']);
   assert.deepEqual(rows('', 'chat'), ['session:other']);
   assert.deepEqual(rows('file', 'chat'), ['session:other', 'file:report.md']);
   assert.deepEqual(rows('rename', 'chat'), []);
 });
 
-test('Pi Meta command switches runtimes and hides Pi-only visuals', () => {
-  const pi = actionsFixture(null, 'pi');
-  pi.actions.find(action => action.id === 'runtime-meta').run();
-  assert.deepEqual(pi.calls, [['navigate', '/pi-meta']]);
-  const meta = actionsFixture(null, 'meta');
-  assert.equal(meta.actions.some(action => action.id === 'inline-visuals'), false);
-  meta.actions.find(action => action.id === 'runtime-meta').run();
-  assert.deepEqual(meta.calls, [['navigate', '/']]);
+test('commands expose only the native workspace actions', () => {
+  const { actions } = actionsFixture();
+  assert.equal(actions.some(action => action.id.startsWith('runtime-')), false);
+  assert.ok(actions.some(action => action.id === 'split'));
+  assert.ok(actions.some(action => action.id === 'terminal'));
 });
 
 test('Intelligence UI command reflects the current preference and toggles the existing setting', () => {
   assert.match(shell, /const inlineVisualsEnabled = useInlineVisuals\(\)/);
   for (const enabled of [true, false]) {
-    const fixture = actionsFixture(null, 'pi', enabled);
+    const fixture = actionsFixture(null, enabled);
     const action = fixture.actions.find(action => action.id === 'inline-visuals');
     assert.ok(action, 'available without a selected session');
     assert.equal(action.label, enLocale.messages[enabled ? 'quickActions.disableInlineVisuals' : 'quickActions.enableInlineVisuals']);
@@ -229,8 +225,8 @@ test('Rename matches English and Chinese aliases and opens the current conversat
 });
 
 test('Rename is absent without a saved native conversation or for read-only subagents', () => {
-  for (const [session, runtime] of [[null, 'pi'], [{ id: 'draft', transient: true }, 'pi'], [{ id: 'peer' }, 'feynman'], [{ id: 'child', relation: { kind: 'subagent' } }, 'pi']]) {
-    assert.equal(actionsFixture(session, runtime).actions.some(action => action.id === 'rename'), false);
+  for (const session of [null, { id: 'draft', transient: true }, { id: 'child', relation: { kind: 'subagent' } }]) {
+    assert.equal(actionsFixture(session).actions.some(action => action.id === 'rename'), false);
   }
 });
 

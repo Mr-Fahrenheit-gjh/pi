@@ -14,7 +14,7 @@ The selected-model button and assistant model labels both reuse `ProviderIcon` t
 
 ## Session Fast control
 
-The GPT model picker exposes Fast on/off plus “Use model settings” (`auto`) for the existing `pi-codex-speed` extension. `set_fast_mode` dispatches only that verified extension's fixed `fast` command, never a prompt/abort, and `get_state.fastModeState` reads its current branch entry. Missing extensions/adapters are unavailable; never infer auto/standard from status text. This does not change global defaults, thinking or Feynman control.
+The GPT model picker exposes Fast on/off plus “Use model settings” (`auto`) for the existing `pi-codex-speed` extension. `set_fast_mode` dispatches only that verified extension's fixed `fast` command, never a prompt/abort, and `get_state.fastModeState` reads its current branch entry. Missing extensions/adapters are unavailable; never infer auto/standard from status text. This does not change global defaults or thinking.
 
 The menu stays openable mid-run, but its model/default rows remain disabled. A speed change affects the next `before_provider_request`, including another request after tools in the same run. The plugin retains the in-flight request's original mode, tier, verification and usage ledger. New-chat menu actions may ensure a non-prompt session before persisting the setting. Existing sessions must reload the updated extension while idle before using the mid-run feature.
 

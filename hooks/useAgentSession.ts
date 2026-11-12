@@ -1,5 +1,4 @@
 "use client";
-import { pageRuntime, runtimeApi, runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
 
 import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo, useReducer } from "react";
 import type {
@@ -575,7 +574,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
 
   if (!eventConnectionRef.current) {
     eventConnectionRef.current = new AgentEventConnection({
-      createSource: (sid) => new EventSource(runtimeApi(`/api/agent/${encodeURIComponent(sid)}/events`)),
+      createSource: (sid) => new EventSource(`/api/agent/${encodeURIComponent(sid)}/events`),
       onEvent: (event) => handleAgentEventRef.current?.(event as AgentEvent),
       shouldMaintain: (sid) => (
         sessionHookMountedRef.current
@@ -1065,7 +1064,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   }, []);
 
   const handleFastModeChange = useCallback(async (mode?: FastMode) => {
-    if (fastModePendingRef.current || pageRuntime() !== "pi") return;
+    if (fastModePendingRef.current) return;
     fastModePendingRef.current = true;
     setFastModeBusy(true);
     if (mode === undefined) setFastModeState(null);
@@ -2206,7 +2205,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   }, [addNotice, composerDraftKey, ensureNewSession, loadSession, promoteNewSession, restoreSubmission, session]);
   executeBashRef.current = executeBash;
 
-  const taskCanContinue = pageRuntime() === "pi" && !isNew && !editEntryId && !!activeLeafId
+  const taskCanContinue = !isNew && !editEntryId && !!activeLeafId
     && !agentRunning && !bashRunning && !isCompacting
     && queuedMessages.steering.length === 0 && queuedMessages.followUp.length === 0
     && canContinueTask(messages);
@@ -3095,7 +3094,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           if (agentState.state.extensionWidgets !== undefined) setExtensionWidgets(agentState.state.extensionWidgets ?? []);
           if (agentState.state.queuedMessages !== undefined) setQueuedMessages(normalizeQueuedMessages(agentState.state.queuedMessages));
         }
-        if (pageRuntime() === "pi" && agentState?.loadedLeafId
+        if (agentState?.loadedLeafId
           && !agentState.state?.isStreaming && !agentState.state?.isPromptRunning
           && !agentState.state?.isBashRunning && !agentState.state?.isCompacting) {
           void requestOpenedPromptSuggestion({
@@ -3347,7 +3346,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     lastUserMsgRef, pendingScrollToUserRef, initialScrollDoneRef,
     // Actions
     handleSend, handleAbort, handleContinueTask, taskCanContinue, handleFork, handleNavigate, handleModelChange,
-    fastModeState, fastModeBusy, handleFastModeChange: pageRuntime() === "pi" ? handleFastModeChange : undefined,
+    fastModeState, fastModeBusy, handleFastModeChange,
     handleCompact, handleSteer, handleFollowUp, handlePromptWithStreamingBehavior, handleAbortCompaction,
     dismissCompactError,
     handleRecallQueue,

@@ -1,4 +1,3 @@
-import { runtimeApi, runtimeFetch as fetch } from "./runtime-client.mjs";
 import { buildAtMentionText } from "./file-fuzzy";
 import { encodeFilePathForApi } from "./file-paths";
 
@@ -40,7 +39,7 @@ export function uploadFiles(
     const xhr = new XMLHttpRequest();
     xhr.open(
       "POST",
-      runtimeApi(`/api/files/${encodeFilePathForApi(targetDirectory)}?type=upload&conflict=${strategy}`),
+      `/api/files/${encodeFilePathForApi(targetDirectory)}?type=upload&conflict=${strategy}`,
     );
     xhr.upload.onprogress = (event) => {
       if (onProgress && event.lengthComputable && event.total > 0) {

@@ -6,7 +6,7 @@ test('only the selected old-session mount requests a suggestion, not generic bac
   const loader=source.slice(source.indexOf('  const loadSession ='),source.indexOf('  const loadContext ='));
   assert.doesNotMatch(loader,/requestOpenedPromptSuggestion/);
   const mount=source.slice(source.indexOf('  // Load session on mount'),source.indexOf('    onSystemPromptChange?.(systemPrompt)'));
-  assert.match(mount,/loadedLeafId/);assert.match(mount,/pageRuntime\(\) === "pi"/);
+  assert.match(mount,/loadedLeafId/);
   assert.match(mount,/disposed \|\| sessionPropIdRef/);assert.match(mount,/ensureConnected: ensureEventsConnected/);
   assert.match(mount,/getDraft\(session.id\)/);assert.match(mount,/disposed = true/);
   assert.match(mount,/!agentState.state\?\.isStreaming/);assert.match(mount,/!agentState.state\?\.isPromptRunning/);

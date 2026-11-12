@@ -1,4 +1,3 @@
-import { runtimeFetch as fetch } from "./runtime-client.mjs";
 /**
  * Client-side Web Push subscription. Called once when the Notification
  * permission is granted; silently no-ops on unsupported browsers (e.g. iOS

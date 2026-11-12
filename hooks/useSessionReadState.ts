@@ -1,6 +1,5 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, type SetStateAction } from "react";
-import { runtimeFetch } from "@/lib/runtime-client.mjs";
 import { SessionReadClient } from "@/lib/session-read-client";
 
 export function useSessionReadState(selectedId: string | null, load: () => Set<string>, save: (ids: Set<string>) => void) {
@@ -10,7 +9,7 @@ export function useSessionReadState(selectedId: string | null, load: () => Set<s
   const [revision, render] = useState(0);
   const [syncFailures, setSyncFailures] = useState(0);
   const [client] = useState(() => new SessionReadClient({
-    fetch: runtimeFetch,
+    fetch: (input, init) => fetch(input, init),
     legacyIds: () => [...legacyRef.current],
     migrated: () => save(new Set()),
     changed: () => render(value => value + 1),

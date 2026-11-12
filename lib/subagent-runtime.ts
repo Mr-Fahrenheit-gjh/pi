@@ -48,8 +48,8 @@ import { addWorktree, removeWorktree } from "./worktree";
 import { randomUUID } from "node:crypto";
 import { installInterruptSteer, hasQueuedInterruptSteer, queueInternalSteer, setInterruptSteerGuard } from "./interrupt-steer.mjs";
 
-// Embedded/test loaders may hold a different SDK instance, but Meta must remain original.
-if (process.env.PI_META_PROCESS !== "1") installInterruptSteer(AgentSession);
+// Embedded/test loaders may hold a different SDK instance.
+installInterruptSteer(AgentSession);
 
 interface HostSession {
   readonly inner: AgentSessionLike;

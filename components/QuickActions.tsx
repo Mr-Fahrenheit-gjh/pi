@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
 import { quickActionsShortcutMode, type QuickActionsMode } from "@/hooks/useKeyboardShortcuts";
 import { useI18n } from "@/hooks/useI18n";
 import { SpinnerIcon } from "@/components/SidebarIcons";

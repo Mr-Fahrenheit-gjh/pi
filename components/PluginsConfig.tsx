@@ -1,5 +1,4 @@
 "use client";
-import { runtimeFetch as fetch } from "@/lib/runtime-client.mjs";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { sendAgentCommand } from "@/lib/agent-client";
