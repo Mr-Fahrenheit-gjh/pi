@@ -3,8 +3,10 @@ name: Windows and Linux
 on:
   push:
     branches: [pi-web]
+    paths-ignore: ["README*.md", "docs/**", "AGENTS.md", "CONTEXT.md"]
   pull_request:
     branches: [pi-web]
+    paths-ignore: ["README*.md", "docs/**", "AGENTS.md", "CONTEXT.md"]
 
 permissions:
   contents: read
@@ -27,6 +29,7 @@ jobs:
         with:
           node-version: 22.19.0
           cache: npm
-      - run: npm ci
+      - run: node --test lib/start-custom.test.mjs lib/public-distribution.test.mjs
+      - run: node bin/start-custom.js --prepare
       - run: npm run test:platform
-      - run: npm run build
+      - run: node e2e/public-start.mjs

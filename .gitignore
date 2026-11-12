@@ -16,11 +16,14 @@
 
 # next.js
 /.next/
-/.next-pi-meta/
 /out/
 
 # production
 /build
+
+# local quick-start state (no credentials)
+/.pi-web-start.json*
+/.pi-web-setup.lock
 
 # misc
 .DS_Store
