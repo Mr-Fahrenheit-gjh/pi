@@ -50,7 +50,6 @@
     "hooks/useArchiveVisibility.ts": ["pi-web:sidebar-show-archived", "useSyncExternalStore"],
     "components/TodoWorkspace.tsx": ["workspace.todos", "/todos"],
     "lib/session-todos.ts": ["rpiv-todo-state", "readSessionTodos"],
-    "lib/service-restart.ts": ["launchdOwnsProcess", "getRestartBlockingRpcSessionIds", "attemptId"],
     "app/api/agent/running/route.ts": ["otherRuntimeRunningSessionIds", "getDesignDecks"],
     "lib/design-deck-bridge.ts": ["design-deck:present", "design-deck:closed", "request.handled = true"],
     "components/DesignDeckWorkspace.tsx": ["NativeBrowser", "collapsed"],
@@ -71,7 +70,7 @@
     "app/api/agent/[id]/subagents/route.ts": ["export"]
   },
   "forbiddenSourceMarkers": {
-    "components/AppShell.tsx": ["ServiceRestartButton", "PendingReleasePanel", "usePendingReleases"],
+    "components/AppShell.tsx": ["PendingReleasePanel", "usePendingReleases"],
     "components/ChatWindow.tsx": ["new-session-context-footer", "<NewSessionContextBar"]
   }
 }

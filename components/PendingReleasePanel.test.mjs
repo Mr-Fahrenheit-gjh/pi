@@ -34,7 +34,7 @@ test("API is read-only and accepts no request-controlled filesystem path", () =>
 
 test("footer only mounts Settings, without release polling or restart entry", () => {
   assert.match(shell, /<SettingsPanel/);
-  assert.doesNotMatch(shell, /PendingReleasePanel|usePendingReleases|pendingReleaseOpen|ServiceRestartButton/);
+  assert.doesNotMatch(shell, /PendingReleasePanel|usePendingReleases|pendingReleaseOpen/);
   const footer = shell.match(/<div className="workspace-settings-entry">([\s\S]*?)<\/div>/)?.[1] ?? "";
   assert.equal((footer.match(/<button/g) ?? []).length, 1);
   assert.match(footer, /translate\("common.settings"\)/);

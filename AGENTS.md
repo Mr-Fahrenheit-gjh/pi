@@ -245,7 +245,7 @@ Design decisions and traps live in `docs/agents/`, one note per area. Read every
 
 ---
 
-- [local-workspace.md](docs/agents/local-workspace.md): current local composition overrides for fixed/hover sidebars, Claude-inspired composer, right-side Tasks/Sub-agents, quiet footer, private chat attachments and guarded service restart. Read this before changing those local surfaces; it supersedes upstream toolbar/brand/footer composition descriptions.
+- [local-workspace.md](docs/agents/local-workspace.md): current local composition overrides for fixed/hover sidebars, Claude-inspired composer, right-side Tasks/Sub-agents, quiet footer, private chat attachments and work-admission guards. Read this before changing those local surfaces; it supersedes upstream toolbar/brand/footer composition descriptions.
 
 ## Old Safari (iOS 16.2)
 

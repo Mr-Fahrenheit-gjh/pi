@@ -81,7 +81,7 @@ export async function runUiPolishChecks(page, { baseURL, outputDir }) {
 
     await left.click();
     check(await page.locator('.workspace-settings-entry > button').count() === 1, 'Footer only keeps Settings');
-    check(await page.locator('.service-restart-button, .pending-release-entry-button').count() === 0, 'Maintenance entries are unmounted');
+    check(await page.locator('.pending-release-entry-button').count() === 0, 'Maintenance entries are unmounted');
     checks.push('footer: only Settings, no release/restart controls');
 
     for (const width of [1100, 820, 640, 390]) {
@@ -135,7 +135,7 @@ export async function runSidebarRefinementChecks(page, { baseURL, outputDir, ses
   assert.equal(await page.locator('.sidebar-quick-actions input').count(), 0);
   assert.deepEqual(await page.locator('.sidebar-quick-actions > button').allTextContents(), ['New', 'Search']);
   assert.deepEqual(await page.locator('.workspace-settings-entry > button').allTextContents(), ['Settings']);
-  assert.equal(await page.locator('.pending-release-entry-button, .service-restart-button').count(), 0);
+  assert.equal(await page.locator('.pending-release-entry-button').count(), 0);
   await page.locator('.sidebar-quick-search').click();
   await page.locator('.quick-actions-surface[data-mode="chat"]').waitFor();
   await page.screenshot({ path: `${outputDir}/sidebar-search.png`, style: 'nextjs-portal { display: none !important; }' });

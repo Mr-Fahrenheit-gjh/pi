@@ -4,9 +4,9 @@
 
 ## 一份共享持久清单
 
-默认目录：`/Users/guojiahang/Documents/pi/工具/pi-web维护/待上线`。
+默认目录：当前用户的 `~/.pi/agent/pending-releases`；设置 `PI_CODING_AGENT_DIR` 时，使用该 agent 目录下的 `pending-releases`。
 
-服务端和 CLI 均可通过进程环境 `PI_PENDING_RELEASE_DIR` 覆盖，必须是绝对目录，路径各级不得是符号链接。API 和网页不能指定路径。若 Web 使用覆盖目录，CLI 必须使用同一环境值；否则保留默认值。测试仅使用独立临时目录，不向默认目录登记。
+服务端和 CLI 均可通过进程环境 `PI_PENDING_RELEASE_DIR` 覆盖，必须是绝对目录，路径各级不得是符号链接。API 和网页不能指定路径。显式 `PI_PENDING_RELEASE_DIR` 优先于 `PI_CODING_AGENT_DIR`。Web 与 CLI 必须使用一致的环境配置。测试仅使用独立临时目录，不向默认目录登记。
 
 - 每项一个小写 `UUID.json`，`schemaVersion: 1`、独立 `revision`。人和任意模型都用下面的 CLI 写入；**禁止直接覆盖 JSON 文件**。
 - 读操作不创建目录，目录不存在视为空。坏 JSON、未知版本、超限或不安全条目明确警告，其他条目仍显示；此时 footer 数量显示 `—`，不冒充完整计数。目录不可访问或超过 1000 项时 API 返回 503，不返回伪空清单。
