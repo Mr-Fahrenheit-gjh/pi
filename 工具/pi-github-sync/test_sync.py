@@ -304,6 +304,38 @@ class SyncTests(unittest.TestCase):
         with self.assertRaisesRegex(sync.SyncError, "链接或子仓库"):
             self.synchronize()
 
+    def test_private_runtime_files_are_excluded_from_pi_snapshot(self):
+        for path in ("工具/pi-interrupt/pi_meta_helper.py", "工具/pi-interrupt/feynman-helper.mjs"):
+            save(self.root, path, "private runtime implementation\n")
+        commit(self.root)
+        self.synchronize()
+        paths = command("git", "--git-dir", str(self.remote), "ls-tree", "-r", "--name-only", "main")
+        self.assertNotIn("pi_meta", paths)
+        self.assertNotIn("feynman", paths)
+
+    def test_private_web_runtime_head_blocks_both_pushes(self):
+        paths = ("lib/pi-meta-process.mjs", "lib/feynman-rpc.ts", "app/api/runtime/meta/[...path]/route.ts",
+                 "app/api/service/restart/route.ts")
+        for path in paths:
+            with self.subTest(path=path):
+                save(self.web, path, "private runtime implementation\n")
+                commit(self.web)
+                with self.assertRaisesRegex(sync.SyncError, "公开版禁止同步"):
+                    self.synchronize()
+                self.assertEqual(command("git", "--git-dir", str(self.remote), "for-each-ref", "--format=%(refname)"), "")
+                (self.web / path).unlink()
+                commit(self.web)
+
+    def test_clean_web_head_preserves_existing_history_without_private_runtime_in_current_tree(self):
+        path = "lib/feynman-rpc.ts"
+        save(self.web, path, "previously published runtime\n")
+        old = commit(self.web)
+        (self.web / path).unlink()
+        commit(self.web)
+        result = self.synchronize()
+        self.assertNotIn(path, command("git", "--git-dir", str(self.remote), "ls-tree", "-r", "--name-only", "pi-web"))
+        self.assertEqual(command("git", "--git-dir", str(self.remote), "merge-base", old, result["pi-web"]), old)
+
     def test_lfs_pointer_is_rejected(self):
         save(self.web, "asset.bin", "version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize 1\n")
         commit(self.web)

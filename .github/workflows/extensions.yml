@@ -14,6 +14,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  export-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -B -m unittest -v test_sync
+        working-directory: 工具/pi-github-sync
+
   extensions:
     strategy:
       fail-fast: false

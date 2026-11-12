@@ -207,7 +207,19 @@ def validate_path(path: str) -> None:
         raise SyncError(f"发现禁止同步的敏感文件路径: {path}")
 
 
+def excluded_runtime_source(path: str) -> bool:
+    """Private runtime implementations are not part of the public distribution."""
+    parts = PurePosixPath(path.lower()).parts
+    if any("feynman" in part or "feyman" in part or "pi-meta" in part or "pi_meta" in part for part in parts):
+        return True
+    return path.lower() in {"lib/service-restart.ts", "components/servicerestartbutton.tsx"} or path.lower().startswith((
+        "app/api/runtime/meta/", "app/api/service/meta-deployment/", "app/api/service/restart/",
+    ))
+
+
 def pi_source(path: str) -> bool:
+    if excluded_runtime_source(path):
+        return False
     if not any(path.startswith(root) for root in PI_SOURCE_ROOTS) and not path.startswith(MAINTENANCE_ROOT):
         return False
     relative = path[len(MAINTENANCE_ROOT):] if path.startswith(MAINTENANCE_ROOT) else path
@@ -329,6 +341,14 @@ def committed_pi(repo: Path, commit: str) -> tuple[list[tuple[str, str, str]], d
             entries.append((mode, oid, "README.md"))
             break
     return entries, contents
+
+
+def assert_public_web_tree(repo: Path, head: str) -> None:
+    # Check only the committed current tree. Existing published ancestry is kept
+    # and still receives the separate, full-history credential scan below.
+    for _, _, path in tree_entries(repo, head):
+        if excluded_runtime_source(path):
+            raise SyncError(f"公开版禁止同步 Pi Meta/Feynman 实现，请先准备已清理的公开源码树: {path}")
 
 
 def scan_web_history(repo: Path, head: str) -> None:
@@ -476,6 +496,9 @@ def sync_once(workspace: Path, web: Path, snapshot: Path, url: str,
     ensure_no_url_rewrites(workspace)
     ensure_no_url_rewrites(web)
     source_head, web_head = workspace_head or git_head(workspace), git_head(web)
+    # Never export the machine-specific runtimes, even to an approved private target.
+    # Refuse a mixed Web tree rather than deleting files and leaving broken imports.
+    assert_public_web_tree(web, web_head)
     # Scan both source sets before any push, including all history that Git will transfer.
     entries, contents = committed_pi(workspace, source_head)
     web_mirror = snapshot.parent / "web-mirror.git"

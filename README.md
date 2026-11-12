@@ -1,179 +1,377 @@
-# Pi · Pi Web · Pi Bar
+# Pi · 定制网页工作台
 
-个人使用的 Pi 定制源码仓库：保存终端侧扩展、定制网页端和 macOS 菜单栏应用，便于追踪改动、查阅实现和迁移定制能力。
+在浏览器里使用 Pi：选项目、与模型对话、让代理读写代码、查看子代理与产物，也可以同时打开文件、终端和第二段对话。
 
-**这是源码同步仓库，不是完整的本机配置备份，也不是一键安装包。** 模型授权、私有设置、聊天记录和运行数据需要另外管理；仓库中的源码也不等于已经在所有宿主中启用。
+**这份 README 是安装与操作手册。** 可运行的网页端源码在 **`pi-web` 分支**；`main` 分支主要保存 Pi 扩展与本手册。只想使用网页端，不需要先 Fork GitHub 仓库，也不需要先安装 Pi CLI、MCP、Docker 或菜单栏应用。
 
-## Windows / Linux
+公开版不包含 **Pi Meta、Feynman** 的实现、页面或运行入口，不需要作者机器上的私有服务。你的模型账号、API key、聊天和设置由你自己管理；仓库不附送模型额度，也不会恢复作者的配置。
 
-Pi 与定制 Pi Web 共用源码，现已补充原生 Windows 和 Linux 的路径、附件及扩展加载适配；不重做界面、不升级依赖。运行步骤、组件条件和仍属 macOS 的能力见[跨平台说明](工具/pi-local-runtime/packages/PLATFORMS.md)；Web 的原生系统测试与构建见 [Windows and Linux 工作流](https://github.com/Mr-Fahrenheit-gjh/pi/actions/workflows/platforms.yml)。源码适配不等于所有外接服务或插件已安装、已验证。
+## 目录
 
-Pi Bar、现有 Pi Meta / launchd 部署集成仍仅用于 macOS。仓库当前公开，原「仅私有仓库」每日同步因此停止；本次仅更新公开源码，不放开同步守卫。
+- [1. 下载并启动](#1-下载并启动)
+- [2. 第一次进入：配模型、选项目、发消息](#2-第一次进入配模型选项目发消息)
+- [3. 认识左栏、中间对话和右栏](#3-认识左栏中间对话和右栏)
+- [4. Cmd/Ctrl+K 与 Cmd/Ctrl+J](#4-cmdctrlk-与-cmdctrlj)
+- [5. Fork、从这里编辑与分屏](#5-fork从这里编辑与分屏)
+- [6. 发送、Steer、Queue 与 Stop](#6-发送steerqueue-与-stop)
+- [7. 文件、附件、Outputs 与终端](#7-文件附件outputs-与终端)
+- [8. 常用快捷键](#8-常用快捷键)
+- [9. 更新、备份与常见问题](#9-更新备份与常见问题)
+- [10. 可选扩展与源码说明](#10-可选扩展与源码说明)
 
-## 三个组件
+## 1. 下载并启动
 
-| 组件 | 用途 | 源码入口 |
+### 先准备什么
+
+| 项目 | 是否必需 | 说明 |
 | --- | --- | --- |
-| **Pi** | 终端与代理运行时的本地扩展、工具适配和工程技能 | [`main` 的 `工具/`](工具/) 与 [`.pi/skills/`](.pi/skills/) |
-| **Pi Web** | 与 Pi 配合使用的本地浏览器工作台，保留本地界面和交互定制 | [`pi-web` 分支](https://github.com/Mr-Fahrenheit-gjh/pi/tree/pi-web) |
-| **Pi Bar** | macOS 菜单栏应用，源码目录名为 `pi-menubar`，应用名为 Pi Menu Bar | [`工具/pi-menubar/`](工具/pi-menubar/) |
+| Node.js 与 npm | **必需** | 建议 Node.js **22 LTS，至少 22.19.0**。官方安装包自带 npm；安装后重新打开终端 |
+| 浏览器 | **必需** | 使用较新的 Chrome、Edge、Firefox 或 Safari 即可 |
+| 模型授权 | **要得到真实回复就必需** | 使用你自己的受支持账号或 API key，启动后在网页里配置 |
+| Git | 推荐 | 用于下面的克隆、更新、Git diff 与 worktree；只下载 ZIP 不要求先装 Git |
+| 本地编译工具 | 按需 | `node-pty` 没有适用预编译包时才需要，见后面的排障说明 |
 
-日常 Web 入口为 `http://127.0.0.1:30141`。Pi Bar 默认连接同一地址，复用已经打开的 Chrome Pi Web 标签页。
+**不用先配置的东西：** MCP、外部记忆服务、tmux 后台任务、独立 Chrome 自动化、Pi Bar。这些都不是打开网页和开始普通对话的前置条件。
 
-## 分支与目录
+### Windows：推荐下载后双击
 
-### `main`：定制源码快照
+1. 安装 [Node.js](https://nodejs.org/)，确认选择包含 npm 的安装方式。
+2. [下载网页端 ZIP](https://github.com/Mr-Fahrenheit-gjh/pi/archive/refs/heads/pi-web.zip)，**先解压**，再进入解压后的目录。
+3. 确认目录里有 `start.cmd`、`package.json`，然后双击 **`start.cmd`**。
+4. 第一次会自动按锁文件安装本项目依赖、构建网页并启动；保持窗口打开，等待浏览器自动打开。
 
-从原始工作区的**已提交内容**中按白名单生成，不是原始工作区的完整 Git 历史。每个同步提交会注明对应的工作区提交，便于溯源。
+已安装 Git 的用户也可以在 PowerShell 执行：
+
+```powershell
+git clone --branch pi-web --single-branch https://github.com/Mr-Fahrenheit-gjh/pi.git pi-web-custom
+cd pi-web-custom
+.\start.cmd
+```
+
+之后仍然双击同一个 `start.cmd` 即可。PowerShell 若提示 `npm.ps1` 无法运行，不必修改系统执行策略：使用 `start.cmd`，或者运行 `npm.cmd start`。
+
+> 不要直接下载默认 `main` 分支的 ZIP 来启动网页端。`main` 是扩展源码目录，不是网页应用；上面的 ZIP 链接已经选好了 `pi-web` 分支。
+
+### Linux / macOS：克隆后启动
+
+```sh
+git clone --branch pi-web --single-branch https://github.com/Mr-Fahrenheit-gjh/pi.git pi-web-custom
+cd pi-web-custom
+bash start.sh
+```
+
+下次进入同一目录执行 `bash start.sh`，或 `npm start`。Linux 建议使用 Ubuntu/Debian 等 glibc 发行版；Alpine/musl 不在本次验证范围。
+
+### 启动入口会做什么
+
+- 首次运行用 `npm ci` 按 `package-lock.json` 安装**本项目**依赖，再构建和启动；第一次需要联网，可能花几分钟。
+- 再次启动会复用已经准备好的依赖与构建，不会每次重新下载、重新编译。
+- 更新源码后，按需要重建；锁文件、平台或 Node 原生模块 ABI 变化时，重新准备项目依赖。
+- **不全局安装包，不安装 Node、系统编译工具或开机服务，不修改系统配置，不代填模型授权。**
+- 首次准备会重建本目录的 `node_modules`。请在独立的解压/克隆目录使用，不要把它接到另一份安装的 `node_modules` 或 `.next` 链接目录上。
+
+默认打开 **http://127.0.0.1:30141**。没有自动打开浏览器时，手动访问此地址即可。启动窗口就是服务进程，使用期间保持打开；关闭网页标签不等于停止服务。
+
+已有程序占用端口时，换一个端口，不要直接结束不明进程：
+
+```powershell
+# Windows
+.\start.cmd --port 30142
+```
+
+```sh
+# Linux / macOS
+bash start.sh --port 30142
+```
+
+要停止服务，先停止正在进行的任务，再在启动窗口按 **Ctrl+C**。下次运行相同入口即可继续使用保存的会话。
+
+## 2. 第一次进入：配模型、选项目、发消息
+
+### 第一步：配置自己的模型
+
+1. 打开左下角 **Settings → Models**。
+2. 点 **Add provider**，选择实际使用的模型提供商。
+3. 按该提供商支持的方式授权：
+   - **账号 / OAuth**：点 **Login**，按提示在提供商网页批准。有的流程需要设备码，有的需要把回跳地址或代码粘回网页。
+   - **API key**：输入自己的 key 后点 **Save**，确认出现 **Saved** 或相应已授权状态。
+4. 回到对话页，在输入框下方的模型按钮里选择可用模型。
+
+不是每家提供商都支持订阅登录；聊天订阅和 API 额度也不是一回事。网页能打开但没有回复时，先确认这里的授权、启用模型和额度，而不是反复重装网页端。
+
+如果页面先要求 `Password / Log in`，那是这台 Web 服务设置的**访问密码**，不是模型 API key；没有配置 `PI_WEB_PASSWORD` 的默认本机实例不需要这一步。
+
+### 第二步：选择工作目录
+
+在新会话输入框下方打开项目选择器，使用 **Open another project… / Custom path…** 选择目录；不确定时可先选默认目录。目录是代理读写文件、运行命令的工作位置。
+
+- 运行 Web 和浏览器在同一台电脑时，选本机项目目录。
+- 如果浏览器连接的是另一台服务器，选择的是**服务器上的目录**，不是浏览器这台电脑的文件夹。
+- 新会话切换项目会带上当前草稿；已有会话仍属于原来的工作目录，不是靠切一下项目选择器就迁移它。
+
+若出现 **Restricted mode / Trust project**，先核对目录和项目声明的 MCP、扩展等资源。只信任你了解的项目；不信任也可以先保持受限模式。
+
+### 第三步：发第一条消息
+
+先试一句不需要工具的话，确认授权正常；再让代理做项目工作，例如：
 
 ```text
-.
-├── README.md                         # 由首页文档源同步生成
-├── .pi/skills/
-│   ├── pi-web-maintenance/            # 定制 Web 维护与发布约束
-│   ├── proxy-management/              # 本机代理管理技能
-│   └── pstack/                        # 工程技能入口与上游技能
-└── 工具/
-    ├── pi-menubar/                    # Pi Bar：Swift 源码、协议、测试与图标
-    ├── pi-github-sync/                # 本仓库的同步脚本、测试与首页文档源
-    ├── pi-local-runtime/packages/     # 浏览器、LSP、记忆及工具配置相关包
-    ├── pi-web维护/native-agent-switcher/
-    │                                  # 白名单内的维护脚本与源码选择配置
-    └── …                              # 其他 Pi 定制扩展，见下表
+先阅读这个项目的 README 和入口文件，解释项目如何启动。
+不要修改文件，先列出你确认过的步骤。
 ```
 
-### `pi-web`：定制 Web 源码与历史
+模型按钮旁边可以选择工具范围。`chat-only` 只聊天，`read-only` 适合先检查项目，`default / full` 可以包含写文件、执行命令等能力。**工具选择不是操作系统沙箱**，不要把高权限运行的服务交给不信任的输入或项目。
 
-保存本机维护配置选中的 Web 工作树的已提交完整历史；此分支根目录就是 Web 项目，不位于 `main/工具/` 下。它不是所有实验工作树或待上线改动的汇总。
+## 3. 认识左栏、中间对话和右栏
 
-两个分支是不同用途的源码树，**不要把 `pi-web` 直接合并进 `main`**。获取源码时建议分目录检出。
+| 区域 | 主要用途 | 怎么打开 |
+| --- | --- | --- |
+| 左栏 | 项目、历史会话、New、Search，以及可选的 Document 文件树 | 左上角侧栏按钮 |
+| 中间 | 当前对话、消息、输入框、模型与发送控制 | 点击左栏会话或新建 |
+| 右栏 | Tasks、Sub-agents、Outputs、打开的文件和终端 | 右上角文件面板按钮，或点开文件/终端 |
 
-## Pi 定制内容导航
+### 左栏怎么用
 
-| 方向 | 入口与说明 |
+- **New**：新建空白对话，不会自动复制当前上下文。
+- **Search**：搜索会话与文件，相当于 Cmd/Ctrl+J。
+- 点项目组末尾的箭头：展开/收起该项目的会话。
+- 点会话：打开历史；会话行的 pin 和 `⋯` 菜单可用于固定、改名、Fork、归档等操作。
+- 会话 pin 会把它放进 **Pinned**；这与“让整个左栏固定展开”不是一回事。
+
+桌面上，左栏折叠时把鼠标移到左上角开关，可临时预览；点击开关才会固定展开或取消固定。临时预览移出后关闭。触屏设备直接点击，不依赖 hover。
+
+### Document 文件树在哪里
+
+在 **Settings → General → File browser** 选择：
+
+- **Below sessions**：文件树放在会话列表下面。
+- **Separate tab**：文件树独立成标签。
+- **Hidden**：隐藏文件树。
+
+所以“找不到 Document”可能只是设置成了 Hidden。**Document 是左侧文件入口；点开的文件显示在右栏，不是把 Document 当成右栏第四个永久标签。**
+
+### 右栏怎么看
+
+选中会话后，右栏有三个常驻入口：
+
+- **Tasks**：看当前会话通过任务工具记录的清单；没有记录时为空。
+- **Sub-agents**：看当前会话的子代理及具体运行记录。这里用于查看，不会把主输入框变成给子代理发消息的输入框。
+- **Outputs**：看本分支记录到的写入/编辑文件与交付链接；不是整个项目文件夹，也不保证收集了所有 Bash 生成物。
+
+点文件后会出现文档标签，打开终端也会出现终端标签。可拖动边界调节右栏宽度，并使用顶部的全宽/还原控制。
+
+右上角开关同样支持桌面临时 hover 预览与点击固定。**右栏和“双对话分屏”是两种功能**，打开右栏并不会自动打开第二个对话。
+
+## 4. Cmd/Ctrl+K 与 Cmd/Ctrl+J
+
+这里的 **Cmd** 用于 macOS，Windows/Linux 用 **Ctrl**。先让焦点位于网页内；终端和已经打开的弹窗会保留自己的快捷键。
+
+### Cmd/Ctrl+K：找操作
+
+打开的是 **Command / Search commands…**，不是聊天全文搜索。可以搜索并执行当前状态下可用的动作，例如：
+
+- `New conversation in this project`：在当前项目新建对话。
+- `Open project terminal`：打开活动对话目录下的终端。
+- `Files from this conversation`：直接打开当前会话的 Outputs。
+- `Rename this conversation`：改名。
+- `Fork this conversation`：复制为独立会话。
+- `Split conversation / Close split`：打开/关闭桌面双对话分屏。
+
+某些操作需要已选择项目或已保存会话；条件不满足时，不会出现或不能执行。命令面板不会把你输入的任意文字当成 shell 命令交给系统执行。
+
+### Cmd/Ctrl+J：找历史和文件
+
+打开的是 **Chat / Search conversations and files…**。
+
+- 空查询时看近期会话；输入关键字可查会话标题、正文和具体消息命中。
+- 会话搜索可跨项目并包含归档，不仅仅查当前对话。
+- 文件搜索范围是当前项目目录，不是扫描整台电脑。
+- 选中会话/消息结果会跳转到对应位置；选中文件会打开右侧查看器。
+
+### 面板里怎么选
+
+上下箭头移动，**Enter** 打开，**Esc** 关闭。每页最多 9 项；PageUp/PageDown 翻页，查询为空时也可用左右箭头翻页。
+
+- 查询框完全为空时，按 **1–9** 直接选当前页对应项。
+- 已输入查询（包括空格）时，数字保留作输入；要直选，用 **Alt/Option+1–9**。
+
+这些数字快捷键只在搜索面板里生效，不是整个页面随时按数字就切会话。
+
+## 5. Fork、从这里编辑与分屏
+
+### 整段上下文换个方向：Fork 当前对话
+
+1. 在左栏找到会话，点 `⋯ → Fork`；或者在当前对话按 Cmd/Ctrl+K，选 **Fork this conversation**。
+2. 等待新会话打开；名字会带一个短后缀，方便与来源区分。
+3. 在新会话继续尝试另一种思路，来源会话保持不变。
+
+它复制当前会话分支到**独立会话**，不会自动发新消息，也不会复制 pin/归档状态。
+
+### 从某一条消息开始：New session
+
+把鼠标移到某条用户消息上，点 **New session**。它从该消息位置复制为一个新的独立会话，不一定包含来源后面的整段对话。未保存或当前状态不允许时，先等待会话稳定再操作。
+
+### 修改之前一句话：Edit from here
+
+在用户消息上点 **Edit from here**，文本会回到输入框。修改后发送，会在**同一个会话的历史树**内建立另一条分支；旧记录保留，不是直接覆写原消息。分支导航用于查看同一会话的不同路径。
+
+| 操作 | 是否新会话 | 是否复制/回退项目文件 |
+| --- | --- | --- |
+| 左栏 Fork / K 中 Fork | 是，复制当前分支 | 否 |
+| 消息上的 New session | 是，从该处开始 | 否 |
+| Edit from here | 否，同一会话树内分支 | 否 |
+| Split conversation | 只是并排显示两段对话 | 否 |
+
+**分叉聊天不会撤销已经执行的命令或改过的文件。** 要让两种实现使用不同代码目录，应另用 Git 分支/worktree，而不是只 Fork 会话。
+
+### 桌面双对话分屏
+
+1. 打开一段对话，按 Cmd/Ctrl+K → **Split conversation**。
+2. 右半边出现 **Open a conversation alongside**。
+3. 点 **New conversation**，或从 **Previous conversations** 搜索并选择另一段历史。
+4. 想让左栏/搜索作用于哪一半，先点击那一半，让它成为活动对话。
+5. 拖中间分隔线调比例，双击可等分；按 K → **Close split** 关闭。
+
+不是 Shift+点击会话，也不是把会话拖到右栏。此功能面向桌面布局，手机上不提供同样的并排界面。
+
+## 6. 发送、Steer、Queue 与 Stop
+
+- **发送**：点输入框内的发送箭头。桌面可在 Settings → General 选择 Enter 或 Cmd/Ctrl+Enter 发送；Shift+Enter 换行。手机通常用 Enter 换行，再点发送按钮。
+- **Steer**：运行中给当前任务补充要求、调整方向。实际插入/中断时机受宿主与扩展实现影响，不要把它当成必然立即撤回正在执行的命令。
+- **Queue / follow-up**：先排队，等当前轮结束后再处理，适合“做完这一件，再做下一件”。不是定时任务，也不会另建会话。
+- **Stop**：明确停止当前工作。Esc 没有被菜单、输入法或其他控件占用时也可停止；有弹窗时通常先关弹窗。
+
+输入法确认候选字、`@` 补全或 slash 菜单可能先消费 Enter，这是正常的，不应连续多按导致重复发送。运行中先看输入框当前显示的发送模式，再决定是调整本轮还是排下一轮。
+
+## 7. 文件、附件、Outputs 与终端
+
+### 引用项目已有文件：用 @
+
+在输入框输入 `@`，选择匹配的文件/目录，使用上下键和 Tab/Enter 完成引用。例如：
+
+```text
+请阅读 @src/main.ts ，先解释调用关系，不要修改。
+```
+
+手动 `@` 引用告诉模型文件位置，**不会上传或复制文件**。模型能否读取、如何解析文件，还取决于当前工具和格式支持。
+
+### 从电脑加入聊天：用 + 或拖放
+
+点输入框 **+ → Upload or add files**，或把文件拖到聊天区域：
+
+- 图片作为图片附件；需要所选模型支持图片。
+- 非图片保存到运行 Web 那台机器的私有聊天附件目录，显示为附件卡片，不自动写进项目根目录。
+- 单文件上限 **25 MB**，一次选择总计 **100 MB**。
+
+浏览器不能凭上传恢复你电脑上原文件的绝对路径。预览支持某种格式，也不等于所有模型都能直接理解该格式。
+
+### 真正上传到项目：用文件栏的 Upload files
+
+Document 文件区的 **Upload files** 才是项目上传。它与聊天附件分开；遇到同名文件按提示处理。成功上传后，如要让模型使用，可再点 **Add uploaded file to chat / Add all uploaded files to chat**。
+
+### 在右栏阅读文件和产物
+
+点左侧文件、聊天中的文件链接或 Outputs 中的文件，会在右栏打开。按格式提供预览、源码、下载等入口；不是每种文件都能直接编辑。文件不存在或超出允许范围时会提示错误，不要把 Outputs 中有一个路径理解成一定能打开它。
+
+### 打开真实终端
+
+- 点左下角 Settings 右侧的终端图标，打开当前侧栏工作目录的终端。
+- 或按 Cmd/Ctrl+K → **Open project terminal**，打开活动对话目录的终端。
+
+终端是实际 shell，输入的是系统命令，不是发给模型的提示词。快捷键由终端优先处理。
+
+Windows 网页终端默认使用系统 `ComSpec`；代理执行 Bash 工具需要 Git for Windows 的 Bash，也可在设置的 **Shell 工具** 中选择 PowerShell。直接输入的 `!` / `!!` 仍需 Bash。Linux 使用 `$SHELL`，缺省 `/bin/sh`。
+
+## 8. 常用快捷键
+
+| 场景 | macOS | Windows / Linux |
+| --- | --- | --- |
+| 命令面板 | Cmd+K | Ctrl+K |
+| 会话/消息/项目文件搜索 | Cmd+J | Ctrl+J |
+| 当前项目新建会话 | Ctrl+Alt+N | Ctrl+Alt+N |
+| 搜索面板移动 / 打开 | ↑↓ / Enter | ↑↓ / Enter |
+| 搜索面板空查询直选 | 1–9 | 1–9 |
+| 搜索面板有查询时直选 | Option+1–9 | Alt+1–9 |
+| 搜索结果翻页 | PageUp / PageDown | PageUp / PageDown |
+| 输入框换行 | Shift+Enter | Shift+Enter |
+| 按设置发送 | Enter 或 Cmd+Enter | Enter 或 Ctrl+Enter |
+| 关闭最近菜单/弹窗，未被占用时停止任务 | Esc | Esc |
+
+终端、已有对话框和输入法有各自的键盘处理。若 K/J 没打开面板，先点击普通对话区域再试，不要在浏览器地址栏或另一个弹窗里按。
+
+## 9. 更新、备份与常见问题
+
+### 如何更新
+
+Git 克隆的用户先停止当前服务，再在源码目录运行：
+
+```sh
+git pull --ff-only
+```
+
+然后照常用 `start.cmd`、`bash start.sh` 或 `npm start` 启动，入口会按需要准备依赖、重建。若 Git 提示本地有修改，先保存自己的改动，不要用强制 reset 清空。
+
+ZIP 用户重新下载 `pi-web` ZIP，解压到新的独立目录后启动。默认会话与授权不在源码目录里；使用自定义数据目录的，更新时继续指定同一目录。
+
+**不要用 `npm update`、`npx @agegr/pi-web@latest` 或 `pi-web update` 更新这份定制版**，那不是这里的源码更新方式。便捷入口默认关闭上游 npm 版本检查。
+
+### 数据在哪里，怎么备份
+
+默认在当前用户的 `~/.pi/agent`，Windows 对应用户主目录下的 `.pi\agent`。这里可能含授权与私密会话，备份到你自己信任的本地位置，**不要上传到 GitHub 或当排障附件公开发出**。
+
+`PI_CODING_AGENT_DIR` 可指定独立数据目录。仅更换 HTTP 端口不会自动隔离会话数据；不要让不同版本同时操作同一段活跃会话。
+
+### 常见问题
+
+| 现象 | 先这样处理 |
 | --- | --- |
-| 会话标题 | [`pi-auto-title`](工具/pi-auto-title/README.md)：独立标题生成、手动改名保护 |
-| 模型请求档位 | [`pi-codex-speed`](工具/pi-codex-speed/README.md)：OpenAI / Codex Fast 开关、请求档位与用量元数据；不保证服务端加速，费用以实际账单为准 |
-| 附件与输入 | [`pi-attachment-presentation`](工具/pi-attachment-presentation/README.md)、[`pi-prompt-suggestions`](工具/pi-prompt-suggestions/README.md) |
-| 中断与后台会话 | [`pi-interrupt`](工具/pi-interrupt/README.md)、[`pi-tui-session-background`](工具/pi-tui-session-background/README.md)、[`pi-background-task-quiet`](工具/pi-background-task-quiet/README.md) |
-| 子代理与恢复 | [`pi-subagents-quiet`](工具/pi-subagents-quiet/README.md)、[`pi-task-recovery`](工具/pi-task-recovery/README.md) |
-| 上下文与记忆适配 | [`pi-workflow-integrity`](工具/pi-workflow-integrity/README.md)、[`hy-memory迁移`](工具/hy-memory迁移/README.md) |
-| 工程技能 | [`pstack`](.pi/skills/pstack/README.md) |
+| 下载后没有 start.cmd / package.json | 检查是否下载了 `pi-web` 分支，而不是默认 `main`；先解压，不在 ZIP 内直接运行 |
+| 找不到 node，或版本过旧 | 安装/选择 Node.js 22 LTS，至少 22.19.0；重新打开终端，用 `node --version`、`npm --version` 检查 |
+| npm.ps1 被 PowerShell 限制 | 使用 `start.cmd` 或 `npm.cmd start`，不必调整系统执行策略 |
+| 第一次安装卡住 / npm 网络报错 | 看启动窗口最先出现的错误；确认可访问 npm/GitHub。网络恢复后重跑同一入口，不必删除会话数据 |
+| node-pty 原生模块编译失败 | Windows 按错误准备 Python 3 与 Visual Studio C++ Build Tools；Debian/Ubuntu 通常需 Python 3、make、C/C++ 编译器。准备好后重跑；入口不会替你安装系统工具 |
+| 提示初始化锁被占用 | 先确认另一个启动窗口是否仍在安装/构建；若此前强制中断，确认相关进程已停止后，才删除源码目录的 `.pi-web-setup.lock` 再试 |
+| 30141 被占用 | 使用 `--port 30142`，或在你确认身份的旧启动窗口停止旧实例；不要随便杀进程 |
+| 页面能开但没有模型回复 | 检查 Settings → Models 的授权、启用模型及提供商额度；Web 密码不是模型 key |
+| K 搜不到说过的话 | K 找命令，J 找历史消息和项目文件 |
+| Fork 后文件没有回到旧状态 | Fork 只分叉会话，不回退代码；文件版本用 Git 管理 |
+| 找不到文件栏 | Settings → General → File browser，检查是否选了 Hidden |
+| 聊天上传后项目目录没出现文件 | 聊天附件不写项目根目录；项目上传走 Document 的 Upload files |
+| Steer / Queue 没马上执行 | 先确认发送模式；需要明确中止用 Stop，不要连续重复发送 |
+| 改源码后怀疑构建没更新 | 用 `start.cmd --rebuild` 或 `bash start.sh --rebuild` 强制重建后启动，不必重装全局包 |
 
-各目录 README 说明具体加载方式、兼容条件与测试。部分目录保留历史或未启用候选，例如 [`pi-context-cache`](工具/pi-context-cache/README.md)；**不要把“仓库里有代码”当成“当前正在使用”**。旧记录中的版本号和绝对路径也不能直接作为新机器的安装参数。
-
-## Pi Web 定制版
-
-Web 源码保留本地主题与字体、Ghostty 终端、会话分屏、主/子代理会话入口、文件预览，以及 OpenAI API 工作台等定制。功能实现与测试以 [`pi-web` 分支](https://github.com/Mr-Fahrenheit-gjh/pi/tree/pi-web) 为准。
-
-维护原则：
-
-- **Pi 核心和 Pi Web 分开核对、分开升级**；不能用官方最新版整包覆盖本地定制版。
-- 优先复用现有设置、组件和扩展接口，迁移上游改动时保留本地合同。
-- 源码修改、候选预览、正式发布是不同阶段；提交或同步源码不会自动重建、重载或重启正式服务。
-- 当前源码要求 Node.js `>=22.19.0`；依赖版本以 Web 的 `package.json` 与锁文件为准，不因迁移自动升级。
-
-维护约束见 [Pi Web 维护技能](.pi/skills/pi-web-maintenance/SKILL.md)。`main` 仅同步白名单内的维护材料，不包含原工作区全部候选、发布记录和支持文件；技能中提到的本机路径不保证在单独克隆后齐全。
-
-## Pi Bar
-
-Pi Bar 使用系统 Swift / AppKit / SwiftUI 等框架，无第三方包依赖；当前构建目标为 **Apple Silicon、macOS 14+**。
-
-- 查看进行中、待审批、未读会话，并在空余位置补充少量最近会话。
-- 与 Web 共用未读状态；点击会话复用已有 Chrome 标签，不另开一个聊天页面。
-- 支持 Web 标准审批，以及单独加载终端桥后的 `ask_user_question`；不自动替用户批准。
-- 题目无法完整原生呈现、登录不可用或连接失效时，回到网页或终端处理，不猜测答案或自动重发。
-- 首次使用通知及 Chrome 控制时，按系统提示确认相应权限。终端桥信任本机同一账户，不提供同账户进程之间的身份隔离。
-
-在已具备系统开发工具的独立检出目录中，可按组件说明做离线测试和候选构建：
+只读检查准备状态，不安装、不构建：
 
 ```sh
-cd pi-custom/工具/pi-menubar
-bash test.sh
-bash build.sh 'build/Pi Menu Bar.next.app'
+node bin/start-custom.js --doctor
 ```
 
-这只生成候选，不安装终端扩展、不注册开机启动，也不替换正在运行的应用。实际启用前先阅读 [Pi Bar 使用说明](工具/pi-menubar/README.md)、[导航协议](工具/pi-menubar/NavigationProtocol.md)和[未读协议](工具/pi-menubar/UnreadProtocol.md)。
-
-## 获取源码与迁移
-
-以下命令只获取当前公开仓库的源码，不恢复私有配置或运行数据：
+只准备依赖与构建，暂不启动服务：
 
 ```sh
-git clone --branch main --single-branch \
-  https://github.com/Mr-Fahrenheit-gjh/pi.git pi-custom
-
-git clone --branch pi-web --single-branch \
-  https://github.com/Mr-Fahrenheit-gjh/pi.git pi-web-custom
+node bin/start-custom.js --prepare
 ```
 
-迁移到新环境时，按以下顺序核对：
+默认只监听本机。不要为了“方便访问”直接把无密码、可执行工具的代理开放到公网；远程使用应先安排 HTTPS / 可信 VPN 与访问鉴权。
 
-1. **先确认版本和平台。** 分别检查 Pi、Web 的 SDK / 依赖要求，以及 Pi Bar 的 macOS 条件；旧目录名不代表当前安装版本。
-2. **逐项恢复所需扩展。** 阅读组件 README，调整本机路径与加载配置；不要整目录覆盖已有 `~/.pi/agent/`。
-3. **另行恢复私有配置与授权。** 本仓库不恢复模型密钥、OAuth 登录、MCP 私有配置、系统钥匙串、聊天或记忆数据库。
-4. **先做最小测试，再启用。** 已加载的扩展是否需要 `/reload`、新开会话或重建宿主，按该组件说明判断；不把源码检出视为已激活。
-5. **Web 单独走定制维护流程。** 先准备独立候选与验证，再按维护守卫发布；不要直接覆盖正式安装或占用已有正式端口。
+## 10. 可选扩展与源码说明
 
-仅克隆这两个分支，不能恢复原始完整工作区，也不能直接接管原机器的同步任务。原机器的本地快照引用、镜像和调度配置需要另行核对。
+### GitHub Fork 与对话 Fork 不是一回事
 
-## 日常 GitHub 同步
+**只想使用，无需先 Fork GitHub。** 上面的克隆或 ZIP 即可。
 
-### 手动执行
+想在自己的 GitHub 保存改动时，点仓库右上角 **Fork**。创建时不要只复制 `main`，要让自己的仓库包含 **`pi-web` 分支**；创建后先确认该分支存在，再把安装命令中的仓库地址换成自己的地址。网页里的对话 Fork 只创建聊天分支，不会创建 GitHub 仓库，也不会提交代码。
 
-**当前仓库为公开状态，下面的原私有同步命令会安全停止，不是当前公开跨平台更新的推送入口。** 保留其私有目标和敏感数据守卫；不要直接重试、删除状态或关闭检查。
+### 可选功能
 
-在**原始完整工作区根目录**执行，不是在上述只用于取源码的克隆目录中执行：
+- **MCP**：Settings → MCP → Add MCP。按需要单独准备服务器/程序、配置范围及授权；stdio 服务在运行 Web 的主机执行，不是聊天前置依赖。
+- **Git worktree**：在 Git 项目的工作树菜单选 New worktree…，用于让不同实现操作不同 checkout；普通目录不要求使用它。
+- **Pi 终端扩展**：在 [`main/工具`](https://github.com/Mr-Fahrenheit-gjh/pi/tree/main/工具) 按组件 README 逐项安装/启用。网页能运行不代表作者的记忆、后台终端、所有插件已经随包启用。
+- **Pi Bar**：[`main/工具/pi-menubar`](https://github.com/Mr-Fahrenheit-gjh/pi/tree/main/工具/pi-menubar)，现有 macOS 菜单栏应用；Windows/Linux 使用网页即可，不依赖它。
+- **独立浏览器能力**：需要运行 Web 的机器已安装 Chrome/Chromium；普通聊天不需要。非标准安装可用 `PI_WEB_CHROME_EXECUTABLE` 指定可执行文件。
 
-```sh
-/opt/homebrew/bin/python3 -B 工具/pi-github-sync/sync.py
-```
+### 验证与许可
 
-现有本机用户级 LaunchAgent 在每天本地时间 **10:00** 和登录时触发；休眠错过后由系统补跑，关机或未登录时不运行。仓库包含调度模板，但克隆不会安装任务，也不会唤醒电脑或重启 Web。
+[Windows and Linux](https://github.com/Mr-Fahrenheit-gjh/pi/actions/workflows/platforms.yml) 工作流在两个原生系统上检查公开版边界、便捷初始化、定向测试和真实 HTTP 启动；[扩展平台检查](https://github.com/Mr-Fahrenheit-gjh/pi/actions/workflows/extensions.yml) 检查所列扩展的路径/加载合成用例。以对应提交的运行结果为准，不把源码检出、模拟路径或单次构建当成所有外部服务都已验证。
 
-同步只读取原仓库已提交内容，不自动暂存其他改动、不切换原分支、不推送标签，也不强推。Web 浅克隆缺失的上游历史只在隔离镜像中补齐，不修改原 Web 共享 Git 数据。
-
-### 查看结果
-
-本地文件位于 `工具/pi-github-sync/data/`：
-
-| 文件 | 用途 |
-| --- | --- |
-| `status.json` | 最近一次尝试、是否成功、上次成功时间与对应提交 |
-| `launch.stdout.log` / `launch.stderr.log` | 定时任务输出 |
-| `snapshot.git` / `web-mirror.git` | 本地快照引用、远端一致性检查与完整 Web 历史镜像 |
-
-`data/` 不入库。**不要为了重试同步删除这些引用或清空目录**；它们用于检测远端被改写、分歧或上次中断后的状态。失败时先查具体原因，不能用强推、跳过扫描或关闭私有检查来“修复”。两个分支分别推送，中途失败可能只完成其中一个，应结合状态文件和远端分支核对。
-
-### 更新本页
-
-首页的本地维护源是 [`工具/pi-github-sync/GITHUB-README.md`](工具/pi-github-sync/GITHUB-README.md)。在原始工作区编辑并提交此文件，然后运行同步脚本；脚本会把同一份已提交内容同时保留在工具目录和远端根目录 `README.md`。
-
-不要直接在 GitHub 修改生成的首页，否则会造成远端与本地同步记录不一致。原始工作区自己的根 `README.md` 不会被替换或上传。
-
-离线同步回归测试：
-
-```sh
-cd 工具/pi-github-sync
-python3 -B -m unittest -v test_sync
-```
-
-完整机制见 [同步工具说明](工具/pi-github-sync/README.md)。
-
-## 同步与安全边界
-
-同步范围由脚本白名单决定，不是整个主目录或工作区：
-
-- 仅同步选定的已提交定制源码与 Web 历史；未提交改动、其他项目、候选构建和本地运行记录不纳入快照。
-- 不主动采集 `~/.pi/agent/` 下的授权与私有运行配置，也不上传会话 JSONL、记忆数据库、缓存或凭据文件。
-- 推送前检查目标仍为指定的可写私有仓库，并扫描源码、Web 历史及提交信息中的敏感路径和常见密钥模式。
-- 合成测试值只按经过核验的**精确文件路径与值指纹**放行，不整文件跳过检查；扫描不能证明检出了所有秘密。
-- 私有身份无法确认、检测到敏感内容、Git URL 重写或远端历史分歧时停止。首次在新机器启用调度、安装依赖、升级或修改系统配置都需要单独处理。
-
-## 上游与许可
-
-- [Pi](https://github.com/earendil-works/pi)
-- [Pi Web](https://github.com/agegr/pi-web)
-- Pi Bar 图标原形来自 [pi.dev](https://pi.dev/logo-auto.svg)。
-
-本仓库保存个人定制，不替代上游项目。复用第三方源码、技能或资源时保留原有版权声明，具体许可按对应目录和源文件核对。
+上游：[Pi](https://github.com/earendil-works/pi) · [Pi Web](https://github.com/agegr/pi-web)。本仓库保存个人定制；第三方代码、字体与资源的许可按对应文件和来源声明执行。
