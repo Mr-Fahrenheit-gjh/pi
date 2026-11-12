@@ -1,5 +1,19 @@
 # Pi × 官方 Hy-Memory
 
+## 独立部署与平台边界
+
+以下“已上线”是原维护机器的历史记录，**不表示克隆本仓库后记忆服务已恢复，也不表示 Windows/Linux 已验收**。扩展依赖另行部署的 `127.0.0.1:30147` 模型桥接与 `127.0.0.1:30148` 官方 Hy-Memory 2.0.2 服务、已有私有记忆库/授权/token，以及已安装的 qmd 2.8.3 和现有 EmbeddingGemma 模型文件。本次不安装依赖、不下载模型、不复制任何本机配置。
+
+`bridge.mjs` 可直接由该平台已有 Node 运行。路径设置（均为现有本地文件/包，不接受远程模型下载）：
+
+- `HY_BRIDGE_PI_SDK_ROOT`：Pi coding-agent 包根目录，含 `dist/index.js` 和 `dist/core/http-dispatcher.js`。
+- `HY_BRIDGE_QMD_ROOT`：`@tobilu/qmd` 包根目录；仍严格检查 2.8.3。
+- `HY_BRIDGE_EMBED_FILE`：已有 `.gguf` 文件；缺失或为目录直接失败，不尝试下载。
+- 未指定包根时，只查 `PI_CODING_AGENT_DIR`（默认 `~/.pi/agent`）的 `npm/node_modules`；不会回退到 Homebrew 或另一全局SDK。模型默认仍为用户 `~/.cache/qmd/models/hf_ggml-org_embeddinggemma-300M-Q8_0.gguf`。
+- 仍需 `HY_BRIDGE_TOKEN_FILE` 指向私有 token（至少32字符），已有 Pi 模型授权；Pi 扩展可通过 `PI_HY_MEMORY_CONFIG` 指定本地配置，地址仍限定为30148。不要把 token、授权或数据提交到仓库。
+
+现有 `install_runtime.py` / `models.sh` / `engine.sh` 是 macOS launchd 维护流程，包含本机部署路径，**不是 Linux/systemd 或原生 Windows 服务安装器**；本次保持原样。其他平台需独立管理员部署 Python SDK 服务并验证写入、召回、回执与重启持久化。服务代码的 POSIX 0700/0600 在 Windows 不等价于私有 ACL，不能为启动方便移除权限守卫；Windows 私有存储/ACL 和原生 qmd 后端支持仍须单独验收。只通过桥接路径测试不能宣称完整服务已移植。
+
 ## 当前状态
 
 **已上线。** `data/activation-state.json` 记录2026-10-17 `verified_live`；2026-10-19实际 `memory_status` 复核 Hy-Memory 2.0.2、backend ok、accepting true，已补齐共享清单状态。以下迁移及“等待上线”描述保留为原阶段记录，不代表当前仍使用旧插件。

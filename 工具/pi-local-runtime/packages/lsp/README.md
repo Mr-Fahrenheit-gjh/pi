@@ -19,6 +19,7 @@
 - `src/prompt.js` 合并重复提醒、重复追加去重；保留完成/提交前检查、不能检查时披露、语义导航及项目测试契约。
 - 默认包入口为 `slim.js`，只注册 `lsp_diagnostics_many`、hover、definition、references、document symbols、find symbol 共 6 个工具；不再注册 legacy `lsp_diagnostics`，也不改宿主 allowlist。
 - TypeScript 优先使用项目内或 PATH 上的 TypeScript 7 原生 `tsc --lsp --stdio`；即使项目包含旧版 TypeScript，也不会因此退回或要求另装 `typescript-language-server`。其他语言发现逻辑不变。
+- Windows 下的 npm `typescript-language-server`、`tsc`、`svelteserver` 从项目 `.bin` 或 PATH 对应安装的 package.json bin 定位实际 Node CLI，以 `process.execPath` 启动；不直接执行 POSIX/.cmd shim、不启用 `shell:true`。全局 TypeScript 版本探测复用同一入口。未知 `.cmd` 不猜测命令或执行shell；原生可执行文件和POSIX启动不变。定向离线回归：`node --test test/spawn-command.test.js`；尚未在 Windows/Linux 实机验收。
 - 多文件共享同一 server 启动失败时，缓存复用 server 失败原因，但每项结果重新绑定调用方文件，避免全部显示为首个文件。
 - hover / definition / references / document symbols / find symbol、信任和受限环境逻辑保留。
 - `src/dependencies.js`：**无全局 resolver hook，无 Web host fallback**。Pi peer（typebox、coding-agent 及辅助包传递 peer）交由当前宿主官方 loader 的 jiti alias/virtualModules 解析。仅三个明确辅助包先用本包正常依赖解析，缺失时用 `~/.pi/agent/npm/package.json` 为解析基点，返回辅助包入口路径并继续在官方 jiti 图内导入。未修改 Node 的全局解析策略；其他扩展不会继承该 fallback。`PI_LSP_HOST_PACKAGE` 已删除。普通 Node 原生 import 不再受支持的离线自动补齐模式；自定义 harness 应使用 Pi loader（或自行提供完整正常依赖），不要依赖本包修改进程行为。

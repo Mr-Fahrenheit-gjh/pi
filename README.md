@@ -4,6 +4,12 @@
 
 **这是源码同步仓库，不是完整的本机配置备份，也不是一键安装包。** 模型授权、私有设置、聊天记录和运行数据需要另外管理；仓库中的源码也不等于已经在所有宿主中启用。
 
+## Windows / Linux
+
+Pi 与定制 Pi Web 共用源码，现已补充原生 Windows 和 Linux 的路径、附件及扩展加载适配；不重做界面、不升级依赖。运行步骤、组件条件和仍属 macOS 的能力见[跨平台说明](工具/pi-local-runtime/packages/PLATFORMS.md)；Web 的原生系统测试与构建见 [Windows and Linux 工作流](https://github.com/Mr-Fahrenheit-gjh/pi/actions/workflows/platforms.yml)。源码适配不等于所有外接服务或插件已安装、已验证。
+
+Pi Bar、现有 Pi Meta / launchd 部署集成仍仅用于 macOS。仓库当前公开，原「仅私有仓库」每日同步因此停止；本次仅更新公开源码，不放开同步守卫。
+
 ## 三个组件
 
 | 组件 | 用途 | 源码入口 |
@@ -91,7 +97,7 @@ bash build.sh 'build/Pi Menu Bar.next.app'
 
 ## 获取源码与迁移
 
-以下命令只获取源码，需要已有该私有仓库的 GitHub 读取权限：
+以下命令只获取当前公开仓库的源码，不恢复私有配置或运行数据：
 
 ```sh
 git clone --branch main --single-branch \
@@ -114,6 +120,8 @@ git clone --branch pi-web --single-branch \
 ## 日常 GitHub 同步
 
 ### 手动执行
+
+**当前仓库为公开状态，下面的原私有同步命令会安全停止，不是当前公开跨平台更新的推送入口。** 保留其私有目标和敏感数据守卫；不要直接重试、删除状态或关闭检查。
 
 在**原始完整工作区根目录**执行，不是在上述只用于取源码的克隆目录中执行：
 

@@ -23,7 +23,7 @@
 
 ## 宿主与工具加载
 
-`host-sdk.mjs` 在导入pi-subagents之前校验SDK包名、入口并配置进程内 `PI_SUBAGENTS_PI_CODING_AGENT_PACKAGE_ROOT`。已有显式路径必须有效，否则拒绝；不静默换SDK。上游实际优先级为argv宿主、显式环境路径、npm安装包回退。**npm peer软链接不是健康判据**，不再自动补建或删除它。
+`host-sdk.mjs` 在导入pi-subagents之前校验SDK包名、1.3.0/1.4.0/1.5.0稳定版本和入口，并配置进程内 `PI_SUBAGENTS_PI_CODING_AGENT_PACKAGE_ROOT`。显式根优先，否则只从运行中 argv 入口识别CLI自身或Web自身的内嵌SDK；未知启动器须显式配置，不能退回另一个安装的SDK。无效根直接拒绝；可识别当前宿主时，若显式根与它冲突也拒绝，避免上游argv优先规则令runner暗用另一个SDK。上游包从 `PI_CODING_AGENT_DIR`（默认 `~/.pi/agent`）下 `npm/node_modules/pi-subagents` 加载，也可用 `PI_SUBAGENTS_PACKAGE_ROOT` 指定包根。`interrupt-steer.mjs` 为本目录自包含的原样MIT副本（许可见同名 `.LICENSE`），不要求另克隆Web源码。此处只修加载路径，不保证上游外部执行器已支持所有原生Windows功能。上游实际优先级为argv宿主、显式环境路径、npm安装包回退。**npm peer软链接不是健康判据**，不再自动补建或删除它。
 
 当前Web内嵌SDK与CLI均为Pi 1.3.0，Web为本地定制0.12.1，pi-subagents仍为0.75.0；实际安装身份以Web维护记录为准。后台移除chord的兼容补丁精确允许已核实的稳定1.2.0/1.3.0，未知/预发布/声明chord的宿主仍严格检查。runner重放器可从旧1.2专用补丁幂等迁移，不新增废弃chord依赖。2026-10-16已随Web内核升级完成正式重载，见[`内核升级记录`](../pi-web维护/core-1.3.0-20261016/README.md)。
 
@@ -66,4 +66,4 @@ notesoup上下文负责权与稳定记忆注入见 `../pi-workflow-integrity/REA
 
 [历史记录](history-20261015.md) 保留此前版本、失败、重启与恢复证据，仅供追溯，不是当前操作清单。早期缓存/SDK解析故障已在真实原生后台调用中恢复，不应继续当作当前阻碍。
 
-角色/规则回退按单文件差异同步；settings只恢复本次字段，不整份覆盖后来更新。适配器使用本机安装绝对路径，迁移安装位置时同步宿主与上游入口。上游通知类型或文本改变时，复核适配匹配与测试，不扩大拦截范围。
+角色/规则回退按单文件差异同步；settings只恢复本次字段，不整份覆盖后来更新。迁移时按上述环境变量指定现有安装，不复制本机配置。上游通知类型或文本改变时，复核适配匹配与测试，不扩大拦截范围。

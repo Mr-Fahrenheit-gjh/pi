@@ -10,4 +10,4 @@
 
 验证：官方加载器加载成功，六个工具注册正常；真实 CompletionNotifier 的 interrupted/completed/failed 通知均只写记录，仍标记已通知；其他插件 sendMessage 保持原行为。
 
-当前上游导入路径是本机 npm 安装路径。如果更换用户目录或 npm 包位置，需要调整 `index.ts` 的导入路径。
+上游从当前 agent 目录（`PI_CODING_AGENT_DIR`，默认 `~/.pi/agent`）的 `npm/node_modules/pi-background-task` 加载；自定义安装可设置 `PI_BACKGROUND_TASK_PACKAGE_ROOT` 为包根目录。显式无效路径直接报错，不改安装包或查找其他宿主。动态导入使用 file URL，支持 Windows 盘符和空格。此薄封装不改变上游 tmux 要求；原生 Windows 是否可运行后台任务仍取决于上游自身支持，不代表已移植 tmux。

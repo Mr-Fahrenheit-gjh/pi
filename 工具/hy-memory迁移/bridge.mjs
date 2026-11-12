@@ -1,14 +1,30 @@
 import http from 'node:http';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
 // Only this loopback adapter is custom. Memory extraction/governance stays in Hy-Memory/MemHub.
-const SDK = '/opt/homebrew/lib/node_modules/@agegr/pi-web/node_modules/@earendil-works/pi-coding-agent/dist/index.js';
-const QMD = '/opt/homebrew/lib/node_modules/@tobilu/qmd';
-const EMBED_FILE = path.join(homedir(), '.cache/qmd/models/hf_ggml-org_embeddinggemma-300M-Q8_0.gguf');
+// Independent services have no Pi host loader. Select only their configured
+// installation (or the current agent npm tree), never an unrelated global SDK.
+export function resolveBackendPaths(env = process.env, home = homedir()) {
+  const agent = env.PI_CODING_AGENT_DIR?.trim() || path.join(home, '.pi', 'agent');
+  const sdkRoot = env.HY_BRIDGE_PI_SDK_ROOT?.trim() || path.join(agent, 'npm/node_modules/@earendil-works/pi-coding-agent');
+  const qmdRoot = env.HY_BRIDGE_QMD_ROOT?.trim() || path.join(agent, 'npm/node_modules/@tobilu/qmd');
+  const embedFile = env.HY_BRIDGE_EMBED_FILE?.trim() || path.join(home, '.cache/qmd/models/hf_ggml-org_embeddinggemma-300M-Q8_0.gguf');
+  const sdkManifest = JSON.parse(readFileSync(path.join(sdkRoot, 'package.json'), 'utf8'));
+  if (sdkManifest.name !== '@earendil-works/pi-coding-agent') throw new Error('invalid_pi_sdk_package');
+  const qmdManifest = JSON.parse(readFileSync(path.join(qmdRoot, 'package.json'), 'utf8'));
+  if (qmdManifest.name !== '@tobilu/qmd' || qmdManifest.version !== '2.8.3') throw new Error('qmd_version_changed_revalidate_adapter');
+  const sdk = path.join(sdkRoot, 'dist/index.js');
+  const dispatcher = path.join(sdkRoot, 'dist/core/http-dispatcher.js');
+  const qmd = path.join(qmdRoot, 'dist/llm.js');
+  for (const file of [sdk, dispatcher, qmd]) if (!statSync(file).isFile()) throw new Error('backend_entry_not_file');
+  try { if (!statSync(embedFile).isFile()) throw new Error('not_file'); }
+  catch { throw new Error('existing_qmd_model_not_found_no_download_attempted'); }
+  return { sdk, dispatcher, qmd, embedFile };
+}
 const CHAT_MODEL = 'gpt-6.1-sol';
 const EMBED_MODEL = 'qmd-embeddinggemma-300m';
 const usageZero = () => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0,
@@ -37,20 +53,17 @@ export function encodeEmbedding(vector, format = 'float') {
   return bytes.toString('base64');
 }
 
-export async function createBackends() {
-  if (JSON.parse(readFileSync(path.join(QMD, 'package.json'), 'utf8')).version !== '2.8.3') {
-    throw new Error('qmd_version_changed_revalidate_adapter');
-  }
-  if (!existsSync(EMBED_FILE)) throw new Error('existing_qmd_model_not_found_no_download_attempted');
-  const { ModelRuntime } = await import(pathToFileURL(SDK).href);
+export async function createBackends(env = process.env) {
+  const { sdk, dispatcher, qmd, embedFile } = resolveBackendPaths(env);
+  const { ModelRuntime } = await import(pathToFileURL(sdk).href);
   // SDK-only callers must initialize the same proxy-aware dispatcher as Pi's host.
-  const { configureHttpDispatcher } = await import(pathToFileURL(path.join(path.dirname(SDK), 'core/http-dispatcher.js')).href);
+  const { configureHttpDispatcher } = await import(pathToFileURL(dispatcher).href);
   configureHttpDispatcher(240_000);
-  const { LlamaCpp } = await import(pathToFileURL(path.join(QMD, 'dist/llm.js')).href);
+  const { LlamaCpp } = await import(pathToFileURL(qmd).href);
   const runtime = await ModelRuntime.create({ allowModelNetwork: false });
   const model = runtime.getModel('openai-codex', CHAT_MODEL);
   if (!model || !runtime.hasConfiguredAuth('openai-codex')) throw new Error('pi_model_or_auth_unavailable');
-  const llm = new LlamaCpp({ embedModel: EMBED_FILE, inactivityTimeoutMs: 120_000, disposeModelsOnInactivity: true });
+  const llm = new LlamaCpp({ embedModel: embedFile, inactivityTimeoutMs: 120_000, disposeModelsOnInactivity: true });
   let queue = Promise.resolve();
   const serial = (fn) => { const next = queue.then(fn); queue = next.catch(() => {}); return next; };
   return {

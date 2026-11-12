@@ -7,9 +7,10 @@ import { pathToFileURL } from 'node:url';
 import vm from 'node:vm';
 import { configureHostSdk, HOST_ROOT_ENV } from './host-sdk.mjs';
 import { patch, oldBlock, newBlock, legacyBlock, previousBlock, core14Block } from './apply-runner-1.2-compat.mjs';
-const plugin=path.join(os.homedir(),'.pi/agent/npm/node_modules/pi-subagents');
+const plugin=process.env.PI_SUBAGENTS_PACKAGE_ROOT || path.join(process.env.PI_CODING_AGENT_DIR || path.join(os.homedir(), '.pi/agent'), 'npm/node_modules/pi-subagents');
 const src=fs.readFileSync(path.join(plugin,'src/runs/background/runner-aliases.js'),'utf8');
-const host='/opt/homebrew/lib/node_modules/@agegr/pi-web/node_modules/@earendil-works/pi-coding-agent';
+const host=process.env[HOST_ROOT_ENV];
+if (!host) throw new Error(`Integration test requires explicit ${HOST_ROOT_ENV}`);
 const { resolveHostPeerAliases } = await import(pathToFileURL(path.join(plugin,'src/runs/background/runner-aliases.js')));
 test('replay is idempotent and unknown source rejected',()=>{
  assert.equal(patch(src),src);assert.equal(patch(src.replace(newBlock,oldBlock)),src);
@@ -30,7 +31,7 @@ function resolveActual({ argv, env = {}, installed }) {
  return { value, installedCalls };
 }
 test('actual async resolver accepts a validated explicit host with a missing npm peer', () => {
- const env = {}; const verifiedHost = configureHostSdk(env);
+ const env = { [HOST_ROOT_ENV]: host }; const verifiedHost = configureHostSdk(env);
  assert.equal(verifiedHost, fs.realpathSync(host));
  assert.deepEqual(resolveActual({ env, installed: undefined }), { value: verifiedHost, installedCalls: 0 });
  assert.deepEqual(resolveActual({ env: { [HOST_ROOT_ENV]: `  ${verifiedHost}  ` } }), { value: verifiedHost, installedCalls: 0 });

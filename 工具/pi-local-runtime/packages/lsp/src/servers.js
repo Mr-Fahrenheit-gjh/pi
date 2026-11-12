@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { resolve_server_spawn } from './spawn-command.js';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, extname, isAbsolute, join, resolve, } from 'node:path';
 const EXTENSION_LANGUAGES = {
@@ -177,7 +178,10 @@ function ancestor_directories(start) {
     return dirs;
 }
 function resolve_global_typescript_major() {
-    const result = spawnSync('tsc', ['--version'], {
+    let launch;
+    try { launch = resolve_server_spawn('tsc', ['--version']); }
+    catch { return undefined; }
+    const result = spawnSync(launch.command, launch.args, {
         encoding: 'utf8',
         timeout: 2_000,
         windowsHide: true,

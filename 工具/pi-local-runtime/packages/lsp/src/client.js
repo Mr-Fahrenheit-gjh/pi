@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { resolve_server_spawn } from './spawn-command.js';
 import { EventEmitter } from 'node:events';
 import { pathToFileURL } from 'node:url';
 import { create_child_process_env } from './env.js';
@@ -30,9 +31,11 @@ export class LspClient extends EventEmitter {
         this.#options = options;
     }
     async start() {
-        this.#proc = spawn(this.#options.command, this.#options.args, {
+        const env = create_child_process_env();
+        const launch = resolve_server_spawn(this.#options.command, this.#options.args, { env });
+        this.#proc = spawn(launch.command, launch.args, {
             stdio: ['pipe', 'pipe', 'pipe'],
-            env: create_child_process_env(),
+            env,
         });
         let start_reject = null;
         const start_failure = new Promise((_, reject) => {
