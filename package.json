@@ -44,6 +44,7 @@
     "start:lan": "next start -H 0.0.0.0 -p 30141",
     "lint": "eslint .",
     "test:terminal": "node e2e/ghostty-terminal.mjs",
+    "test:platform": "node --experimental-strip-types --test lib/attachment-presentation.test.mjs lib/browser-executable.test.mjs lib/paths.test.mjs lib/file-paths.test.mjs lib/file-links.test.mjs lib/open-in-file-manager.test.mjs lib/terminal-manager.test.mjs lib/project-command-env.test.mjs lib/node-version.test.mjs lib/pi-web-options.test.mjs lib/pi-web-node-args.test.mjs lib/process-lifecycle.test.mjs",
     "test:e2e": "node e2e/run.mjs",
     "test": "node --experimental-strip-types --test \"app/**/*.test.mjs\" \"components/**/*.test.mjs\" \"hooks/**/*.test.mjs\" \"lib/**/*.test.mjs\" \"public/**/*.test.mjs\"",
     "release": "npm version patch --no-git-tag-version && npm run build && npm publish --access public"

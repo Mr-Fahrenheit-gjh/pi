@@ -1,4 +1,5 @@
 import { buildAtMentionText } from "./file-fuzzy";
+import { getFileName, normalizeFilePathSlashes } from "./file-paths";
 
 export interface AttachmentReference { name: string; path: string }
 export interface PresentedAttachment extends AttachmentReference { token: string }
@@ -7,7 +8,8 @@ export interface PresentedAttachment extends AttachmentReference { token: string
 // URLs and project @mentions remain untouched.
 const privateMention = /(^|\s)@(?:"([^"\n]+)"|([^\s"<>]+))/g;
 function attachmentPath(value: string): boolean {
-  return /^\/[^\n]*\/chat-attachments\/[a-f0-9]{64}\/[^/]+$/.test(value);
+  // Normalize only for recognition; drafts and requests retain the native path.
+  return /^(?:\/|[a-zA-Z]:\/)[^\r\n]*\/chat-attachments\/[a-f0-9]{64}\/[^/]+$/.test(normalizeFilePathSlashes(value));
 }
 
 /** Per-composer registry: keeping removed tokens makes native undo lossless. */
@@ -23,7 +25,7 @@ export class AttachmentPresentation {
       if (!file) {
         let token: string;
         do { token = `[file.${this.nextId++}]`; } while (text.includes(token));
-        file = { token, path, name: path.slice(path.lastIndexOf("/") + 1) };
+        file = { token, path, name: getFileName(path) };
         this.entries.push(file);
       }
       return space + file.token;

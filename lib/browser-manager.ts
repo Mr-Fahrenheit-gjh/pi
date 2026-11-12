@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { normalizePreviewUrl } from "./browser-preview";
+import { chromeExecutableCandidates } from "./browser-executable";
 import { isBrowserId } from "./browser-protocol";
 import type { BrowserCommand, BrowserEvent, BrowserPageState } from "./browser-types";
 
@@ -97,7 +98,7 @@ export class BrowserManager {
     return this.starting;
   }
   private async launch(): Promise<ChromeConnection> {
-    const candidates = [process.env.PI_WEB_CHROME_EXECUTABLE, "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"].filter((x): x is string => !!x);
+    const candidates = chromeExecutableCandidates();
     let executable: string | undefined;
     for (const path of candidates) { try { await access(path, constants.X_OK); executable = path; break; } catch { /* Try the next known Chrome location. */ } }
     if (!executable) throw new Error("Chrome is not installed on the Pi Web host");
