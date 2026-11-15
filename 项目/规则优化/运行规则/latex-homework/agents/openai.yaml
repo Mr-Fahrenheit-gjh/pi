@@ -1,0 +1,4 @@
+interface:
+  display_name: "LaTeX 作业排版与检查"
+  short_description: "对照原题核对作业，修正推导与表达，排版并逐页验证 LaTeX PDF"
+  default_prompt: "使用 $latex-homework 对照原题检查这份作业，采用正面表达，整理 LaTeX 源文件并编译、逐页检查 PDF。"

@@ -41,6 +41,7 @@
     "prebuild": "node bin/prepare-ghostty.mjs",
     "build": "next build --webpack",
     "start": "node bin/start-custom.js",
+    "configure": "node bin/configure-agent.mjs",
     "start:lan": "next start -H 0.0.0.0 -p 30141",
     "lint": "eslint .",
     "test:terminal": "node e2e/ghostty-terminal.mjs",

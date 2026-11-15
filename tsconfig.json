@@ -37,6 +37,10 @@
   ],
   "exclude": [
     "node_modules",
-    "demo"
+    "demo",
+    ".pi",
+    "public-config",
+    "工具",
+    "项目"
   ]
 }

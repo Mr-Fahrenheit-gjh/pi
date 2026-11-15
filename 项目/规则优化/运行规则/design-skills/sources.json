@@ -1,0 +1,90 @@
+{
+  "schema": 1,
+  "scope": "global",
+  "installRoot": "~/.pi/agent/skills",
+  "sources": [
+    {
+      "repository": "https://github.com/anthropics/claude-plugins-official",
+      "revision": "a7ba5b93db0c7c8d17f3f1d25853adca79598a1a",
+      "path": "plugins/frontend-design/skills/frontend-design",
+      "skills": [
+        "frontend-design"
+      ],
+      "localPatch": null
+    },
+    {
+      "repository": "https://github.com/JimLiu/baoyu-design",
+      "revision": "6759e358eb88d83986c753b0fc60c84e4aabdb3a",
+      "path": "skills",
+      "skills": [
+        "claude-design",
+        "claude-slides",
+        "claude-design-system",
+        "claude-dashboard",
+        "dataviz"
+      ],
+      "localPatch": "baoyu-pi.patch",
+      "extraFilesFromRepositoryRoot": [
+        "LICENSE",
+        "NOTICE.md"
+      ]
+    }
+  ],
+  "removedPackage": "npm:pi-design-deck@0.5.1",
+  "skills": {
+    "frontend-design": {
+      "upstreamSkillSha256": "d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3",
+      "installedSkillSha256": "d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3",
+      "installedTree": {
+        "sha256": "7e9c2af00fd5b3144f49ce6fb1b16037b392ab9c2f049423b0b6114d99381ba2",
+        "files": 2,
+        "bytes": 19564
+      }
+    },
+    "claude-design": {
+      "upstreamSkillSha256": "f84178ba8f08311b46f3fe93ba9ced64e8cf0627b8415c1080b8a38c5ea5d348",
+      "installedSkillSha256": "c041de3c7818f2741460f797f2fb39596b22ce8296ddaf28f8b8acede8573f72",
+      "installedTree": {
+        "sha256": "8b36925541be28cfebee50b63b6eba23098a6d621ca4476f6240bc0c9e20360e",
+        "files": 30,
+        "bytes": 14847750
+      }
+    },
+    "claude-slides": {
+      "upstreamSkillSha256": "1a0958cd4237f7bf4b417324b5366ebb3afaff2823db1147e6432c4b7de7ecb7",
+      "installedSkillSha256": "1bf4d55e0772e41ccf3dcea62bbc15e287db92bf7c09ed6dbdf709aea562c96b",
+      "installedTree": {
+        "sha256": "39cc74069c182d3e4205582b2578c32777af046f726f5c7234d4932953302ca7",
+        "files": 32,
+        "bytes": 17687463
+      }
+    },
+    "claude-design-system": {
+      "upstreamSkillSha256": "abf2470b30b7ff396d4e2398b21f895e2fb800945bac9a92ef1fbcb1031a21f8",
+      "installedSkillSha256": "0f22a426c41ac323fa900d7d57aaab27e7223b3c0fbef8fdd6a41c60f37aeedc",
+      "installedTree": {
+        "sha256": "710d4eee899bf42961c539d54173e8d80a0dd03a38746c936e412a2c9ff21e31",
+        "files": 21,
+        "bytes": 4315624
+      }
+    },
+    "claude-dashboard": {
+      "upstreamSkillSha256": "dee61c7e109cfa963a42af4cff62ddac738a22831b7b22e66ead246c7f22878d",
+      "installedSkillSha256": "da480bf220fe74d0e91e8988decd03e0fee8096dc181c231baf1a6bbb205fb01",
+      "installedTree": {
+        "sha256": "52b01966f1e8f5e983d83ce0d1fb67e9619575a3f578f465099cc14fd50e724b",
+        "files": 25,
+        "bytes": 4087378
+      }
+    },
+    "dataviz": {
+      "upstreamSkillSha256": "e9e805e804f30f441e7edd12b88a6763f2e40d34e49107d03d659914ab91d881",
+      "installedSkillSha256": "76e5f55f98e4b9553b17a65d2e3bd7cbfe9aa21932c5f00d55a8c3fd2ead28aa",
+      "installedTree": {
+        "sha256": "1657a3c8e2d0dd98db03f806d67410ca05f4e401f28f13c8bf71026ee3c8daa4",
+        "files": 12,
+        "bytes": 93476
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "pi-prompt-suggestions",
+  "version": "0.1.2-web.1",
+  "description": "Local Pi Web adaptation of SteelDynamite/pi-prompt-suggestions",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": { "node": ">=22.19.0" },
+  "scripts": {
+    "test": "node --test tests/extension.test.mjs",
+    "typecheck": "node typecheck.mjs"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  }
+}

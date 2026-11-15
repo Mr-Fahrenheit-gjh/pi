@@ -1,0 +1,54 @@
+{
+  "name": "@local/pi-lsp",
+  "version": "0.0.46-local.1",
+  "description": "Language Server Protocol tools for Pi agents to inspect diagnostics, hovers, definitions, references, and symbols",
+  "keywords": [
+    "language-server",
+    "lsp",
+    "pi",
+    "pi-package"
+  ],
+  "homepage": "https://github.com/spences10/my-pi/tree/main/packages/pi-lsp#readme",
+  "license": "MIT",
+  "author": "Scott Spence <me@scottspence.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/spences10/my-pi.git",
+    "directory": "packages/pi-lsp"
+  },
+  "files": [
+    "src",
+    "slim.js",
+    "LICENSE",
+    "README.md"
+  ],
+  "type": "module",
+  "main": "./slim.js",
+  "exports": {
+    ".": "./slim.js",
+    "./slim": "./slim.js"
+  },
+  "dependencies": {
+    "@spences10/pi-child-env": "0.1.10",
+    "@spences10/pi-project-trust": "0.0.19",
+    "@spences10/pi-tui-modal": "0.0.24"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "engines": {
+    "node": ">=24.15.0"
+  },
+  "pi": {
+    "extensions": [
+      "./slim.js"
+    ]
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "check": "node scripts/check.js",
+    "typecheck": "node scripts/lsp-check.js"
+  },
+  "private": true
+}

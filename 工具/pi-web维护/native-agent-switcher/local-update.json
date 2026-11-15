@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "sourceDirectory": "../pi-web-source-core-1.5.0",
+  "candidateDirectory": "~/.pi/pi-web-candidates/claude-white-polish-20261106/package",
+  "targetVersion": "0.12.1",
+  "historyFixtureFile": "../claude-white-polish/history-fixture.json"
+}

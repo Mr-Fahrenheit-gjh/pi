@@ -1,0 +1,10 @@
+{
+  "name": "pi-local-tool-profiles",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "keywords": ["pi-package"],
+  "pi": { "extensions": ["./index.ts"] },
+  "peerDependencies": { "@earendil-works/pi-coding-agent": "*" },
+  "scripts": { "test": "node tests/mock.mjs && node tests/hosts.mjs" }
+}

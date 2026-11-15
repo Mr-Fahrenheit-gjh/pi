@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "settingsTemplate": "agent/settings.template.json",
+  "importPolicy": {
+    "default": [
+      "agent/APPEND_SYSTEM.md",
+      "agent/rules/",
+      "agent/agents/",
+      "agent/skills/"
+    ],
+    "withExtensionsOnly": [
+      "agent/extensions/",
+      "agent/settings.template.json -> settings.json"
+    ],
+    "workspaceRequiresExplicitOptIn": "workspace/AGENTS.md; never replace the Web development AGENTS.md implicitly",
+    "packageActivation": "Writing package declarations can trigger installation on the next Pi start. Only opt-in --with-extensions may configure them; copying is not activation or availability proof.",
+    "disabledFilters": "Preserve empty package filter arrays and negative extension entries; do not expand them into defaults."
+  },
+  "optionalEnvironments": [
+    {
+      "id": "memory",
+      "requires": [
+        "工具/hy-memory迁移 adapter and separately configured Hy-Memory service",
+        "user-owned configuration/token; no memory/token/model payload included"
+      ],
+      "defaultAction": "Do not start a service or scan/import existing memories"
+    },
+    {
+      "id": "browser",
+      "requires": [
+        "user-selected Chrome/backend and matching computer-use host",
+        "OpenCLI + Browser Bridge for authenticated OpenCLI tasks",
+        "separate Playwright MCP localhost:8931 only if configured"
+      ],
+      "defaultAction": "No browser/profile/login/service is opened by import"
+    },
+    {
+      "id": "lsp",
+      "requires": [
+        "pi-lsp-adapter-compatible host",
+        "separately installed language servers for selected languages"
+      ],
+      "defaultAction": "Do not install language servers"
+    },
+    {
+      "id": "tmux",
+      "requires": [
+        "tmux and compatible shell/PTY for background terminals"
+      ],
+      "defaultAction": "Do not start terminals/tasks"
+    },
+    {
+      "id": "mac",
+      "requires": [
+        "macOS launchd/Homebrew paths only for optional pi-web-service and maintenance wrappers",
+        "macOS Keychain + already authorized agent-browser for password-fill",
+        "optional Herdr socket/pane environment for herdr-agent-state"
+      ],
+      "defaultAction": "Do not read Keychain, enumerate accounts, register launchd, or activate platform-specific helpers"
+    },
+    {
+      "id": "history",
+      "requires": [
+        "explicit user-selected archive root",
+        "QMD/Obsidian/archive integration configured separately"
+      ],
+      "defaultAction": "Do not run archive_health.py with its author-specific default; no archive/index/session data is shipped"
+    },
+    {
+      "id": "search-proxy-and-typesetting",
+      "requires": [
+        "user-provided BRAVE_API_KEY if Brave search is selected",
+        "explicit user proxy configuration before proxy-env use",
+        "separately installed TeX tools/fonts for latex-homework"
+      ],
+      "defaultAction": "Do not import .api-key, proxy rules.yaml, install tools, or enable the author's proxy"
+    }
+  ],
+  "hostCompatibility": [
+    "Seven roles rely on the customized pi-subagents host for advertised roles, nested tools and inheritance/fork settings.",
+    "Empty upstream pi-subagents/background-task extension filters remain empty; settings explicitly register their local quiet adapters instead of source-machine symlinks.",
+    "Package installation or copying direct extension source does not prove terminal/Web discovery, reload, model response or external-service readiness."
+  ]
+}

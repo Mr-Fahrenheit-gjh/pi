@@ -1,0 +1,38 @@
+import assert from 'node:assert/strict';
+import {existsSync,readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {resolve,join,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {createHash} from 'node:crypto';
+import {runHistoryBrowserChecks} from './browser-history.mjs';
+import {runQuietChecks} from './quiet-tools.mjs';
+import {runBrowserCheck} from '../../pi-web维护/native-agent-switcher/playwright-mcp-client.mjs';
+const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
+const maintenance=resolve(root,'../pi-web维护/native-agent-switcher');
+const config=JSON.parse(readFileSync(join(maintenance,'local-update.json'),'utf8'));
+const packageRoot=config.candidateDirectory;
+const agentDir=process.env.PI_HISTORY_AGENT_DIR||'/tmp/pi-history-suggestions-20261018';
+const baseURL=process.env.PI_HISTORY_VERIFY_BASE||'http://127.0.0.1:30168';
+const outputDir=join(root,'evidence/history');mkdirSync(outputDir,{recursive:true});
+const identity={packageRoot,buildId:readFileSync(join(packageRoot,'.next/BUILD_ID'),'utf8').trim(),pluginSha256:createHash('sha256').update(readFileSync(join(root,'src/index.ts'))).update(readFileSync(join(root,'src/history.ts'))).digest('hex'),browserBackend:'playwright-mcp',at:new Date().toISOString()};
+const calls=()=>existsSync(join(agentDir,'model-calls.jsonl'))?readFileSync(join(agentDir,'model-calls.jsonl'),'utf8').trim().split('\n').filter(Boolean).map(JSON.parse):[];
+try {
+  assert.equal((await fetch(`${baseURL}/api/sessions/suggestions-a`)).status,200);
+  assert.equal((await fetch(`${baseURL}/api/agent/suggestions-a`)).status,200);
+  const commands=await fetch(`${baseURL}/api/agent/suggestions-a`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'get_commands'})}).then(r=>r.json());
+  assert.equal(commands.success,true);
+  assert.ok(commands.data.commands.some(c=>c.name==='prompt-suggestions-history'&&c.source==='extension'));
+  assert.equal(calls().length,0,'Background history, state and extension discovery must not generate');
+  const combined=new Function(`return async function(page,options){const history=(${runHistoryBrowserChecks.toString()});const quiet=(${runQuietChecks.toString()});return {history:await history(page,options),quiet:await quiet(page,options)};}`)();
+  const result=await runBrowserCheck(combined,{baseURL,outputDir});
+  assert.equal(result.history.passed,true);assert.equal(result.quiet.passed,true);
+  const modelCalls=calls();assert.equal(modelCalls.filter(c=>c.kind==='main').length,0);
+  const suggestions=modelCalls.filter(c=>c.kind==='suggestion');assert.equal(suggestions.length,2,'Each opened conversation generates once; cached reopens must not call again');
+  const a=suggestions.find(c=>c.context.includes('open-A'));
+  assert.ok(a);assert.ok(a.context.includes('open-A user-2'));assert.ok(a.context.includes('open-A answer-5'));
+  assert.ok(!a.context.includes('open-A user-0')&&!a.context.includes('open-A user-1'),'Only the latest four turns are sent');
+  const proof={...identity,...result,passed:true,backgroundRequests:0,mainModelRequests:0,suggestionModelRequests:suggestions.length,latestFourTurnsVerified:true,cacheReopenVerified:true,syntheticProvider:true,externalModelRequests:0};
+  writeFileSync(join(outputDir,'result.json'),JSON.stringify(proof,null,2)+'\n');
+  const quiet={...identity,...result.quiet};writeFileSync(join(outputDir,'quiet-tools-result.json'),JSON.stringify(quiet,null,2)+'\n');
+  const sourceQuiet=resolve(maintenance,config.sourceDirectory,'test-results/quiet-tools');mkdirSync(sourceQuiet,{recursive:true});writeFileSync(join(sourceQuiet,'result.json'),JSON.stringify(quiet,null,2)+'\n');
+  console.log(JSON.stringify({passed:true,historyChecks:result.history.checks.length,quietChecks:result.quiet.checks.length,backgroundRequests:0,mainModelRequests:0,suggestionModelRequests:2,...identity}));process.exit(0);
+} catch(error){console.error(error);process.exit(1);}

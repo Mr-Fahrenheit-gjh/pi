@@ -14,9 +14,9 @@
 
 直接从这里下载的 ZIP 已选中正确分支：
 
-https://github.com/Mr-Fahrenheit-gjh/pi/archive/refs/heads/pi-web.zip
+https://github.com/Mr-Fahrenheit-gjh/pi/archive/refs/heads/main.zip
 
-解压后应看见 `package.json`、`start.cmd` 与 `start.sh`。默认 `main` 是扩展源码，不是可运行的网页目录。
+解压后应看见 `package.json`、`start.cmd`、`start.sh` 与 `public-config`。默认 `main` 和兼容分支 `pi-web` 内容相同，均可直接启动。系统提示词、技能和角色需按 [公开配置说明](../public-config/README.md) 显式导入；不会覆盖已有配置或恢复作者个人数据。
 
 ## 入口参数
 

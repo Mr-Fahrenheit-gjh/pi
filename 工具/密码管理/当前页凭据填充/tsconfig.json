@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM"],
+    "allowJs": true,
+    "checkJs": true,
+    "strict": true,
+    "noEmit": true,
+    "types": ["node"],
+    "typeRoots": ["/opt/homebrew/lib/node_modules/@agegr/pi-web/node_modules/@types"]
+  },
+  "include": ["fill.mjs", "accounts.mjs", "pw.mjs", "test.mjs", "cdp-types.d.ts"]
+}

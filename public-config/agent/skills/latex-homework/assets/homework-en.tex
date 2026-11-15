@@ -1,0 +1,50 @@
+% Compile with XeLaTeX. Required packages must already be installed.
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=22mm,headheight=15pt]{geometry}
+\usepackage{fontspec}
+\setmainfont{TeX Gyre Termes}
+\usepackage{amsmath}
+\usepackage{newtxmath}
+\usepackage{booktabs,tabularx,array,xcolor,fancyhdr,titlesec,enumitem}
+\usepackage[hidelinks]{hyperref}
+\definecolor{accent}{HTML}{274D65}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\AtBeginDocument{%
+  \setlength{\abovedisplayskip}{8pt}%
+  \setlength{\belowdisplayskip}{8pt}%
+}
+\linespread{1.06}
+\renewcommand{\arraystretch}{1.15}
+\titleformat{\section}{\large\bfseries\color{accent}}{}{0pt}{}
+\titleformat{\subsection}{\normalsize\bfseries\color{accent}}{}{0pt}{}
+\titlespacing*{\section}{0pt}{16pt}{10pt}
+\titlespacing*{\subsection}{0pt}{14pt}{7pt}
+\setlist[enumerate]{label=(\alph*),leftmargin=2em,itemsep=5pt}
+% Fill only with information supplied for the current assignment.
+\newcommand{\CourseName}{}
+\newcommand{\HomeworkName}{}
+\newcommand{\StudentName}{}
+\newcommand{\StudentID}{}
+\newcommand{\SubmissionDate}{}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\CourseName}
+\fancyhead[R]{\small\HomeworkName}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\newcommand{\problem}[2]{\section*{Problem #1\enspace|\enspace #2}}
+\newcommand{\heading}[1]{\subsection*{#1}}
+\begin{document}
+% Uncomment when identity/date fields have been filled. No large cover title.
+% {\small\StudentName\quad\StudentID\hfill\SubmissionDate}\par
+\problem{1}{Rates and inflation}
+\heading{(a) APR and effective annual rate}
+The six-month holding-period return is $r_{6m}=0.032$. With two periods per year,
+\begin{align*}
+\mathrm{APR}&=2r_{6m}=\boxed{6.4\%},\\
+\mathrm{EAR}&=(1+r_{6m})^2-1=\boxed{6.5024\%}.
+\end{align*}
+% Use \newpage between major problems only when it improves the actual layout.
+% Use booktabs tables without vertical rules; box final results, not every step.
+\end{document}

@@ -1,0 +1,35 @@
+% !TeX program = xelatex
+\documentclass[11pt,a4paper,fontset=fandol]{ctexart}
+% 中文正文和标题统一用楷体；Fandol 楷体无独立粗体，采用适度模拟加粗。
+\setCJKmainfont{FandolKai-Regular.otf}[AutoFakeBold=2,ItalicFont=FandolKai-Regular.otf]
+\setCJKsansfont{FandolKai-Regular.otf}[AutoFakeBold=2,ItalicFont=FandolKai-Regular.otf]
+\usepackage[margin=22mm,headheight=15pt]{geometry}
+\usepackage{amsmath,amssymb,booktabs,tabularx,array,xcolor,fancyhdr}
+\usepackage[hidelinks]{hyperref}
+\definecolor{accent}{HTML}{274D65}
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0.2em}
+\setlength{\abovedisplayskip}{7pt}
+\setlength{\belowdisplayskip}{7pt}
+\linespread{1.08}
+\renewcommand{\arraystretch}{1.25}
+\ctexset{section={format=\large\bfseries\color{accent},beforeskip=12pt,afterskip=8pt},subsection={format=\normalsize\bfseries\color{accent},beforeskip=10pt,afterskip=5pt}}
+% 填写当前作业的信息；空值可按需求省略。
+\newcommand{\CourseName}{}
+\newcommand{\StudentName}{}
+\newcommand{\StudentID}{}
+\newcommand{\SubmissionDate}{}
+\pagestyle{fancy}\fancyhf{}
+\fancyhead[L]{\small\CourseName}
+\fancyfoot[L]{\footnotesize\StudentName\quad\StudentID}
+\fancyfoot[R]{\footnotesize\thepage}
+\newcommand{\heading}[1]{\subsection*{#1}}
+\newcommand{\answer}[1]{\par\noindent\textbf{\color{accent}结论：}#1\par}
+\begin{document}
+\noindent{\small\StudentName\quad\StudentID\hfill\SubmissionDate}\par
+\vspace{2mm}\hrule\vspace{3mm}
+% 从这里编写题目解答，默认省略整份作业的大标题。
+\section*{第一题}
+\heading{(a)}
+% 正文、公式与结论。
+\end{document}

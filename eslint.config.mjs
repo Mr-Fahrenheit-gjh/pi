@@ -2,8 +2,9 @@ import coreWebVitals from "eslint-config-next/core-web-vitals";
 import typescript from "eslint-config-next/typescript";
 
 const eslintConfig = [
-  // demo/ is a separate Next.js project with its own lint config.
-  { ignores: ["demo/**"] },
+  // Standalone extension/skill sources and import templates are not Web modules.
+  // They retain their own host-specific checks instead of inheriting Next types.
+  { ignores: ["demo/**", ".pi/**", "public-config/**", "工具/**", "项目/**"] },
   ...coreWebVitals,
   ...typescript,
   {

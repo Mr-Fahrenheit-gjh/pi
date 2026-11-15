@@ -1,0 +1,9 @@
+{
+  "globalConcurrencyLimit": 3,
+  "maxActiveAsyncRunsPerSession": 3,
+  "maxSubagentDepth": 2,
+  "scheduledRuns": {
+    "enabled": false
+  },
+  "toolActivation": "eager"
+}

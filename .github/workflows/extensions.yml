@@ -1,0 +1,46 @@
+name: Extension platform checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: extensions-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  export-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -B -m unittest -v test_sync
+        working-directory: 工具/pi-github-sync
+      - run: python3 -B scripts/test-export-public-profile.py
+
+  extensions:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.19.0
+      # These fixtures require only Node, not the author's packages or data.
+      - run: >-
+          node --test
+          "工具/pi-background-task-quiet/installed-package.test.mjs"
+          "工具/pi-subagents-quiet/installed-package.test.mjs"
+          "工具/pi-subagents-quiet/host-sdk.test.mjs"
+          "工具/pi-attachment-presentation/file-references.test.mjs"
+          "工具/pi-local-runtime/packages/lsp/test/spawn-command.test.js"
+          "工具/hy-memory迁移/bridge.test.mjs"

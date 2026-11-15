@@ -1,0 +1,11 @@
+{
+  "name": "pi-local-browser-schema",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "pi": { "extensions": ["./index.ts"] },
+  "peerDependencies": {
+    "pi-agent-browser-native": "0.6.10",
+    "@earendil-works/pi-coding-agent": "0.85.1"
+  }
+}

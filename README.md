@@ -2,7 +2,7 @@
 
 在浏览器里使用 Pi：选项目、与模型对话、让代理读写代码、查看子代理与产物，也可以同时打开文件、终端和第二段对话。
 
-**这份 README 是安装与操作手册。** 可运行的网页端源码在 **`pi-web` 分支**；`main` 分支主要保存 Pi 扩展与本手册。只想使用网页端，不需要先 Fork GitHub 仓库，也不需要先安装 Pi CLI、MCP、Docker 或菜单栏应用。
+**这份 README 是安装与操作手册。`main` 和 `pi-web` 两个分支提供相同的完整公开版**：可启动网页端、定制扩展源码，以及系统提示词、规则、技能与角色配置。直接下载默认 `main` 即可，不需要先 Fork，也不需要先安装 Pi CLI、MCP、Docker 或菜单栏应用。
 
 公开版不包含 **Pi Meta、Feynman** 的实现、页面或运行入口，不需要作者机器上的私有服务。你的模型账号、API key、聊天和设置由你自己管理；仓库不附送模型额度，也不会恢复作者的配置。
 
@@ -36,26 +36,26 @@
 ### Windows：推荐下载后双击
 
 1. 安装 [Node.js](https://nodejs.org/)，确认选择包含 npm 的安装方式。
-2. [下载网页端 ZIP](https://github.com/Mr-Fahrenheit-gjh/pi/archive/refs/heads/pi-web.zip)，**先解压**，再进入解压后的目录。
+2. [下载完整公开版 ZIP](https://github.com/Mr-Fahrenheit-gjh/pi/archive/refs/heads/main.zip)，**先解压**，再进入解压后的目录。
 3. 确认目录里有 `start.cmd`、`package.json`，然后双击 **`start.cmd`**。
 4. 第一次会自动按锁文件安装本项目依赖、构建网页并启动；保持窗口打开，等待浏览器自动打开。
 
 已安装 Git 的用户也可以在 PowerShell 执行：
 
 ```powershell
-git clone --branch pi-web --single-branch https://github.com/Mr-Fahrenheit-gjh/pi.git pi-web-custom
+git clone https://github.com/Mr-Fahrenheit-gjh/pi.git pi-web-custom
 cd pi-web-custom
 .\start.cmd
 ```
 
 之后仍然双击同一个 `start.cmd` 即可。PowerShell 若提示 `npm.ps1` 无法运行，不必修改系统执行策略：使用 `start.cmd`，或者运行 `npm.cmd start`。
 
-> 不要直接下载默认 `main` 分支的 ZIP 来启动网页端。`main` 是扩展源码目录，不是网页应用；上面的 ZIP 链接已经选好了 `pi-web` 分支。
+> 默认 `main` 与兼容入口 `pi-web` 均含网页应用。若下载后没有 `start.cmd`、`package.json` 和 `public-config`，请检查是否拿到了旧快照或不完整文件。
 
 ### Linux / macOS：克隆后启动
 
 ```sh
-git clone --branch pi-web --single-branch https://github.com/Mr-Fahrenheit-gjh/pi.git pi-web-custom
+git clone https://github.com/Mr-Fahrenheit-gjh/pi.git pi-web-custom
 cd pi-web-custom
 bash start.sh
 ```
@@ -85,6 +85,32 @@ bash start.sh --port 30142
 ```
 
 要停止服务，先停止正在进行的任务，再在启动窗口按 **Ctrl+C**。下次运行相同入口即可继续使用保存的会话。
+
+### 导入我们的系统提示词、规则、技能和角色
+
+公开配置在 [`public-config`](public-config/README.md)，不是聊天里临时注入的文字。**克隆源码不会自动改写你的全局规则。** 下面选择一个新的独立数据目录，不复制作者个人记忆、账号、模型授权或聊天，也不覆盖你已有的配置。
+
+Windows PowerShell：
+
+```powershell
+# 先预览；确认后追加 --apply
+node bin/configure-agent.mjs --target "$HOME/.pi/pi-public-agent" --with-extensions
+node bin/configure-agent.mjs --target "$HOME/.pi/pi-public-agent" --with-extensions --apply
+$env:PI_CODING_AGENT_DIR = "$HOME/.pi/pi-public-agent"
+.\start.cmd
+```
+
+Linux / macOS：
+
+```sh
+node bin/configure-agent.mjs --target "$HOME/.pi/pi-public-agent" --with-extensions
+node bin/configure-agent.mjs --target "$HOME/.pi/pi-public-agent" --with-extensions --apply
+PI_CODING_AGENT_DIR="$HOME/.pi/pi-public-agent" bash start.sh
+```
+
+`--with-extensions` 同时导入现有插件的版本声明和本地适配器；SDK 下次启动可能联网安装这些 npm 包，但不会替你配置模型、记忆服务、浏览器、LSP、tmux 或系统服务。不加该选项只导入提示词、规则、技能和角色。已有不同内容时整个导入会拒绝覆盖；请手工合并或换新目录。工作区 `AGENTS.md` 另需显式 `--workspace <项目目录>`，不强行替换项目原有规则。已有实例需 `/reload` 或新建会话。
+
+五项许可受限设计技能仅提供固定版本来源和本地适配补丁，须使用者自行合法取得原材料；详见配置清单，不宣称其正文、编辑器和字体已打入包。
 
 ## 2. 第一次进入：配模型、选项目、发消息
 
@@ -325,7 +351,7 @@ ZIP 用户重新下载 `pi-web` ZIP，解压到新的独立目录后启动。默
 
 | 现象 | 先这样处理 |
 | --- | --- |
-| 下载后没有 start.cmd / package.json | 检查是否下载了 `pi-web` 分支，而不是默认 `main`；先解压，不在 ZIP 内直接运行 |
+| 下载后没有 start.cmd / package.json | 两个分支现均可启动；重新下载最新默认 main 完整 ZIP，先解压，不在 ZIP 内直接运行 |
 | 找不到 node，或版本过旧 | 安装/选择 Node.js 22 LTS，至少 22.19.0；重新打开终端，用 `node --version`、`npm --version` 检查 |
 | npm.ps1 被 PowerShell 限制 | 使用 `start.cmd` 或 `npm.cmd start`，不必调整系统执行策略 |
 | 第一次安装卡住 / npm 网络报错 | 看启动窗口最先出现的错误；确认可访问 npm/GitHub。网络恢复后重跑同一入口，不必删除会话数据 |
@@ -360,7 +386,7 @@ node bin/start-custom.js --prepare
 
 **只想使用，无需先 Fork GitHub。** 上面的克隆或 ZIP 即可。
 
-想在自己的 GitHub 保存改动时，点仓库右上角 **Fork**。创建时不要只复制 `main`，要让自己的仓库包含 **`pi-web` 分支**；创建后先确认该分支存在，再把安装命令中的仓库地址换成自己的地址。网页里的对话 Fork 只创建聊天分支，不会创建 GitHub 仓库，也不会提交代码。
+想在自己的 GitHub 保存改动时，点仓库右上角 **Fork**，默认 `main` 已包含完整公开版；把安装命令里的仓库地址换成自己的地址即可。`pi-web` 保留为同内容的兼容入口。网页里的对话 Fork 只创建聊天分支，不会创建 GitHub 仓库，也不会提交代码。
 
 ### 可选功能
 

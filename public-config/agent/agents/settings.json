@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "builtInEnabled": false,
+  "disabledBuiltIns": [
+    "plan",
+    "general-purpose",
+    "explore"
+  ]
+}

@@ -1,0 +1,1895 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/APPEND_SYSTEM.md",
+      "destination": "public-config/agent/APPEND_SYSTEM.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "agents/delegate.md",
+      "destination": "public-config/agent/agents/delegate.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "agents/evidence-auditor.md",
+      "destination": "public-config/agent/agents/evidence-auditor.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "agents/oracle.md",
+      "destination": "public-config/agent/agents/oracle.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "agents/researcher.md",
+      "destination": "public-config/agent/agents/researcher.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "agents/reviewer.md",
+      "destination": "public-config/agent/agents/reviewer.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "agents/scout.md",
+      "destination": "public-config/agent/agents/scout.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "agents/settings.json",
+      "destination": "public-config/agent/agents/settings.json",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "agents/worker.md",
+      "destination": "public-config/agent/agents/worker.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "extensions/herdr-agent-state.ts",
+      "destination": "public-config/agent/extensions/herdr-agent-state.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "agent",
+      "path": "extensions/powerline-terminal.ts",
+      "destination": "public-config/agent/extensions/powerline-terminal.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "agent",
+      "path": "extensions/subagent/config.json",
+      "destination": "public-config/agent/extensions/subagent/config.json",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "extensions/subagent/shared-policy.ts",
+      "destination": "public-config/agent/extensions/subagent/shared-policy.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "agent",
+      "path": "extensions/subagents-terminal.ts",
+      "destination": "public-config/agent/extensions/subagents-terminal.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/references/delegation.md",
+      "destination": "public-config/agent/rules/delegation.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/references/execution.md",
+      "destination": "public-config/agent/rules/execution.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/brave-search/.gitignore",
+      "destination": "public-config/agent/skills/brave-search/.gitignore",
+      "transform": "verbatim"
+    },
+    {
+      "root": "agent",
+      "path": "skills/brave-search/SKILL.md",
+      "destination": "public-config/agent/skills/brave-search/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/brave-search/content.js",
+      "destination": "public-config/agent/skills/brave-search/content.js",
+      "transform": "verbatim"
+    },
+    {
+      "root": "agent",
+      "path": "skills/brave-search/package-lock.json",
+      "destination": "public-config/agent/skills/brave-search/package-lock.json",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/brave-search/package.json",
+      "destination": "public-config/agent/skills/brave-search/package.json",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/brave-search/search.js",
+      "destination": "public-config/agent/skills/brave-search/search.js",
+      "transform": "verbatim"
+    },
+    {
+      "root": "agent",
+      "path": "skills/browser-harness/SKILL.md",
+      "destination": "public-config/agent/skills/browser-harness/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/browser-harness/scripts/check.sh",
+      "destination": "public-config/agent/skills/browser-harness/scripts/check.sh",
+      "transform": "verbatim"
+    },
+    {
+      "root": "agent",
+      "path": "skills/domain-modeling/ADR-FORMAT.md",
+      "destination": "public-config/agent/skills/domain-modeling/ADR-FORMAT.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/domain-modeling/CONTEXT-FORMAT.md",
+      "destination": "public-config/agent/skills/domain-modeling/CONTEXT-FORMAT.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/domain-modeling/SKILL.md",
+      "destination": "public-config/agent/skills/domain-modeling/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/domain-modeling/agents/openai.yaml",
+      "destination": "public-config/agent/skills/domain-modeling/agents/openai.yaml",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/frontend-design/LICENSE.txt",
+      "destination": "public-config/agent/skills/frontend-design/LICENSE.txt",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/frontend-design/SKILL.md",
+      "destination": "public-config/agent/skills/frontend-design/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/grill-with-docs/SKILL.md",
+      "destination": "public-config/agent/skills/grill-with-docs/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/grill-with-docs/agents/openai.yaml",
+      "destination": "public-config/agent/skills/grill-with-docs/agents/openai.yaml",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/grilling/SKILL.md",
+      "destination": "public-config/agent/skills/grilling/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/grilling/agents/openai.yaml",
+      "destination": "public-config/agent/skills/grilling/agents/openai.yaml",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/agent-eval-20261002/skills/history-recall/SKILL.md",
+      "destination": "public-config/agent/skills/history-recall/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/agent-eval-20261002/skills/history-recall/archive_health.py",
+      "destination": "public-config/agent/skills/history-recall/archive_health.py",
+      "transform": "verbatim"
+    },
+    {
+      "root": "agent",
+      "path": "skills/latex-homework/SKILL.md",
+      "destination": "public-config/agent/skills/latex-homework/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/latex-homework/agents/openai.yaml",
+      "destination": "public-config/agent/skills/latex-homework/agents/openai.yaml",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/latex-homework/assets/homework-en.tex",
+      "destination": "public-config/agent/skills/latex-homework/assets/homework-en.tex",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/latex-homework/assets/homework-zh.tex",
+      "destination": "public-config/agent/skills/latex-homework/assets/homework-zh.tex",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/latex-homework/references/positive-expression.md",
+      "destination": "public-config/agent/skills/latex-homework/references/positive-expression.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/latex-homework/references/visual-style.md",
+      "destination": "public-config/agent/skills/latex-homework/references/visual-style.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/mcp-wiring/SKILL.md",
+      "destination": "public-config/agent/skills/mcp-wiring/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/mcp-wiring/scripts/check.py",
+      "destination": "public-config/agent/skills/mcp-wiring/scripts/check.py",
+      "transform": "verbatim"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/SKILL.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/references/adapter-template.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/references/adapter-template.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/references/api-discovery.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/references/api-discovery.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/references/coverage-matrix.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/references/coverage-matrix.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/references/deep-recon.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/references/deep-recon.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/references/field-conventions.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/references/field-conventions.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/references/field-decode-playbook.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/references/field-decode-playbook.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/references/jsdom-fixture-pattern.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/references/jsdom-fixture-pattern.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/references/output-design.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/references/output-design.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/references/site-memory.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/references/site-memory.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/references/site-memory/bilibili.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/references/site-memory/bilibili.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/references/site-memory/eastmoney.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/references/site-memory/eastmoney.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/references/site-memory/gmail.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/references/site-memory/gmail.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/references/site-memory/tonghuashun.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/references/site-memory/tonghuashun.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/references/site-memory/xueqiu.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/references/site-memory/xueqiu.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/references/site-recon.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/references/site-recon.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/references/strategy-selection.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/references/strategy-selection.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/references/success-rate-pitfalls.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/references/success-rate-pitfalls.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-adapter-author/references/typed-errors.md",
+      "destination": "public-config/agent/skills/opencli-adapter-author/references/typed-errors.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-autofix/SKILL.md",
+      "destination": "public-config/agent/skills/opencli-autofix/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-browser/SKILL.md",
+      "destination": "public-config/agent/skills/opencli-browser/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/opencli-usage/SKILL.md",
+      "destination": "public-config/agent/skills/opencli-usage/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/password-fill/SKILL.md",
+      "destination": "public-config/agent/skills/password-fill/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/pi-upgrade-check/SKILL.md",
+      "destination": "public-config/agent/skills/pi-upgrade-check/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/pi-upgrade-check/scripts/check.sh",
+      "destination": "public-config/agent/skills/pi-upgrade-check/scripts/check.sh",
+      "transform": "verbatim"
+    },
+    {
+      "root": "agent",
+      "path": "skills/pi-web-candidate/SKILL.md",
+      "destination": "public-config/agent/skills/pi-web-candidate/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/pi-web-candidate/scripts/run.sh",
+      "destination": "public-config/agent/skills/pi-web-candidate/scripts/run.sh",
+      "transform": "verbatim"
+    },
+    {
+      "root": "agent",
+      "path": "skills/pi-web-service/SKILL.md",
+      "destination": "public-config/agent/skills/pi-web-service/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/pi-web-service/scripts/status.sh",
+      "destination": "public-config/agent/skills/pi-web-service/scripts/status.sh",
+      "transform": "verbatim"
+    },
+    {
+      "root": "agent",
+      "path": "skills/project-scaffold/SKILL.md",
+      "destination": "public-config/agent/skills/project-scaffold/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/project-scaffold/scripts/new.sh",
+      "destination": "public-config/agent/skills/project-scaffold/scripts/new.sh",
+      "transform": "verbatim"
+    },
+    {
+      "root": "agent",
+      "path": "skills/proxy-env/SKILL.md",
+      "destination": "public-config/agent/skills/proxy-env/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/proxy-env/scripts/check.sh",
+      "destination": "public-config/agent/skills/proxy-env/scripts/check.sh",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/.ignore",
+      "destination": "public-config/agent/skills/pstack/.ignore",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/README.md",
+      "destination": "public-config/agent/skills/pstack/README.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/entry/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/entry/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/.cursor-plugin/plugin.json",
+      "destination": "public-config/agent/skills/pstack/upstream/.cursor-plugin/plugin.json",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/.gitignore",
+      "destination": "public-config/agent/skills/pstack/upstream/.gitignore",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/LICENSE",
+      "destination": "public-config/agent/skills/pstack/upstream/LICENSE",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/MIRROR.md",
+      "destination": "public-config/agent/skills/pstack/upstream/MIRROR.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/README.md",
+      "destination": "public-config/agent/skills/pstack/upstream/README.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/agents/comment-sicko.md",
+      "destination": "public-config/agent/skills/pstack/upstream/agents/comment-sicko.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/agents/poteto-agent.md",
+      "destination": "public-config/agent/skills/pstack/upstream/agents/poteto-agent.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/assets/logo.png",
+      "destination": "public-config/agent/skills/pstack/upstream/assets/logo.png",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/automations/benny/FOR_AGENTS.md",
+      "destination": "public-config/agent/skills/pstack/upstream/automations/benny/FOR_AGENTS.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/automations/benny/README.md",
+      "destination": "public-config/agent/skills/pstack/upstream/automations/benny/README.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/automations/benny/skills/reproduce-and-fix-issues/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/automations/benny/skills/reproduce-and-fix-issues/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/automations/benny/skills/reproduce-and-fix-issues/references/control-adapter.md",
+      "destination": "public-config/agent/skills/pstack/upstream/automations/benny/skills/reproduce-and-fix-issues/references/control-adapter.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/automations/benny/skills/reproduce-and-fix-issues/references/feature-map.example.md",
+      "destination": "public-config/agent/skills/pstack/upstream/automations/benny/skills/reproduce-and-fix-issues/references/feature-map.example.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/automations/benny/skills/reproduce-and-fix-issues/references/verify-existing-fix.md",
+      "destination": "public-config/agent/skills/pstack/upstream/automations/benny/skills/reproduce-and-fix-issues/references/verify-existing-fix.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/automations/benny/skills/setup-benny/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/automations/benny/skills/setup-benny/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/automations/benny/skills/triage-issue-reports/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/automations/benny/skills/triage-issue-reports/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/automations/benny/skills/triage-issue-reports/references/routing.example.md",
+      "destination": "public-config/agent/skills/pstack/upstream/automations/benny/skills/triage-issue-reports/references/routing.example.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/automations/benny/templates/configuration.example.yaml",
+      "destination": "public-config/agent/skills/pstack/upstream/automations/benny/templates/configuration.example.yaml",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/automations/benny/templates/reproduce-automation-prompt.md",
+      "destination": "public-config/agent/skills/pstack/upstream/automations/benny/templates/reproduce-automation-prompt.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/automations/benny/templates/triage-automation-prompt.md",
+      "destination": "public-config/agent/skills/pstack/upstream/automations/benny/templates/triage-automation-prompt.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/docs/guide/01-setup.md",
+      "destination": "public-config/agent/skills/pstack/upstream/docs/guide/01-setup.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/docs/guide/02-poteto-mode.md",
+      "destination": "public-config/agent/skills/pstack/upstream/docs/guide/02-poteto-mode.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/docs/guide/03-understand.md",
+      "destination": "public-config/agent/skills/pstack/upstream/docs/guide/03-understand.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/docs/guide/04-design.md",
+      "destination": "public-config/agent/skills/pstack/upstream/docs/guide/04-design.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/docs/guide/05-build-and-clean.md",
+      "destination": "public-config/agent/skills/pstack/upstream/docs/guide/05-build-and-clean.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/docs/guide/06-verify-and-ship.md",
+      "destination": "public-config/agent/skills/pstack/upstream/docs/guide/06-verify-and-ship.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/docs/guide/07-overnight.md",
+      "destination": "public-config/agent/skills/pstack/upstream/docs/guide/07-overnight.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/docs/guide/08-principles.md",
+      "destination": "public-config/agent/skills/pstack/upstream/docs/guide/08-principles.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/docs/guide/09-make-it-yours.md",
+      "destination": "public-config/agent/skills/pstack/upstream/docs/guide/09-make-it-yours.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/docs/guide/10-recipes-and-pitfalls.md",
+      "destination": "public-config/agent/skills/pstack/upstream/docs/guide/10-recipes-and-pitfalls.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/docs/guide/README.md",
+      "destination": "public-config/agent/skills/pstack/upstream/docs/guide/README.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/docs/guide/images/design.jpg",
+      "destination": "public-config/agent/skills/pstack/upstream/docs/guide/images/design.jpg",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/docs/guide/images/overnight.jpg",
+      "destination": "public-config/agent/skills/pstack/upstream/docs/guide/images/overnight.jpg",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/docs/guide/images/recipes.jpg",
+      "destination": "public-config/agent/skills/pstack/upstream/docs/guide/images/recipes.jpg",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/docs/guide/images/router.jpg",
+      "destination": "public-config/agent/skills/pstack/upstream/docs/guide/images/router.jpg",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/docs/guide/images/understanding.jpg",
+      "destination": "public-config/agent/skills/pstack/upstream/docs/guide/images/understanding.jpg",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/docs/guide/images/verification.jpg",
+      "destination": "public-config/agent/skills/pstack/upstream/docs/guide/images/verification.jpg",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/plugin.json",
+      "destination": "public-config/agent/skills/pstack/upstream/plugin.json",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/architect/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/architect/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/architect/references/design-red-flags.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/architect/references/design-red-flags.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/architect/references/rationale-template.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/architect/references/rationale-template.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/architect/references/runner-prompt.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/architect/references/runner-prompt.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/arena/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/arena/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/automate-me/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/automate-me/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/benchmark-checklist/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/benchmark-checklist/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/blast-radius/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/blast-radius/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/bro/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/bro/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/correct/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/correct/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/create-verification-skill/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/create-verification-skill/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/create-verification-skill/references/feature-map-example/README.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/create-verification-skill/references/feature-map-example/README.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/create-verification-skill/references/feature-map-example/create-note.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/create-verification-skill/references/feature-map-example/create-note.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/create-verification-skill/references/feature-map-example/search.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/create-verification-skill/references/feature-map-example/search.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/figure-it-out/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/figure-it-out/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/how/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/how/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/how/references/explainer-prompt.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/how/references/explainer-prompt.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/how/references/explorer-prompt.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/how/references/explorer-prompt.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/in-your-own-words/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/in-your-own-words/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/interrogate/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/interrogate/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/interrogate/references/code-quality-review.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/interrogate/references/code-quality-review.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/interrogate/references/lead-judgment.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/interrogate/references/lead-judgment.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/interrogate/references/reviewer-prompt.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/interrogate/references/reviewer-prompt.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/interrogate/references/rubric.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/interrogate/references/rubric.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/ketchup/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/ketchup/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/maintain-verification-skill/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/maintain-verification-skill/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/make-bot-ui/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/make-bot-ui/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/no-comments/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/no-comments/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/no-comments/references/comment-sicko.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/no-comments/references/comment-sicko.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-help/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-help/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-help/references/prompting.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-help/references/prompting.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-help/references/recipes.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-help/references/recipes.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/authoring-a-skill.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/authoring-a-skill.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/autonomous-run.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/autonomous-run.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/autopilot-full.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/autopilot-full.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/autopilot-stack.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/autopilot-stack.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/babysit.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/babysit.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/bug-fix.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/bug-fix.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/eval.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/eval.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/feature.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/feature.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/hillclimb.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/hillclimb.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/investigation.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/investigation.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/multi-phase-plan.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/multi-phase-plan.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/opening-a-pr.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/opening-a-pr.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/orchestrate.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/orchestrate.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/pause-safely.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/pause-safely.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/perf-issue.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/perf-issue.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/prototype.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/prototype.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/refactoring.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/refactoring.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/runtime-forensics.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/runtime-forensics.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/session-pickup.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/session-pickup.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/shipping.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/shipping.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/trace-forensics.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/trace-forensics.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/visual-parity.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/visual-parity.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/playbooks/worktree-cleanup.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/playbooks/worktree-cleanup.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/references/bugbot-triage.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/references/bugbot-triage.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/bootstrap.ts",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/bootstrap.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/bun.lock",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/bun.lock",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/check-plan.mjs",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/check-plan.mjs",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/check-plan.test.ts",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/check-plan.test.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/orch/orch.test.ts",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/orch/orch.test.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/orch/orch.ts",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/orch/orch.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/orch/store.ts",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/orch/store.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/package.json",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/package.json",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/cli.test.ts",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/cli.test.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/cli.ts",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/cli.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/fakes.test-helper.ts",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/fakes.test-helper.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/github.test.ts",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/github.test.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/github.ts",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/github.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/policy.test.ts",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/policy.test.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/policy.ts",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/policy.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/render.ts",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/render.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/tsconfig.json",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/tsconfig.json",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/types.compile.ts",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/types.compile.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/types.ts",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/types.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/watch-pr",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/watch-pr/watch-pr",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/poteto-mode/scripts/worktree-audit.sh",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/poteto-mode/scripts/worktree-audit.sh",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-attack-the-premise/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-attack-the-premise/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-boundary-discipline/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-boundary-discipline/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-build-the-lever/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-build-the-lever/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-encode-lessons-in-structure/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-encode-lessons-in-structure/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-exhaust-the-design-space/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-exhaust-the-design-space/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-experience-first/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-experience-first/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-explain-the-number/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-explain-the-number/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-fix-root-causes/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-fix-root-causes/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-foundational-thinking/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-foundational-thinking/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-guard-the-context-window/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-guard-the-context-window/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-laziness-protocol/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-laziness-protocol/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-make-operations-idempotent/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-make-operations-idempotent/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-migrate-callers-then-delete-legacy-apis/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-migrate-callers-then-delete-legacy-apis/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-minimize-reader-load/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-minimize-reader-load/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-model-the-domain/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-model-the-domain/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-never-block-on-the-human/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-never-block-on-the-human/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-outcome-oriented-execution/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-outcome-oriented-execution/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-prove-it-works/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-prove-it-works/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-redesign-from-first-principles/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-redesign-from-first-principles/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-separate-before-serializing-shared-state/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-separate-before-serializing-shared-state/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-sequence-verifiable-units/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-sequence-verifiable-units/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-subtract-before-you-add/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-subtract-before-you-add/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-test-behavior-not-implementation/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-test-behavior-not-implementation/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/principle-type-system-discipline/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/principle-type-system-discipline/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/recall/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/recall/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/reflect/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/reflect/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/reflect/references/divergent-reviewer.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/reflect/references/divergent-reviewer.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/reflect/references/judgment-reviewer.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/reflect/references/judgment-reviewer.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/reflect/references/synthesizer.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/reflect/references/synthesizer.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/reflect/references/tooling-reviewer.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/reflect/references/tooling-reviewer.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/setup-pstack/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/setup-pstack/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/sharpen/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/sharpen/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/show-me-your-work/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/show-me-your-work/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/show-me-your-work/references/decision-log-template.tsv",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/show-me-your-work/references/decision-log-template.tsv",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/show-me-your-work/scripts/log.sh",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/show-me-your-work/scripts/log.sh",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/swarm/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/swarm/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/tdd/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/tdd/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/teach/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/teach/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/technical-writing/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/technical-writing/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/typescript-best-practices/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/typescript-best-practices/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/typescript-best-practices/references/patterns.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/typescript-best-practices/references/patterns.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/unslop/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/unslop/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/why/SKILL.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/why/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/why/references/epistemics.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/why/references/epistemics.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/why/references/investigator-prompt.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/why/references/investigator-prompt.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/why/references/source-playbook.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/why/references/source-playbook.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/why/references/sources/code-archaeology.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/why/references/sources/code-archaeology.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/why/references/sources/databricks.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/why/references/sources/databricks.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/why/references/sources/datadog.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/why/references/sources/datadog.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/why/references/sources/incident-postmortem.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/why/references/sources/incident-postmortem.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/why/references/sources/linear.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/why/references/sources/linear.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/why/references/sources/notion.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/why/references/sources/notion.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/why/references/sources/sentry.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/why/references/sources/sentry.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/why/references/sources/slack.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/why/references/sources/slack.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/upstream/skills/why/references/synthesizer-prompt.md",
+      "destination": "public-config/agent/skills/pstack/upstream/skills/why/references/synthesizer-prompt.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": ".pi/skills/pstack/validate.mjs",
+      "destination": "public-config/agent/skills/pstack/validate.mjs",
+      "transform": "verbatim"
+    },
+    {
+      "root": "agent",
+      "path": "skills/research-method/SKILL.md",
+      "destination": "public-config/agent/skills/research-method/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/smart-search/SKILL.md",
+      "destination": "public-config/agent/skills/smart-search/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/smart-search/references/sources-ai.md",
+      "destination": "public-config/agent/skills/smart-search/references/sources-ai.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/smart-search/references/sources-info.md",
+      "destination": "public-config/agent/skills/smart-search/references/sources-info.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/smart-search/references/sources-media.md",
+      "destination": "public-config/agent/skills/smart-search/references/sources-media.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/smart-search/references/sources-other.md",
+      "destination": "public-config/agent/skills/smart-search/references/sources-other.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/smart-search/references/sources-shopping.md",
+      "destination": "public-config/agent/skills/smart-search/references/sources-shopping.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/smart-search/references/sources-social.md",
+      "destination": "public-config/agent/skills/smart-search/references/sources-social.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/smart-search/references/sources-tech.md",
+      "destination": "public-config/agent/skills/smart-search/references/sources-tech.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/smart-search/references/sources-travel.md",
+      "destination": "public-config/agent/skills/smart-search/references/sources-travel.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/socratic-tutor/LICENSE.md",
+      "destination": "public-config/agent/skills/socratic-tutor/LICENSE.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/socratic-tutor/SKILL.md",
+      "destination": "public-config/agent/skills/socratic-tutor/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/teach/GLOSSARY-FORMAT.md",
+      "destination": "public-config/agent/skills/teach/GLOSSARY-FORMAT.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/teach/LEARNING-RECORD-FORMAT.md",
+      "destination": "public-config/agent/skills/teach/LEARNING-RECORD-FORMAT.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/teach/LICENSE",
+      "destination": "public-config/agent/skills/teach/LICENSE",
+      "transform": "verbatim"
+    },
+    {
+      "root": "agent",
+      "path": "skills/teach/MISSION-FORMAT.md",
+      "destination": "public-config/agent/skills/teach/MISSION-FORMAT.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/teach/RESOURCES-FORMAT.md",
+      "destination": "public-config/agent/skills/teach/RESOURCES-FORMAT.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/teach/SKILL.md",
+      "destination": "public-config/agent/skills/teach/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "agent",
+      "path": "skills/teach/agents/openai.yaml",
+      "destination": "public-config/agent/skills/teach/agents/openai.yaml",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "AGENTS.md",
+      "destination": "public-config/workspace/AGENTS.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/pi-web维护/终端状态过滤/README.md",
+      "destination": "工具/pi-web维护/终端状态过滤/README.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/pi-web维护/终端状态过滤/beautiful-tui-filter.ts",
+      "destination": "工具/pi-web维护/终端状态过滤/beautiful-tui-filter.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/pi-web维护/终端状态过滤/footer-status-filter.test.mjs",
+      "destination": "工具/pi-web维护/终端状态过滤/footer-status-filter.test.mjs",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/pi-web维护/终端状态过滤/footer-status-filter.ts",
+      "destination": "工具/pi-web维护/终端状态过滤/footer-status-filter.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/pi-web维护/终端状态过滤/session-layout-smoke.py",
+      "destination": "工具/pi-web维护/终端状态过滤/session-layout-smoke.py",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/pi-web维护/终端状态过滤/session-render-reset.test.mjs",
+      "destination": "工具/pi-web维护/终端状态过滤/session-render-reset.test.mjs",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/pi-web维护/终端状态过滤/session-render-reset.ts",
+      "destination": "工具/pi-web维护/终端状态过滤/session-render-reset.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/pi-web维护/终端状态过滤/startup-summary-smoke.py",
+      "destination": "工具/pi-web维护/终端状态过滤/startup-summary-smoke.py",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/pi-web维护/终端状态过滤/startup-summary.mjs",
+      "destination": "工具/pi-web维护/终端状态过滤/startup-summary.mjs",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/pi-web维护/终端状态过滤/startup-summary.test.mjs",
+      "destination": "工具/pi-web维护/终端状态过滤/startup-summary.test.mjs",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/pi-web维护/终端状态过滤/tui-smoke.py",
+      "destination": "工具/pi-web维护/终端状态过滤/tui-smoke.py",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/pi-web维护/终端状态过滤/启动概览.md",
+      "destination": "工具/pi-web维护/终端状态过滤/启动概览.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/密码管理/当前页凭据填充/README.md",
+      "destination": "工具/密码管理/当前页凭据填充/README.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/密码管理/当前页凭据填充/accounts.mjs",
+      "destination": "工具/密码管理/当前页凭据填充/accounts.mjs",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/密码管理/当前页凭据填充/cdp-types.d.ts",
+      "destination": "工具/密码管理/当前页凭据填充/cdp-types.d.ts",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/密码管理/当前页凭据填充/fill.mjs",
+      "destination": "工具/密码管理/当前页凭据填充/fill.mjs",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/密码管理/当前页凭据填充/permission.py",
+      "destination": "工具/密码管理/当前页凭据填充/permission.py",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/密码管理/当前页凭据填充/pw.mjs",
+      "destination": "工具/密码管理/当前页凭据填充/pw.mjs",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/密码管理/当前页凭据填充/skill/SKILL.md",
+      "destination": "工具/密码管理/当前页凭据填充/skill/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/密码管理/当前页凭据填充/test-pw.mjs",
+      "destination": "工具/密码管理/当前页凭据填充/test-pw.mjs",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/密码管理/当前页凭据填充/test.mjs",
+      "destination": "工具/密码管理/当前页凭据填充/test.mjs",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "工具/密码管理/当前页凭据填充/tsconfig.json",
+      "destination": "工具/密码管理/当前页凭据填充/tsconfig.json",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/APPEND_SYSTEM.md",
+      "destination": "项目/规则优化/运行规则/APPEND_SYSTEM.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/README.md",
+      "destination": "项目/规则优化/运行规则/README.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/browser-harness/SKILL.md",
+      "destination": "项目/规则优化/运行规则/browser-harness/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/configuration-repair.test.mjs",
+      "destination": "项目/规则优化/运行规则/configuration-repair.test.mjs",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/design-skills/README.md",
+      "destination": "项目/规则优化/运行规则/design-skills/README.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/design-skills/baoyu-pi.patch",
+      "destination": "项目/规则优化/运行规则/design-skills/baoyu-pi.patch",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/design-skills/sources.json",
+      "destination": "项目/规则优化/运行规则/design-skills/sources.json",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/hy-memory-contract.test.mjs",
+      "destination": "项目/规则优化/运行规则/hy-memory-contract.test.mjs",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/latex-homework/SKILL.md",
+      "destination": "项目/规则优化/运行规则/latex-homework/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/latex-homework/agents/openai.yaml",
+      "destination": "项目/规则优化/运行规则/latex-homework/agents/openai.yaml",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/latex-homework/assets/homework-en.tex",
+      "destination": "项目/规则优化/运行规则/latex-homework/assets/homework-en.tex",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/latex-homework/assets/homework-zh.tex",
+      "destination": "项目/规则优化/运行规则/latex-homework/assets/homework-zh.tex",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/latex-homework/references/positive-expression.md",
+      "destination": "项目/规则优化/运行规则/latex-homework/references/positive-expression.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/latex-homework/references/visual-style.md",
+      "destination": "项目/规则优化/运行规则/latex-homework/references/visual-style.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/mcp-wiring/SKILL.md",
+      "destination": "项目/规则优化/运行规则/mcp-wiring/SKILL.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/mcp-wiring/scripts/check.py",
+      "destination": "项目/规则优化/运行规则/mcp-wiring/scripts/check.py",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/references/delegation.md",
+      "destination": "项目/规则优化/运行规则/references/delegation.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/references/execution.md",
+      "destination": "项目/规则优化/运行规则/references/execution.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/references/repositories.md",
+      "destination": "项目/规则优化/运行规则/references/repositories.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/validate.mjs",
+      "destination": "项目/规则优化/运行规则/validate.mjs",
+      "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/validators.test.mjs",
+      "destination": "项目/规则优化/运行规则/validators.test.mjs",
+      "transform": "verbatim"
+    }
+  ]
+}
