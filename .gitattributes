@@ -1,0 +1,4 @@
+# Keep integrity-checked profile bytes identical in Windows/Linux checkouts.
+public-config/** text=auto eol=lf
+public-config/**/*.png -text
+public-config/**/*.jpg -text

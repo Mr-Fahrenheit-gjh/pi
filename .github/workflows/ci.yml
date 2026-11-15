@@ -1,9 +1,10 @@
 name: CI
 
+# Normal publishes use the focused platforms/extensions workflows.
+# Keep the upstream full suite available for PRs and explicit runs.
 on:
-  push:
-    branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read

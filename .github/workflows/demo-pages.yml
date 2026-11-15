@@ -2,10 +2,10 @@ name: Demo
 
 # Builds the static Pi Web demo in demo/ and publishes it to GitHub Pages.
 # Pull requests that touch the demo only build it.
+# Public forks do not implicitly deploy a Pages site when updating the app.
+# Deployment stays an explicit workflow_dispatch action.
 
 on:
-  push:
-    branches: [main]
   pull_request:
     paths:
       - "demo/**"
