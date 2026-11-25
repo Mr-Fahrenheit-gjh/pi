@@ -882,6 +882,8 @@ export const zhTWLocale: LocalePlugin = {
     "chat.filterModels": "篩選模型…",
     "chat.modelAndSpeed": "模型與速度",
     "chat.fastMode": "Fast 模式",
+    "chat.ultrafastMode": "Ultrafast 模式",
+    "chat.ultrafastUnavailable": "Ultrafast 需要新版速度擴充功能，請重新載入對話。",
     "chat.fastLoading": "正在讀取 Fast 設定…",
     "chat.fastUnavailable": "目前對話或模型不支援 Fast。",
     "chat.fastHint": "從下一次模型請求起生效，可能增加費用或額度消耗。",

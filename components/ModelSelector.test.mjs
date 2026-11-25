@@ -47,6 +47,22 @@ test('fast mode adds a small accessible lightning after the OpenAI model name on
   assert.doesNotMatch(render({ value: { provider: 'anthropic', modelId: 'claude' }, fastMode: true }), /data-model-fast-indicator/);
 });
 
+test('Ultrafast uses two overlapping bolts and replaces the Fast badge only on Codex Sol', () => {
+  const value = { provider: 'openai-codex', modelId: 'gpt-6.2-sol' };
+  const html = render({ value, fastMode: true, ultrafastMode: true });
+  const indicator = html.match(/<svg[^>]*data-model-ultrafast-indicator[\s\S]*?<\/svg>/)?.[0];
+  assert.match(indicator, /aria-label="Ultrafast mode"/);
+  assert.equal(indicator.match(/<path /g).length, 2);
+  assert.match(indicator, /translate\(8 3\)/);
+  assert.doesNotMatch(html, /data-model-fast-indicator/);
+  for (const other of [{ ...value, provider: 'openai' }, { ...value, modelId: 'gpt-6.2-astra' }]) {
+    assert.doesNotMatch(render({ value: other, ultrafastMode: true }), /data-model-ultrafast-indicator/);
+  }
+  assert.match(render({ value, fastModeState: {
+    available: true, supported: true, ultrafastSupported: true, mode: 'ultrafast',
+  } }), /data-model-ultrafast-indicator/);
+});
+
 test('composer derives fast mode from the live extension status, not arbitrary status text', () => {
   const source = readFileSync(new URL('./ChatWindow.tsx', import.meta.url), 'utf8');
   const expression = source.match(/fastMode=\{(extensionStatuses\.some\([^\n]+)\}/)?.[1];

@@ -87,6 +87,12 @@
     },
     {
       "root": "workspace",
+      "path": "项目/规则优化/运行规则/references/communication.md",
+      "destination": "public-config/agent/rules/communication.md",
+      "transform": "template"
+    },
+    {
+      "root": "workspace",
       "path": "项目/规则优化/运行规则/references/delegation.md",
       "destination": "public-config/agent/rules/delegation.md",
       "transform": "template"
@@ -1860,6 +1866,12 @@
       "path": "项目/规则优化/运行规则/mcp-wiring/scripts/check.py",
       "destination": "项目/规则优化/运行规则/mcp-wiring/scripts/check.py",
       "transform": "verbatim"
+    },
+    {
+      "root": "workspace",
+      "path": "项目/规则优化/运行规则/references/communication.md",
+      "destination": "项目/规则优化/运行规则/references/communication.md",
+      "transform": "template"
     },
     {
       "root": "workspace",

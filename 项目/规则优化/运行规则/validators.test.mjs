@@ -21,7 +21,7 @@ function fixture(t) {
     cpSync(path.join(root, relative), target, { recursive: true });
   }
   const agent = path.join(home, '.pi/agent');
-  for (const [source, destination] of [['APPEND_SYSTEM.md', 'APPEND_SYSTEM.md'], ['references/execution.md', 'rules/execution.md'], ['references/delegation.md', 'rules/delegation.md'], ['browser-harness/SKILL.md', 'skills/browser-harness/SKILL.md']]) {
+  for (const [source, destination] of [['APPEND_SYSTEM.md', 'APPEND_SYSTEM.md'], ['references/communication.md', 'rules/communication.md'], ['references/execution.md', 'rules/execution.md'], ['references/delegation.md', 'rules/delegation.md'], ['browser-harness/SKILL.md', 'skills/browser-harness/SKILL.md']]) {
     const target = path.join(agent, destination);
     mkdirSync(path.dirname(target), { recursive: true });
     cpSync(path.join(rules, source), target);
@@ -49,9 +49,14 @@ test('source and runtime rules pass for matching credential-free fixtures, but d
   const f = fixture(t);
   passes(f.run());
   passes(f.run('rules', false));
-  f.mutate(path.join(f.agent, 'APPEND_SYSTEM.md'), text => text + '\nsynthetic pending drift\n');
-  passes(f.run());
-  rejects(f.run('rules', false), /pending drift: APPEND_SYSTEM.md/);
+  for (const relative of ['APPEND_SYSTEM.md', 'rules/communication.md']) {
+    const file = path.join(f.agent, relative);
+    const original = read(file);
+    f.mutate(file, text => text + '\nsynthetic pending drift\n');
+    passes(f.run());
+    rejects(f.run('rules', false), new RegExp(`pending drift: ${relative.replaceAll('.', '\\.').replaceAll('/', '\\/')}`));
+    writeFileSync(file, original);
+  }
 });
 
 test('resident budgets reject growth, and required boundaries cannot be deleted for green', t => {
@@ -72,6 +77,35 @@ test('resident budgets reject growth, and required boundaries cannot be deleted 
   rejects(f.run(), /不要重发写操作/);
   writeFileSync(appendFile, append.replace('不传 `timing`', 'timing: now'));
   rejects(f.run(), /不得恢复旧记忆保存时序/);
+});
+
+test('direct expression and claim preservation are required independently of the length budget', t => {
+  const f = fixture(t);
+  const append = path.join(f.rules, 'APPEND_SYSTEM.md');
+  f.mutate(append, text => text.replace('假想反驳', '空泛铺垫'));
+  rejects(f.run(), /假想反驳/);
+  f.mutate(append, text => text.replace('空泛铺垫', '假想反驳'));
+  f.mutate(path.join(f.rules, 'references/communication.md'), text => text.replace('不改变原意和主张强度', '改善句式和结构'));
+  rejects(f.run(), /不改变原意和主张强度/);
+});
+
+test('delegation rejects automatic reviews and repeated discovery/status policies', t => {
+  const f = fixture(t);
+  const delegation = path.join(f.rules, 'references/delegation.md');
+  const pstack = path.join(f.pstack, 'entry/SKILL.md');
+  for (const [file, required, replacement] of [
+    [delegation, '普通任务不补开 reviewer', '普通任务都补开 reviewer'],
+    [delegation, '先用最小相关回归确认', '修复后总是续审确认'],
+    [delegation, '同一会话且环境未变时复用发现结果', '每次启动前都重新发现角色'],
+    [delegation, '拿到完整成果后不再追加 status', '每次等待后都追加 status'],
+    [pstack, '委派与核查门槛以 `~/.pi/agent/rules/delegation.md` 为准', '委派与核查门槛照搬上游'],
+  ]) {
+    const original = read(file);
+    assert.ok(original.includes(required), required);
+    writeFileSync(file, original.replace(required, replacement));
+    rejects(f.run(), /子代理按收益审查/);
+    writeFileSync(file, original);
+  }
 });
 
 test('pstack permits the committed baseline or the explicit poteto exception, but no other metadata drift', t => {

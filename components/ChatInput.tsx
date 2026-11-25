@@ -65,6 +65,7 @@ interface Props {
   model?: { provider: string; modelId: string } | null;
   isAutoModelSelection?: boolean;
   fastMode?: boolean;
+  ultrafastMode?: boolean;
   fastModeState?: FastModeState | null;
   fastModeBusy?: boolean;
   onFastModeOpen?: () => void;
@@ -677,7 +678,7 @@ export function ModelScopeWarningBanner({ warnings }: { warnings?: string[] }) {
 // Memoized: its props hold still while a reply streams or a tool runs, and the
 // chat around it re-renders through both.
 export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatInput({
-  onSend, onAbort, onSteer, onFollowUp, isStreaming, model, isAutoModelSelection, fastMode, fastModeState, fastModeBusy, onFastModeOpen, onFastModeChange, modelNames, modelList, modelError, modelScopeWarnings, allModelList, onLoadAllModels, onModelChange, modelSwitching,
+  onSend, onAbort, onSteer, onFollowUp, isStreaming, model, isAutoModelSelection, fastMode, ultrafastMode, fastModeState, fastModeBusy, onFastModeOpen, onFastModeChange, modelNames, modelList, modelError, modelScopeWarnings, allModelList, onLoadAllModels, onModelChange, modelSwitching,
   defaultModel, onSetDefaultModel,
   onCompact, onAbortCompaction, isCompacting, compactError, onDismissCompactError, compactResult, toolPreset, onToolPresetChange,
   thinkingLevel, isAutoThinkingSelection = false, onThinkingLevelChange, availableThinkingLevels, thinkingLevelMap,
@@ -899,7 +900,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
       // The first optimistic message switches ChatWindow out of its empty-state
       // layout and remounts this component. Persist synchronously so recovery is
       // not lost if this instance is the one being unmounted.
-      if (destinationDraftKey) setDraft(destinationDraftKey, restoredDraft);
+      if (destinationDraftKey) setDraft(destinationDraftKey, restoredDraft, { recovered: Boolean(text.trim()) });
       if (!targetsCurrentComposer) return;
       const restoredImages = images?.length
         ? [
@@ -2607,6 +2608,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                 busy={modelSwitching}
                 isAutoSelection={isAutoModelSelection}
                 fastMode={fastMode}
+                ultrafastMode={ultrafastMode}
                 fastModeState={fastModeState}
                 fastModeBusy={fastModeBusy}
                 onFastModeOpen={onFastModeOpen}

@@ -34,7 +34,7 @@ function inventory(root, current = root) {
 export function checkPublicProfile({ repoRoot = repository, write = false } = {}) {
   const root = join(repoRoot, "public-config");
   const actual = inventory(root);
-  for (const path of ["agent/APPEND_SYSTEM.md", "agent/rules/execution.md", "agent/rules/delegation.md", "agent/skills/grilling/SKILL.md", "agent/skills/pstack/entry/SKILL.md", "agent/settings.template.json", "workspace/AGENTS.md", "sources.json"]) {
+  for (const path of ["agent/APPEND_SYSTEM.md", "agent/rules/communication.md", "agent/rules/execution.md", "agent/rules/delegation.md", "agent/skills/grilling/SKILL.md", "agent/skills/pstack/entry/SKILL.md", "agent/settings.template.json", "workspace/AGENTS.md", "sources.json"]) {
     assert.ok(actual[path], `Required public configuration missing: ${path}`);
   }
   for (const role of ["delegate", "scout", "worker", "reviewer", "oracle", "researcher", "evidence-auditor"]) assert.ok(actual[`agent/agents/${role}.md`], `Missing agent role: ${role}`);

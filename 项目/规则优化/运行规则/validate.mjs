@@ -13,12 +13,14 @@ const runtimeAgentDir = path.join(homedir(), '.pi/agent');
 const read = p => readFileSync(p, 'utf8');
 const pairs = [
   ['APPEND_SYSTEM.md', 'APPEND_SYSTEM.md'],
+  ['references/communication.md', 'rules/communication.md'],
   ['references/execution.md', 'rules/execution.md'],
   ['references/delegation.md', 'rules/delegation.md'],
   ['browser-harness/SKILL.md', 'skills/browser-harness/SKILL.md'],
 ];
 const append = read(path.join(here, 'APPEND_SYSTEM.md'));
 const agents = read(path.join(root, 'AGENTS.md'));
+const communication = read(path.join(here, 'references/communication.md'));
 const execution = read(path.join(here, 'references/execution.md'));
 const delegation = read(path.join(here, 'references/delegation.md'));
 const repositories = read(path.join(here, 'references/repositories.md'));
@@ -43,7 +45,7 @@ if (sourceOnly) {
 const skipped = sourceOnly ? ['运行副本一致性及运行目录覆盖文件/手动技能状态（--source 不证明启用）'] : [];
 const includesAll = (body, terms) => terms.forEach(term => assert.ok(body.includes(term), term));
 
-if (!sourceOnly) check('四份运行文件与版本源一致', () => {
+if (!sourceOnly) check(`${pairs.length}份运行文件与版本源一致`, () => {
   for (const [source, destination] of pairs) assert.ok(read(path.join(agentDir, destination)) === read(path.join(here, source)), `pending drift: ${destination}；未启用源码，须另获同步/重载授权`);
 });
 check('常驻入口保持预算，不恢复全局AGENTS或替换SYSTEM', () => {
@@ -58,15 +60,19 @@ check('重要边界保留在常驻入口，不藏到参考文件', () => {
   assert.ok(!/回复后静默保存|timing:\s*now/.test(append), '不得恢复旧记忆保存时序');
   includesAll(agents, ['launchctl', 'sudo', '只暂存相关文件', '不覆盖他人暂存', '改写历史或推送', '私密运行数据', '未完成', '锁文件']);
 });
+check('直接表达保留证据与具体条件，润色不擅改主张', () => {
+  includesAll(append, ['回应用户实际问题', '具体条件', '假想反驳', '无依据的弱化', '这不代表', '不偷懒', '至少推进 2–3 条可行路径']);
+  includesAll(communication, ['核查与润色分开', '不改变原意和主张强度', '必要否定', '真实剩余项']);
+});
 check('工程任务默认pstack，重要边界先澄清', () => {
-  includesAll(append, ['所有工程类任务', '不论大小', '`pstack`', '先澄清', '可查事实先自行核实', '不重复询问已确认事项', '不擅自安装或冒充已调用']);
+  includesAll(append, ['所有工程类任务', '明确小改动直接干', '`pstack`', '先澄清', '可查事实先自行核实', '不重复询问已确认事项', '不擅自安装或冒充已调用']);
   const pstack = read(path.join(root, '.pi/skills/pstack/entry/SKILL.md'));
   includesAll(pstack, ['所有工程类任务默认使用', '小改动不机械展开完整流程', '先澄清']);
-  includesAll(append, ['~/.pi/agent/skills/grilling/SKILL.md', '每次只问一个未决决策并给建议', '等回答再继续', '动手前须用户确认理解一致']);
+  includesAll(append, ['~/.pi/agent/skills/grilling/SKILL.md', '每次只问一个未决决策并给建议', '等回答再继续', '确认理解一致再动手']);
   if (!sourceOnly) assert.match(read(path.join(agentDir, 'skills/grilling/SKILL.md')), /^disable-model-invocation: true$/m);
 });
 check('按需入口路径存在，正文无自动导入语法', () => {
-  for (const name of ['execution', 'delegation']) assert.ok(existsSync(path.join(agentDir, 'rules', `${name}.md`)));
+  for (const name of ['communication', 'execution', 'delegation']) assert.ok(existsSync(path.join(agentDir, 'rules', `${name}.md`)));
   for (const name of ['README.md', 'references/repositories.md']) assert.ok(existsSync(path.join(here, name)));
   assert.ok(existsSync(path.join(root, '.pi/skills/pi-web-maintenance/SKILL.md')));
   assert.ok(!/^@\S+/m.test(append + agents));
@@ -76,6 +82,11 @@ check('委派、恢复与仓库约束仍有权威入口', () => {
   includesAll(delegation, ['尽早委派', '继续不同的主线工作', '默认只读', '一个写入者', '不授予额外权限', 'task_wait', '本机实际通知契约', '基础设施失败', '完整工具与技能', '不完整重做', 'fresh']);
   includesAll(execution, ['中断不等于取消', '最近原始记录和实际状态文件', '不删除用途不明的文件', '当前工作目录内']);
   includesAll(repositories, ['独立仓库.json', 'revision/branch', '不是子模块', '共用 Git 公共目录', '分别确认', '禁止用', '守卫发布']);
+});
+check('子代理按收益审查，同会话复用发现并按需查状态', () => {
+  includesAll(delegation, ['普通任务不补开 reviewer', '重要变更默认一次 fresh 只读审查', '先用最小相关回归确认', '同一会话且环境未变时复用发现结果', '直接读取成果引用', '拿到完整成果后不再追加 status', '工具明确要求的检查仍须执行', '核验关键证据']);
+  const pstack = read(path.join(root, '.pi/skills/pstack/entry/SKILL.md'));
+  includesAll(pstack, ['委派与核查门槛以 `~/.pi/agent/rules/delegation.md` 为准', '不机械照搬上游', '自动 review-loop']);
 });
 check('浏览器扩展授权替换旧禁令，未放开日常profile调试或桌面控制', () => {
   includesAll(browser, ['用户已允许', 'OpenCLI 扩展', '不需每次重复询问', '只绑定', '无关标签页', 'opencli doctor', 'remote-debugging', 'osascript', '任务结束时不能关闭它们']);
@@ -107,7 +118,7 @@ try {
     assert.ok(!diagnostics.some(d => d.path === skill.filePath), '浏览器技能无加载诊断');
     const prompt = buildSystemPrompt({ cwd, appendSystemPrompt: append, contextFiles: agentsFiles, skills });
     includesAll(prompt, [skill.description, '以下替代内置 Pi 文档的无条件通读要求']);
-    for (const body of [execution, delegation, repositories, browser]) assert.ok(!prompt.includes(body.trim()), '参考或技能正文不得常驻');
+    for (const body of [communication, execution, delegation, repositories, browser]) assert.ok(!prompt.includes(body.trim()), '参考或技能正文不得常驻');
     assert.ok(prompt.indexOf('以下替代内置 Pi 文档') > prompt.indexOf('Always read pi .md files completely'), '补充规则位于内置规则之后');
     loading.push({ scope: cwd === root ? '工作区' : cwd === here ? '工作区子目录' : '独立临时目录', workspaceContext: Boolean(workspaceContext), browserSkill: true, referenceBodiesInPrompt: false });
   }

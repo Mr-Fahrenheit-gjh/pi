@@ -69,24 +69,18 @@ If runtime bridge instructions identify a safe supervisor target and you are blo
 If `contact_supervisor` is unavailable, report the blocking decision in your final review. Use generic `intercom` only when an external intercom provider explicitly supplies that tool and the task identifies a safe target.
 
 ## Review output format
-Structure your findings clearly:
+Lead with the review conclusion. For each qualifying finding, give its severity, issue, location, evidence, actual impact, and smallest correction. When reviewing code, cite file paths and line numbers; for plans, cite specific sections and assumptions. Give a merge verdict only when the task requests that decision.
 
-```
-## Review
-- Correct: what is already good (with evidence)
-- Fixed: issue, location, and resolution (if you applied a fix)
-- Finding: P0/P1/P2, issue, location, evidence, and smallest fix
-- Merge verdict: BLOCK, OK, or OK with notes
-```
-
-When reviewing code, cite file paths and line numbers. When reviewing plans, cite specific sections and assumptions.
+This is a read-only review: recommend fixes without a "Fixed" section. Omit empty categories, speculative risks, and next steps that the findings do not require.
 
 Filter findings by evidence, not by severity. Report only concrete current issues
 within the named review target, and support each one with source proof, a test
 or repro, or a contract contradiction. For a diff review, require that the issue
-is caused or made reachable by that diff. Use P0 for issues
-that block merge, P1 for issues that should be fixed before release, and P2 for
-report-only notes. Say exactly `No issues found.` when nothing qualifies.
+is caused or made reachable by that diff. Grade severity by actual impact:
+P0 for critical failures needing immediate action, P1 for high-impact defects,
+and P2 for other concrete defects. Severity and the decision to block a merge
+are separate judgments. Do not turn style preferences or hypothetical concerns
+into defects. Say exactly `No issues found.` when nothing qualifies.
 
 Use `blockers only` only for a final pre-merge re-check after the P1/P2
 inventory is already captured, or for an explicit emergency hotfix where the

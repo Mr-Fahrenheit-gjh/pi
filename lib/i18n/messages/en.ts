@@ -882,6 +882,8 @@ export const enLocale: LocalePlugin = {
     "chat.filterModels": "Filter models…",
     "chat.modelAndSpeed": "Model and speed",
     "chat.fastMode": "Fast mode",
+    "chat.ultrafastMode": "Ultrafast mode",
+    "chat.ultrafastUnavailable": "Ultrafast needs the updated speed extension. Reload the session.",
     "chat.fastLoading": "Loading Fast settings…",
     "chat.fastUnavailable": "Fast is unavailable for this session or model.",
     "chat.fastHint": "Applies to the next model request; may increase cost or quota usage.",

@@ -6,7 +6,37 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { SelectorRow } from "./SelectorRow";
 import { ProviderIcon } from "./ProviderIcon";
 import { modelManufacturerIcon } from "@/lib/model-manufacturer";
-import type { FastMode, FastModeState } from "@/lib/fast-mode";
+import { isUltrafastModel, type FastMode, type FastModeState } from "@/lib/fast-mode";
+
+const BOLT = "M13 2 4 14h7l-1 8 10-12h-7l1-8Z";
+
+function DoubleBolt({ label }: { label?: string }) {
+  return (
+    <svg width="15" height="13" viewBox="0 0 28 24" fill="currentColor"
+      role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}
+      data-model-ultrafast-indicator={label ? "" : undefined} style={{ flexShrink: 0 }}>
+      {label && <title>{label}</title>}
+      <path d={BOLT} opacity=".54" transform="translate(0 0) scale(.84)" />
+      <path d={BOLT} transform="translate(8 3) scale(.9)" stroke="var(--bg)" strokeWidth="2.5"
+        strokeLinejoin="round" paintOrder="stroke fill" />
+    </svg>
+  );
+}
+
+const speedSwitchStyle: CSSProperties = {
+  display: "flex", alignItems: "center", gap: 20, justifyContent: "space-between", width: "100%",
+  padding: 0, border: "none", background: "none", color: "var(--text)", fontSize: 12,
+};
+const speedLabelStyle: CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5 };
+
+function SwitchTrack({ active }: { active: boolean }) {
+  return (
+    <span aria-hidden="true" style={{ display: "flex", alignItems: "center", width: 28, height: 16, padding: 2, borderRadius: 10,
+      background: active ? "var(--accent)" : "var(--border)", justifyContent: active ? "flex-end" : "flex-start" }}>
+      <span style={{ width: 12, height: 12, borderRadius: "50%", background: "var(--bg)" }} />
+    </span>
+  );
+}
 
 export interface ModelSelectorOption {
   provider: string;
@@ -26,6 +56,7 @@ interface ModelSelectorProps {
   isAutoSelection?: boolean;
   /** The session's OpenAI / Codex fast mode is enabled. */
   fastMode?: boolean;
+  ultrafastMode?: boolean;
   fastModeState?: FastModeState | null;
   fastModeBusy?: boolean;
   onFastModeOpen?: () => void;
@@ -69,6 +100,7 @@ export function ModelSelector({
   busy = false,
   isAutoSelection = false,
   fastMode = false,
+  ultrafastMode = false,
   fastModeState,
   fastModeBusy = false,
   onFastModeOpen,
@@ -94,7 +126,12 @@ export function ModelSelector({
   const showFastControl = Boolean(onFastModeChange && value && /^gpt-/i.test(value.modelId)
     && (value.provider === "openai" || value.provider === "openai-codex"));
   const locked = disabled || busy || (modelSelectionDisabled && !showFastControl);
+  const ultrafastModel = Boolean(value && isUltrafastModel(value.provider, value.modelId));
+  const ultrafastActive = ultrafastModel && (ultrafastMode
+    || (!fastMode && fastModeState?.ultrafastSupported && fastModeState.mode === "ultrafast"));
+  const fastActive = !ultrafastActive && (fastMode || fastModeState?.mode === "fast");
   const fastUnavailable = !fastModeState?.available || !fastModeState.supported;
+  const ultrafastUnavailable = !fastModeState?.ultrafastSupported;
   const listed = showAll ? allOptions : options;
   // Options arrive in pi's /model order (orderSelectorModels()); never re-sort
   // them, or a models.json provider loses the order its file gives (#783).
@@ -257,12 +294,13 @@ export function ModelSelector({
           </svg>
         )}
         <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentName}</span>
-        {(fastMode || fastModeState?.mode === "fast") && value && (value.provider === "openai" || value.provider === "openai-codex") && (
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label="Fast mode" data-model-fast-indicator style={{ flexShrink: 0 }}>
-            <title>Fast mode</title>
-            <path d="M13 2 4 14h7l-1 8 10-12h-7l1-8Z" />
-          </svg>
-        )}
+        {ultrafastActive ? <DoubleBolt label={t("chat.ultrafastMode")} />
+          : fastActive && value && (value.provider === "openai" || value.provider === "openai-codex") && (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label="Fast mode" data-model-fast-indicator style={{ flexShrink: 0 }}>
+              <title>Fast mode</title>
+              <path d={BOLT} />
+            </svg>
+          )}
         {variant === "field" && (
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, color: "var(--text-dim)" }}>
             <polyline points="6 9 12 15 18 9" />
@@ -308,15 +346,26 @@ export function ModelSelector({
             {showFastControl && (
               <div style={{ flexShrink: 0, padding: "10px 12px", borderBottom: "1px solid var(--border)", maxWidth: 320 }}>
                 <button type="button" role="switch" aria-label={t("chat.fastMode")}
-                  aria-checked={fastModeState?.mode === "fast"}
+                  aria-checked={fastActive}
                   disabled={fastModeBusy || fastUnavailable}
-                  onClick={() => onFastModeChange?.(fastModeState?.mode === "fast" ? "standard" : "fast")}
-                  style={{ display: "flex", alignItems: "center", gap: 20, justifyContent: "space-between", width: "100%", padding: 0, border: "none", background: "none", color: "var(--text)", fontSize: 12, opacity: fastModeBusy || fastUnavailable ? 0.5 : 1 }}>
-                  <span>Fast</span>
-                  <span aria-hidden="true" style={{ display: "flex", alignItems: "center", width: 28, height: 16, padding: 2, borderRadius: 10, background: fastModeState?.mode === "fast" ? "var(--accent)" : "var(--border)", justifyContent: fastModeState?.mode === "fast" ? "flex-end" : "flex-start" }}>
-                    <span style={{ width: 12, height: 12, borderRadius: "50%", background: "var(--bg)" }} />
+                  onClick={() => onFastModeChange?.(fastActive ? "standard" : "fast")}
+                  style={{ ...speedSwitchStyle, opacity: fastModeBusy || fastUnavailable ? 0.5 : 1 }}>
+                  <span style={speedLabelStyle}>
+                    <svg width="15" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={BOLT} /></svg>
+                    Fast
                   </span>
+                  <SwitchTrack active={fastActive} />
                 </button>
+                {ultrafastModel && (
+                  <button type="button" role="switch" aria-label={t("chat.ultrafastMode")}
+                    aria-checked={ultrafastActive} disabled={fastModeBusy || ultrafastUnavailable}
+                    title={ultrafastUnavailable ? t("chat.ultrafastUnavailable") : undefined}
+                    onClick={() => onFastModeChange?.(ultrafastActive ? "standard" : "ultrafast")}
+                    style={{ ...speedSwitchStyle, marginTop: 8, opacity: fastModeBusy || ultrafastUnavailable ? 0.5 : 1 }}>
+                    <span style={speedLabelStyle}><DoubleBolt />Ultrafast</span>
+                    <SwitchTrack active={Boolean(ultrafastActive)} />
+                  </button>
+                )}
                 <div style={{ marginTop: 6, fontSize: 11, lineHeight: 1.5, color: "var(--text-dim)", whiteSpace: "normal" }}>
                   {fastModeBusy ? t("chat.fastLoading") : fastUnavailable ? t("chat.fastUnavailable") : t("chat.fastHint")}
                 </div>

@@ -12,6 +12,7 @@ import { getQuestionnaire, presentQuestionOption, presentQuestionTitle, type Que
 import { QuestionnaireForm, type QuestionnaireFormProps } from "./QuestionnaireForm";
 import { asBracketedPaste, toTerminalKeyData } from "@/lib/terminal-input";
 import { countToolCallBlocks, getAssistantErrorMessage, hasAssistantAnswer,  isAssistantTruncated, isHiddenCustomMessage, isMessageGroupAnchor, splitAssistantVisibleBlocks, splitFinalAssistantBlocks } from "@/lib/message-display";
+import { isTaskContinuationMessage } from "@/lib/task-continuation";
 import { extractTurnWrittenFiles, type WrittenFile } from "@/lib/turn-written-files";
 import { getFinalAnswerViews, keepWrittenFiles, type FinalAnswerViews } from "@/lib/turn-views";
 import { buildQuotedSelection } from "@/lib/quoted-selection";
@@ -32,6 +33,7 @@ import { phaseLabel } from "@/lib/chat-phase-label";
 import { useAgentSession, type AgentEndInfo, type NewSessionChoices, type NoticeItem } from "@/hooks/useAgentSession";
 import { selectHasStreamingContent, selectIsStreaming, selectStreamingMessage, useStreamingSelector } from "@/hooks/useStreamingSelector";
 import type { StreamingStore } from "@/lib/streaming-message";
+import { streamRateKey } from "@/lib/stream-token-rate";
 import { useDragDrop } from "@/hooks/useDragDrop";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useScrollbarVisibility } from "@/hooks/useScrollbarVisibility";
@@ -876,7 +878,13 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
 
   const { isDragOver, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } = useDragDrop(onDrop);
 
-  const visibleMessages = messages.filter((m) => isMessageGroupAnchor(m) || m.role === "assistant");
+  // Continuation prompts still delimit turns and align with entryIds, but never
+  // appear as a bubble, minimap node or recallable composer input.
+  const { continuationMessages, minimapMessages } = useMemo(() => {
+    const continuationMessages = new Set(messages.filter(isTaskContinuationMessage));
+    return { continuationMessages, minimapMessages: continuationMessages.size ? messages.filter((m) => !continuationMessages.has(m)) : messages };
+  }, [messages]);
+  const visibleMessages = minimapMessages.filter((m) => isMessageGroupAnchor(m) || m.role === "assistant");
   // Stable Map identity: `messages` doesn't change during streaming updates
   // (the streaming message lives in streamingStore), so memoized MessageViews
   // skip re-rendering on every message_update event. An inline `new Map()`
@@ -895,15 +903,15 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
   const inputHistory = useMemo(() => {
     const seen = new Set<string>();
     const history: string[] = [];
-    for (let i = messages.length - 1; i >= 0; i -= 1) {
-      const text = getUserInputText(messages[i]);
+    for (let i = minimapMessages.length - 1; i >= 0; i -= 1) {
+      const text = getUserInputText(minimapMessages[i]);
       if (!text || seen.has(text)) continue;
       seen.add(text);
       history.push(text);
       if (history.length >= 50) break;
     }
     return history.reverse();
-  }, [messages]);
+  }, [minimapMessages]);
   const messageRefs = useMessageRefs(visibleMessages.length);
   const revealHistoryForMinimap = useCallback(() => {
     setVisibleCount((current) => Math.max(current, messages.length * 2));
@@ -1046,6 +1054,7 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
       isStreaming={sessionBusy}
       model={displayModelValue}
       fastMode={extensionStatuses.some(({ key, text }) => key === "codex-speed" && /^(OpenAI|Codex) fast$/.test(text))}
+      ultrafastMode={extensionStatuses.some(({ key, text }) => key === "codex-speed" && text === "Codex ultrafast")}
       isAutoModelSelection={isAutoModelSelection}
       modelNames={modelNames}
       modelList={modelList}
@@ -1209,7 +1218,7 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
             {(() => {
               let lastUserIdx = -1;
               for (let i = messages.length - 1; i >= 0; i--) {
-                if (messages[i].role === "user") { lastUserIdx = i; break; }
+                if (messages[i].role === "user" && !continuationMessages.has(messages[i])) { lastUserIdx = i; break; }
               }
               // Anchor for live-tail detection. A compaction summary or subagent
               // completion can sit after the last user message and own the
@@ -1222,7 +1231,7 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
               const visibleRefIndexByMessage = new Map<number, number>();
               let refIdx = 0;
               messages.forEach((msg, idx) => {
-                if (isMessageGroupAnchor(msg) || msg.role === "assistant") {
+                if (!continuationMessages.has(msg) && (isMessageGroupAnchor(msg) || msg.role === "assistant")) {
                   visibleRefIndexByMessage.set(idx, refIdx++);
                 }
               });
@@ -1309,9 +1318,9 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
 
                 const finalAssistantIdx = findFinalAssistantIndex(messages, userIdx, endIdx);
                 const isLiveTail = (sessionBusy || isStreaming) && endIdx === messages.length && userIdx === lastAnchorIdx;
+                if (hasAnchor && !continuationMessages.has(msg)) rendered.push(renderMessage(userIdx));
 
                 if (isLiveTail) {
-                  if (hasAnchor) rendered.push(renderMessage(userIdx));
                   const processViews: ReactNode[] = [];
                   let processToolCount = 0;
                   let revealProcess = false;
@@ -1346,14 +1355,12 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
                 }
 
                 if (finalAssistantIdx === -1) {
-                  for (let renderIdx = groupStartIdx; renderIdx < endIdx; renderIdx++) {
+                  for (let renderIdx = userIdx + 1; renderIdx < endIdx; renderIdx++) {
                     rendered.push(renderMessage(renderIdx));
                   }
                   idx = endIdx;
                   continue;
                 }
-
-                if (hasAnchor) rendered.push(renderMessage(userIdx));
 
                 const finalViews = getFinalAnswerViews(finalAnswerViewCache, messages[finalAssistantIdx] as AssistantMessage);
                 const finalAnswerMessage = finalViews.answer;
@@ -1478,7 +1485,7 @@ export function ChatWindow({ globalEscapeEnabled = true, session, packageTarget,
         </div>
         {isMobile || pendingScrollRestore ? null : (
           <ChatMinimap
-            messages={messages}
+            messages={minimapMessages}
             getStreamingMessage={getStreamingMessage}
             scrollContainer={scrollContainerRef}
             messageRefs={messageRefs}
@@ -1640,7 +1647,7 @@ const StreamingReply = memo(function StreamingReply({ store, assistantContent, o
   const split = splitAssistantVisibleBlocks(message, { isStreaming: true });
   if (assistantContent === "answer" && split.answerBlocks.length === 0) return null;
   if (assistantContent === "process" && !split.hasProcess) return null;
-  return <MessageView message={message} assistantContent={assistantContent} toolResults={toolResults} isStreaming modelNames={modelNames} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} />;
+  return <MessageView key={streamRateKey(message, assistantContent)} message={message} assistantContent={assistantContent} toolResults={toolResults} isStreaming modelNames={modelNames} cwd={cwd} onOpenFile={onOpenFile} onOpenSubagent={onOpenSubagent} />;
 });
 
 // A one-line notice is exactly as tall as its entrance animation pins it, and

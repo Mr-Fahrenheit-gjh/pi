@@ -9,6 +9,7 @@ import type { AgentMessage, ImageContent, SessionEntry, SessionHeader, SessionIn
 import { normalizeToolCalls } from "./normalize";
 import { withoutMessageSignatures } from "./message-signatures";
 import { getThinkingPreview, isMessageGroupAnchor } from "./message-display";
+import { isTaskContinuationMessage } from "./task-continuation";
 import { projectIdentityKey } from "./project-identity";
 import { sessionPathKey } from "./session-path";
 import { skillExpansionToCommand } from "./slash-display";
@@ -745,13 +746,13 @@ export function buildSessionContext(
 }
 
 /**
- * The fields of entryToUiMessage()'s result that isMessageGroupAnchor() reads,
- * without converting the entry's body.
+ * The minimap's anchors, excluding invisible recovery prompts, without
+ * converting the entry's body.
  */
 function turnAnchorShape(entry: SessionEntry): Parameters<typeof isMessageGroupAnchor>[0] | null {
   switch (entry.type) {
     case "message":
-      return entry.message.role === "system" ? null : entry.message as AgentMessage;
+      return entry.message.role === "system" || isTaskContinuationMessage(entry.message) ? null : entry.message as AgentMessage;
     case "compaction":
       return { role: "custom", customType: "compaction", display: true };
     case "branch_summary":
@@ -765,7 +766,7 @@ function turnAnchorShape(entry: SessionEntry): Parameters<typeof isMessageGroupA
 
 /**
  * Turns on the branch above `oldest`, the first entry of a page: the anchors
- * the chat would group by (#791). The minimap numbers loaded turns from it, so
+ * the minimap would show (#791). It numbers loaded turns from this count, so
  * a turn keeps its number as older pages load.
  */
 function countTurnsBefore(entries: SessionEntry[], oldest: SessionEntry): number {
@@ -792,8 +793,8 @@ function countTurnsBefore(entries: SessionEntry[], oldest: SessionEntry): number
 function countsTowardTail(entry: SessionEntry): boolean {
   if (entry.type === "compaction") return true;
   if (entry.type !== "message") return false;
-  const role = (entry as { message?: { role?: string } }).message?.role;
-  return role === "user" || role === "assistant";
+  const role = entry.message?.role;
+  return role === "assistant" || (role === "user" && !isTaskContinuationMessage(entry.message));
 }
 
 /**

@@ -18,7 +18,6 @@ import { computeSessionRevision } from "@/lib/session-revision";
 import type { SessionEntry } from "@/lib/types";
 import { readSubagentRun, readSubagentSessionResources } from "@/lib/subagents";
 import { readSessionToolSelection } from "@/lib/session-tool-selection";
-import { jsonResponse } from "@/lib/json-response";
 import { deleteSessions } from "@/lib/session-delete";
 
 export async function GET(
@@ -126,39 +125,21 @@ export async function GET(
       transient: !filePath || !existsSync(filePath),
     }]))[0] : null;
 
-    return perf?.attach(jsonResponse(
-      req,
-      {
-        sessionId: id,
-        filePath,
-        info,
-        leafId,
-        tree,
-        ...(summaryTree ? { treeFormat: "summary" as const } : {}),
-        snapshotRevision,
-        context,
-        stats,
-        totalActiveMs,
-        ...(toolNames !== undefined ? { toolNames } : {}),
-        ...(wrapperRebuilt ? { wrapperRebuilt: true } : {}),
-      },
-    )) ?? jsonResponse(
-      req,
-      {
-        sessionId: id,
-        filePath,
-        info,
-        leafId,
-        tree,
-        ...(summaryTree ? { treeFormat: "summary" as const } : {}),
-        snapshotRevision,
-        context,
-        stats,
-        totalActiveMs,
-        ...(toolNames !== undefined ? { toolNames } : {}),
-        ...(wrapperRebuilt ? { wrapperRebuilt: true } : {}),
-      },
-    );
+    const response = NextResponse.json({
+      sessionId: id,
+      filePath,
+      info,
+      leafId,
+      tree,
+      ...(summaryTree ? { treeFormat: "summary" as const } : {}),
+      snapshotRevision,
+      context,
+      stats,
+      totalActiveMs,
+      ...(toolNames !== undefined ? { toolNames } : {}),
+      ...(wrapperRebuilt ? { wrapperRebuilt: true } : {}),
+    }, { headers: { "Cache-Control": "no-store" } });
+    return perf?.attach(response) ?? response;
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }

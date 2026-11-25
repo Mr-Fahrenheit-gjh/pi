@@ -86,6 +86,9 @@ export async function checkQuickActionShortcuts(page, { base, sessionId, outputD
   const filteredLabel = await options.first().locator('.quick-action-copy > span').first().textContent();
   const filteredSession = recentSessions.find(session => session.name === filteredLabel);
   assert.ok(filteredSession);
+  const projectLabel = options.first().locator('.quick-action-meta small');
+  assert.equal(await projectLabel.textContent(), 'project', 'conversation search shows the project directory name');
+  assert.match(await projectLabel.getAttribute('title'), /[/\\]project$/);
   assert.equal(await options.first().getAttribute('aria-keyshortcuts'), 'Alt+1');
   assert.equal(await options.first().locator('kbd').textContent(), '⌥1');
   await page.keyboard.press('Alt+1');
@@ -101,5 +104,14 @@ export async function checkQuickActionShortcuts(page, { base, sessionId, outputD
   await page.waitForURL(url => !url.searchParams.has("session") && url.searchParams.has("cwd"));
   checks.push("quick actions: 1 directly opens a new conversation without sending a prompt");
   await page.goto(`${base}/?session=${sessionId}`, { waitUntil: "networkidle" });
+  const composer = page.locator('.chat-input-textarea').first();
+  const draft = 'Unsent browser reload fixture';
+  await composer.fill(draft);
+  await page.waitForFunction(({ sessionId, draft }) => JSON.parse(sessionStorage.getItem(`pi-web:draft:${sessionId}`) ?? 'null')?.text === draft, { sessionId, draft });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForFunction(draft => document.querySelector('.chat-input-textarea')?.value === draft, draft);
+  await composer.fill('');
+  await page.waitForFunction(sessionId => sessionStorage.getItem(`pi-web:draft:${sessionId}`) === null, sessionId);
+  checks.push('draft: existing session text survives reload, and clearing removes its stored copy');
   return checks;
 }

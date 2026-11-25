@@ -109,6 +109,22 @@ try {
   await page.goto(`${base}/?session=${sid}`, { waitUntil: 'networkidle' });
   await page.getByText('正式回答可见', { exact: true }).waitFor();
   await page.getByText('过程中的说明始终可见', { exact: true }).waitFor();
+  // Next handles JSON compression once, but must leave the file's byte range untouched.
+  for (const path of ['/api/sessions', `/api/sessions/${sid}`]) {
+    const response = await fetch(`${base}${path}`, { headers: { 'Accept-Encoding': 'gzip' } });
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.ok(path.endsWith(sid) ? payload.sessionId === sid : payload.sessions.some(session => session.id === sid));
+  }
+  const svgPath = join(project, 'range-smoke.svg');
+  const svg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg"><!--${'range fixture '.repeat(250)}--></svg>`);
+  writeFileSync(svgPath, svg);
+  const fileUrl = svgPath.split('/').filter(Boolean).map(encodeURIComponent).join('/');
+  const range = await fetch(`${base}/api/files/${fileUrl}?type=read`, { headers: { 'Accept-Encoding': 'gzip', Range: 'bytes=0-2047' } });
+  assert.equal(range.status, 206);
+  assert.equal(range.headers.get('Content-Encoding'), null);
+  assert.equal(range.headers.get('Content-Range'), `bytes 0-2047/${svg.length}`);
+  assert.deepEqual(Buffer.from(await range.arrayBuffer()), svg.subarray(0, 2048));
   const quotedMath = page.locator('.markdown-assistant-message blockquote').filter({ hasText: '连续' });
   await quotedMath.locator('.katex-display').waitFor();
   assert.equal(await quotedMath.locator('.katex-error').count(), 0);

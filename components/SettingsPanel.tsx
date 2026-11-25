@@ -21,6 +21,7 @@ import { useInlineVisuals } from "@/hooks/useInlineVisuals";
 import { setInlineVisualsEnabled } from "@/lib/inline-visual-preference";
 import { useArchiveVisibility, setArchiveVisibility } from "@/hooks/useArchiveVisibility";
 import { sendAgentCommand } from "@/lib/agent-client";
+import { clearStoredDrafts } from "@/lib/draft-store";
 import type { ProjectTrustStatus, ToolSettingsResponse } from "@/lib/api-types";
 import {
   setLastSettingsSection,
@@ -118,6 +119,7 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
     try {
       const response = await fetch("/api/web-auth", { method: "DELETE" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      clearStoredDrafts();
       window.location.replace("/login");
     } catch {
       setLogoutError(t("auth.logoutFailed"));

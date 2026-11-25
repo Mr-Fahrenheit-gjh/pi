@@ -8,9 +8,11 @@ import { focusModalPanel, listenForStackedDialogEscape } from "@/lib/stacked-dia
 import { outputPathForCwd } from "@/lib/task-outputs";
 import { QUICK_ACTION_PAGE_SIZE, quickActionMatches, quickActionPage, quickActionShortcut, quickSessionMatches } from "@/lib/quick-actions";
 import type { SessionSearchPageResponse } from "@/lib/session-search";
+import { projectNameOf } from "@/lib/session-tree";
 import type { SessionInfo } from "@/lib/types";
 
 export interface QuickAction { id: string; label: string; keywords?: readonly string[]; run: () => void }
+interface QuickActionRow { key: string; label: string; detail: string; detailTitle?: string; preview: string; run: () => void; sessionId?: string }
 interface Props {
   mode: QuickActionsMode; onModeChange: (mode: QuickActionsMode) => void;
   actions: QuickAction[]; sessions: SessionInfo[]; cwd: string | null; currentSessionId: string | null;
@@ -93,13 +95,14 @@ export function QuickActions({ mode, onModeChange, actions, sessions, cwd, curre
     }, 300);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [mode, search]);
-  const rows = useMemo(() => [
+  const rows = useMemo<QuickActionRow[]>(() => [
     ...(mode === "command" ? actions : []).filter(action => quickActionMatches(action, search)).map(action => ({
       ...action, detail: t("quickActions.command"), preview: "", key: `action:${action.id}`,
     })),
     ...(mode === "chat" ? quickSessionMatches(sessions, search, contentResponse?.results ?? [], currentSessionId) : []).map(result => ({
       key: `session:${result.session.id}`, sessionId: result.session.id, label: (result.session.name || result.session.firstMessage || result.session.id).slice(0, 160),
-      detail: t(search ? "quickActions.conversation" : "quickActions.recent"),
+      detail: search ? projectNameOf(result.session.projectRoot ?? result.session.cwd) || t("quickActions.conversation") : t("quickActions.recent"),
+      detailTitle: search ? result.session.projectRoot ?? result.session.cwd : undefined,
       preview: result.match ? `${result.before}${result.match}${result.after}` : result.session.cwd,
       run: () => onSession(result.session, result.entryId, result.entryId ? result.blockIndex : undefined),
     })),
@@ -191,7 +194,7 @@ export function QuickActions({ mode, onModeChange, actions, sessions, cwd, curre
               {status && <span className="quick-action-status" title={statusLabel}>
                 {status === "running" ? <SpinnerIcon size={12} label={statusLabel} /> : <span className={status === "awaiting" ? "session-tree-awaiting" : "session-tree-unread"} role="img" aria-label={statusLabel} />}
               </span>}
-              <small title={row.detail}>{row.detail}</small>
+              <small title={row.detailTitle ?? row.detail}>{row.detail}</small>
             </span>
           </button>;
         })}

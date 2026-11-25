@@ -4,14 +4,14 @@ description: 新增、移除或检查 Pi 的 MCP 服务（~/.pi/agent/mcp.json�
 ---
 # MCP 接入
 
-配置：`~/.pi/agent/mcp.json`（权限 600）；服务清单以该文件为准，不把历史列表当成当前状态。技能版本源为工作区 `项目/规则优化/运行规则/mcp-wiring/`，修改后同步运行副本。
+配置：`~/.pi/agent/mcp.json`（权限 600）；服务清单以该文件为准，不把历史列表当成当前状态。技能版本源为工作区 `项目/规则优化/运行规则/mcp-wiring/`；获运行同步授权后，核对差异、备份并同步副本。
 
 ## 新增服务
 1. 先备份：`cp -p mcp.json backups/mcp.json.$(date +%Y%m%d-%H%M%S)`。
 2. 优先 stdio；长期常驻的服务用 launchd 托管 HTTP，只绑 127.0.0.1。
 3. 固定版本号（如 `pkg@1.2.3`），不用 `@latest`。
 4. 密钥不写进 mcp.json：用 `"${ENV_NAME}"`、完整值的 `"!command"` 引用，或放 mcp-auth.json。检查器不执行引用命令，不能代替对命令本身是否内嵌秘密的审查。
-5. 不和已有能力重复（例如浏览器只用 playwright，见 browser-harness）。
+5. 优先复用已有能力，避免重复接入；浏览器后端与授权按 `browser-harness` 选择。
 6. 修改后运行 `python3 ~/.pi/agent/skills/mcp-wiring/scripts/check.py`。
 7. 配置变更与现有连接生效分开核对；不把文件检查通过当成已有 MCP 连接已重建。正式 pi-web 若需重启，必须先取得用户确认。
 

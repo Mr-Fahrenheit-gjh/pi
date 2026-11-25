@@ -146,6 +146,9 @@ def render(data, transform, workspace, agent):
 
 def portable_document(destination, data):
     """Keep the source snapshot, but make active rules describe this public checkout."""
+    if destination == "public-config/agent/APPEND_SYSTEM.md":
+        text = data.decode("utf-8").replace("~/.pi/agent/", "{{AGENT_DIR}}/")
+        return text.encode("utf-8")
     if destination == "public-config/workspace/AGENTS.md":
         text = data.decode("utf-8")
         text = text.replace("适用于 `{{REPO_ROOT}}` 及子目录", "适用于使用者选择的工作区及子目录")
@@ -362,7 +365,7 @@ def export(workspace, agent, output):
         "sourceRoots": {"workspace": "{{REPO_ROOT}}", "agent": "{{AGENT_DIR}}"},
         "templateTokens": ["{{REPO_ROOT}}", "{{AGENT_DIR}}"],
         "templatePolicy": "Render text documents/config templates only. Executable tool sources remain verbatim; machine defaults are listed for parent adaptation. Do not run templates before import.",
-        "portableAdaptations": ["workspace AGENTS scopes the selected workspace and locates references in the checkout", "repository rules distinguish this public checkout from the author's private worktrees", "source-machine extension symlinks become explicit quiet-adapter paths in opt-in settings"],
+        "portableAdaptations": ["APPEND_SYSTEM locates opt-in rules and skills in the chosen agent directory", "workspace AGENTS scopes the selected workspace and locates references in the checkout", "repository rules distinguish this public checkout from the author's private worktrees", "source-machine extension symlinks become explicit quiet-adapter paths in opt-in settings"],
         "settingsRequirements": "settings.requirements.json",
         "inputs": input_records,
         "exporter": {"source": "exporter:scripts/export-public-profile.py", "sha256": sha256(Path(__file__).read_bytes()), "allowlistSource": "exporter:scripts/export-public-profile.allowlist.json", "allowlistSha256": sha256(allowlist_bytes)},

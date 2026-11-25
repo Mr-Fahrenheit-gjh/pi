@@ -200,6 +200,21 @@ test("shows deferred thinking previews without loading the full content", () => 
   assert.match(html, /aria-expanded="false"/);
 });
 
+test("remounts a streaming reply's local state when its request or projection changes", () => {
+  const source = ts.createSourceFile("ChatWindow.tsx", readFileSync(new URL("./ChatWindow.tsx", import.meta.url), "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const keys = [];
+  (function visit(node) {
+    if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(source) === "MessageView") {
+      const attrs = node.attributes.properties.filter(ts.isJsxAttribute);
+      if (attrs.some(attr => attr.name.getText(source) === "isStreaming" && !attr.initializer)) {
+        keys.push(attrs.find(attr => attr.name.getText(source) === "key")?.initializer?.expression?.getText(source));
+      }
+    }
+    ts.forEachChild(node, visit);
+  })(source);
+  assert.deepEqual(keys, ["streamRateKey(message, assistantContent)"]);
+});
+
 test("keys an assistant message's blocks by their place, not the entry id (#1184)", () => {
   // A message of the running turn gets its entry id when the file is read again.
   // A block keyed by it remounted then: open thinking closed, a tool output's

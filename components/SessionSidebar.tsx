@@ -3,6 +3,7 @@ import { useSessionReadState } from "@/hooks/useSessionReadState";
 
 import { useEffect, useImperativeHandle, useLayoutEffect, useState, useCallback, useMemo, useRef, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type Ref, type RefObject, type UIEvent as ReactUIEvent } from "react";
 import type { SessionInfo } from "@/lib/types";
+import { clearDraft } from "@/lib/draft-store";
 import { listSessionFamilies, type SessionFamily } from "@/lib/session-family";
 import { dispatchSessionRowContextMenu } from "@/lib/session-row-context-menu";
 import { sessionDeepLink } from "@/lib/session-links";
@@ -1873,7 +1874,8 @@ export function SessionSidebar({ onSearchConversations, conversationVisible = tr
     setConfirmDeleteRootId((current) => (current === session.id ? null : current));
     try {
       // The server deletes the family's subagent sessions with it.
-      await fetch(`/api/sessions/${encodeURIComponent(session.id)}`, { method: "DELETE" });
+      const response = await fetch(`/api/sessions/${encodeURIComponent(session.id)}`, { method: "DELETE" });
+      if (response.ok) [session, ...family.subagents].forEach((member) => clearDraft(member.id));
       onSessionDeleted?.(session.id);
       void loadSessions();
     } catch {
@@ -2098,7 +2100,10 @@ export function SessionSidebar({ onSearchConversations, conversationVisible = tr
     showToast(t("sidebar.deletingSessions"));
     try {
       const outcome = await deleteProjectSessions(ids, fetch);
-      for (const id of outcome.deleted) onSessionDeleted?.(id);
+      for (const id of outcome.deleted) {
+        clearDraft(id);
+        onSessionDeleted?.(id);
+      }
       // The group goes with its last session unless it is current or pinned:
       // focus that fell to the page with it goes to the tab.
       void loadSessions().then(() => focusAfterCommit(() => groupHeaderButton(project.key)));

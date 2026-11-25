@@ -882,6 +882,8 @@ export const zhCNLocale: LocalePlugin = {
     "chat.filterModels": "筛选模型…",
     "chat.modelAndSpeed": "模型与速度",
     "chat.fastMode": "Fast 模式",
+    "chat.ultrafastMode": "Ultrafast 模式",
+    "chat.ultrafastUnavailable": "Ultrafast 需要新版速度扩展，请重载会话。",
     "chat.fastLoading": "正在读取 Fast 设置…",
     "chat.fastUnavailable": "当前会话或模型不支持 Fast。",
     "chat.fastHint": "从下一次模型请求起生效，可能增加费用或额度消耗。",
