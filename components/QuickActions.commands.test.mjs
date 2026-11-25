@@ -7,6 +7,7 @@ import { createJiti } from 'jiti';
 import { quickActionMatches, quickActionShortcut, quickSessionMatches } from '../lib/quick-actions.ts';
 import { quickActionsShortcutMode } from '../hooks/useKeyboardShortcuts.ts';
 import { enLocale } from '../lib/i18n/messages/en.ts';
+const { projectNameOf } = await createJiti(import.meta.url, { tsconfigPaths: true }).import('../lib/session-tree.ts');
 const shell = readFileSync(new URL('./AppShell.tsx', import.meta.url), 'utf8');
 const sidebar = readFileSync(new URL('./SessionSidebar.tsx', import.meta.url), 'utf8');
 const menu = readFileSync(new URL('./QuickActions.tsx', import.meta.url), 'utf8');
@@ -30,8 +31,8 @@ function actionsFixture(selectedSession = { id: 'current', cwd: '/conversation' 
 function rows(search = '', mode = 'command') {
   const { actions } = actionsFixture();
   const session = { id: 'other', name: 'File notes', firstMessage: '', modified: '2026-10-22', cwd: '/project' };
-  const context = { mode, useMemo: fn => fn(), quickActionMatches, quickSessionMatches, actions, sessions: [session], search, contentResponse: undefined, currentSessionId: 'current', files: { key: 'key', paths: search === 'file' ? ['report.md'] : [] }, fileKey: 'key', t: key => key, onFile() {}, onSession() {} };
-  evaluate(section(menu, '  const rows = useMemo(', '  const previousRows =') + '\nglobalThis.result = rows;', context);
+  const context = { mode, useMemo: fn => fn(), quickActionMatches, quickSessionMatches, projectNameOf, actions, sessions: [session], search, contentResponse: undefined, currentSessionId: 'current', files: { key: 'key', paths: search === 'file' ? ['report.md'] : [] }, fileKey: 'key', t: key => key, onFile() {}, onSession() {} };
+  evaluate(section(menu, '  const rows = useMemo', '  const previousRows =') + '\nglobalThis.result = rows;', context);
   return Array.from(context.result, row => row.key);
 }
 

@@ -84,7 +84,7 @@
     "agent/skills/proxy-env/scripts/check.sh": "bd2b636864f6ffe72b7678b161b7e44fc4907f4036c67694091b19f847c25def",
     "agent/skills/pstack/.ignore": "c34c1b72f2e9a11c4e7b4754cbc9e6a918c85db13c682362407f96382d994f57",
     "agent/skills/pstack/README.md": "23f8ec4f404fdb358ec8bf94104c51dc7e82854d861cb781b8b702a8d8e9cf57",
-    "agent/skills/pstack/entry/SKILL.md": "8492a6abb3e2c629f5410c2f478df178344afa276c72697f81b37f7e5546b918",
+    "agent/skills/pstack/entry/SKILL.md": "ff8847c3ccba0452e089a616de4fa503e312d44dfce6a087d2e124ce82fb2f0a",
     "agent/skills/pstack/upstream/.cursor-plugin/plugin.json": "b75609951c8a558e74f1eb20e15493933754eb2695fd2059d7f435f913889bb3",
     "agent/skills/pstack/upstream/.gitignore": "8ffe9de56bd30c1a95cd945262d6e3ac355ada4111551dde41f67851b9f1fc55",
     "agent/skills/pstack/upstream/LICENSE": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e",
@@ -277,7 +277,7 @@
     "agent/skills/teach/SKILL.md": "550482c2d674b085c9043b87bfdc14a8f2ec453c736119e7fcbb1e9332bffeba",
     "agent/skills/teach/agents/openai.yaml": "5856f3ae8aec742f1499c640aecdd5f1d6af5fa210a7c6ec794de8263a6f733f",
     "settings.requirements.json": "771c061b8e0e99e8e853c4692b7b0bf4cce06746edefcfea564bd75659af0359",
-    "sources.json": "bbc681ec7455fd07a7db59ead44dd7641c93625ade9ee2c4d159a6c77d725cf2",
+    "sources.json": "5adad580f6a50fe84a8f2be4298eba52ff698103baa8347c26783d84f69d7657",
     "workspace/AGENTS.md": "053ec3b84d22a4ee4779322bad7a1f54f46634946a2b6e2674f88d846d5eb7d3"
   }
 }

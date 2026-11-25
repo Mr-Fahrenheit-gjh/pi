@@ -146,7 +146,7 @@ def render(data, transform, workspace, agent):
 
 def portable_document(destination, data):
     """Keep the source snapshot, but make active rules describe this public checkout."""
-    if destination == "public-config/agent/APPEND_SYSTEM.md":
+    if destination in {"public-config/agent/APPEND_SYSTEM.md", "public-config/agent/skills/pstack/entry/SKILL.md"}:
         text = data.decode("utf-8").replace("~/.pi/agent/", "{{AGENT_DIR}}/")
         return text.encode("utf-8")
     if destination == "public-config/workspace/AGENTS.md":

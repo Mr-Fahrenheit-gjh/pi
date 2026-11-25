@@ -25,7 +25,7 @@
   ],
   "exporter": {
     "source": "exporter:scripts/export-public-profile.py",
-    "sha256": "bf75aecd9f7b31f57c3044556cfcb751681f4bd94a27026dffcd59bac9396f9e",
+    "sha256": "1dd1dade9358c2a5ff79dae3e89ca608aed3daf5bcad12496981093bc42c8e26",
     "allowlistSource": "exporter:scripts/export-public-profile.allowlist.json",
     "allowlistSha256": "f6d6b3fb4214e25186c041d68da2f4cec0f0883301aa84b8337b0a78f5ae40a8"
   },
@@ -483,9 +483,9 @@
     {
       "path": "public-config/agent/APPEND_SYSTEM.md",
       "source": "workspace:项目/规则优化/运行规则/APPEND_SYSTEM.md",
-      "sourceSha256": "7d34a01ec4ea698a85dd6b185d2f1389b51d5480e75539b601602c5752fc66a9",
-      "sha256": "a2c7825d299a4a09380fa6611f02cf10db7310f9a8253e264223a638fd0c666d",
-      "bytes": 2489,
+      "sourceSha256": "01e25980430d04b9623142bbaf09af00248a07ab590be7adf2708cc814f4c5d9",
+      "sha256": "da9b90a03635234ef05eb31c59fbd9082abfb80bb7f898aeead74b86d8fac274",
+      "bytes": 2009,
       "mode": "0o644",
       "transform": "template"
     },
@@ -1212,8 +1212,8 @@
       "path": "public-config/agent/skills/pstack/entry/SKILL.md",
       "source": "workspace:.pi/skills/pstack/entry/SKILL.md",
       "sourceSha256": "8492a6abb3e2c629f5410c2f478df178344afa276c72697f81b37f7e5546b918",
-      "sha256": "8492a6abb3e2c629f5410c2f478df178344afa276c72697f81b37f7e5546b918",
-      "bytes": 2764,
+      "sha256": "ff8847c3ccba0452e089a616de4fa503e312d44dfce6a087d2e124ce82fb2f0a",
+      "bytes": 2766,
       "mode": "0o644",
       "transform": "template"
     },
@@ -2947,8 +2947,8 @@
     {
       "path": "public-config/workspace/AGENTS.md",
       "source": "workspace:AGENTS.md",
-      "sourceSha256": "35421ca56249dd8eb74fdda92472af0081484b375c9fa1819cbd54d34854ba5b",
-      "sha256": "053ec3b84d22a4ee4779322bad7a1f54f46634946a2b6e2674f88d846d5eb7d3",
+      "sourceSha256": "79e35d0e641cc63d031c3b8c67b3b02487fa44291764776abc616a5f78096565",
+      "sha256": "2b8f66be8af53783ea67eb43394ae8355f9080748493d479ee667b09a6391e8d",
       "bytes": 2647,
       "mode": "0o644",
       "transform": "template"
@@ -3154,9 +3154,9 @@
     {
       "path": "项目/规则优化/运行规则/APPEND_SYSTEM.md",
       "source": "workspace:项目/规则优化/运行规则/APPEND_SYSTEM.md",
-      "sourceSha256": "7d34a01ec4ea698a85dd6b185d2f1389b51d5480e75539b601602c5752fc66a9",
-      "sha256": "7d34a01ec4ea698a85dd6b185d2f1389b51d5480e75539b601602c5752fc66a9",
-      "bytes": 2481,
+      "sourceSha256": "01e25980430d04b9623142bbaf09af00248a07ab590be7adf2708cc814f4c5d9",
+      "sha256": "01e25980430d04b9623142bbaf09af00248a07ab590be7adf2708cc814f4c5d9",
+      "bytes": 2001,
       "mode": "0o644",
       "transform": "template"
     },
@@ -3334,9 +3334,9 @@
     {
       "path": "项目/规则优化/运行规则/validate.mjs",
       "source": "workspace:项目/规则优化/运行规则/validate.mjs",
-      "sourceSha256": "033a2ae457c05fa702fe62efffec0c8e867378e0db753bd3d5b9b13da22e769f",
-      "sha256": "033a2ae457c05fa702fe62efffec0c8e867378e0db753bd3d5b9b13da22e769f",
-      "bytes": 10713,
+      "sourceSha256": "3bd8892c7a40bfd7ffc1b3284f3cac37b7c862aa7b3d4521cc291ade06de56fd",
+      "sha256": "3bd8892c7a40bfd7ffc1b3284f3cac37b7c862aa7b3d4521cc291ade06de56fd",
+      "bytes": 10409,
       "mode": "0o644",
       "transform": "verbatim"
     },
@@ -3351,6 +3351,6 @@
     }
   ],
   "payloadCount": 319,
-  "payloadBytes": 4142581,
+  "payloadBytes": 4141319,
   "hashPolicy": "SHA-256 of raw source bytes and exported payload bytes. sources.json is metadata and intentionally not self-hashed. Settings input hash covers only the allowed resource-field projection. All source identifiers are root-relative, not author absolute paths."
 }

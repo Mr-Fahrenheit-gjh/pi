@@ -2,11 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import extension from './index.ts';
 
-function setup(branch = [], provider = 'openai-codex', api = 'openai-codex-responses') {
+const SOL = 'gpt-6.2-sol';
+
+function setup(branch = [], provider = 'openai-codex', api = 'openai-codex-responses', id = 'test-model', models = []) {
   const handlers = new Map(), commands = new Map(), notices = [], statuses = [];
   const ctx = {
-    model: { provider, api, id: 'test-model', baseUrl: 'https://api.openai.com/v1' },
+    model: { provider, api, id, baseUrl: 'https://api.openai.com/v1' },
     hasUI: true, isIdle: () => true,
+    modelRegistry: { getAvailable: () => models },
     sessionManager: { getBranch: () => branch },
     ui: { setStatus: (_key, value) => statuses.push(value), notify: (...args) => notices.push(args) },
   };
@@ -17,14 +20,14 @@ function setup(branch = [], provider = 'openai-codex', api = 'openai-codex-respo
   });
   const emit = (name, event = {}) => handlers.get(name)(event, ctx);
   const command = (name, arg = '') => commands.get(name).handler(arg, ctx);
-  const request = (payload = { model: 'test-model', input: [], reasoning: { effort: 'high' } }) =>
+  const request = (payload = { model: ctx.model.id, input: [], reasoning: { effort: 'high' } }) =>
     emit('before_provider_request', { payload });
   const complete = tier => emit('provider_stream_event', {
     provider: ctx.model.provider, api: ctx.model.api, model: ctx.model.id,
     data: { type: 'response.completed', response: tier === undefined ? {} : { service_tier: tier } },
   });
   emit('session_start');
-  const detail = async () => { await command('fast', 'status'); return notices.at(-1)[0]; };
+  const detail = async (name = 'fast') => { await command(name, 'status'); return notices.at(-1)[0]; };
   const end = (overrides = {}) => emit('message_end', { message: {
     role: 'assistant', provider: ctx.model.provider, api: ctx.model.api, model: ctx.model.id,
     timestamp: 12345, stopReason: 'stop',
@@ -65,9 +68,8 @@ test('standard default, fast priority mapping, no mutation of input/thinking', a
   assert.match(await h.detail(), /已确认/);
 });
 
-test('only fast command; toggle/off work, ultrafast is rejected and not suggested', async () => {
+test('fast still toggles priority and does not accept or suggest ultrafast as an argument', async () => {
   const h = setup();
-  assert.deepEqual([...h.commands.keys()], ['fast']);
   assert.equal(h.commands.get('fast').getArgumentCompletions('ultra'), null);
   assert.equal(h.statuses.at(-1), undefined);
   await h.command('fast');
@@ -82,10 +84,116 @@ test('only fast command; toggle/off work, ultrafast is rejected and not suggeste
   assert.equal(h.request().service_tier, 'default');
 });
 
-test('old ultrafast session selection restores to standard, not earlier fast', () => {
-  const h = setup(['fast', 'ultrafast'].map(mode => ({type:'custom',customType:'codex-speed-mode',data:{mode}})));
+test('old ultrafast session selection restores to standard even on eligible Sol', () => {
+  const h = setup(['fast', 'ultrafast'].map(mode => ({type:'custom',customType:'codex-speed-mode',data:{mode}})),
+    'openai-codex', 'openai-codex-responses', SOL);
   assert.equal(h.request().service_tier, 'default');
   assert.equal(h.statuses.at(-1), undefined);
+});
+
+const codexSol = (branch = []) => setup(branch, 'openai-codex', 'openai-codex-responses', SOL);
+
+test('T3 Code advertises eligible tiers and keeps Standard independent of saved Pi speed', async () => {
+  const sol = { provider: 'openai-codex', api: 'openai-codex-responses', id: SOL };
+  const astra = { ...sol, id: 'gpt-6.2-astra' };
+  const apiSol = { ...sol, provider: 'openai', api: 'openai-responses' };
+  const completions = { ...apiSol, api: 'openai-completions' };
+  const branch = [{ type: 'custom', customType: 'codex-speed-mode', data: { version: 2, mode: 'ultrafast' } }];
+  const previous = process.env.PI_CODEX_SPEED_T3;
+  let h;
+  try {
+    process.env.PI_CODEX_SPEED_T3 = '1';
+    h = setup(branch, sol.provider, sol.api, sol.id, [sol, astra, apiSol, completions]);
+  } finally {
+    if (previous === undefined) delete process.env.PI_CODEX_SPEED_T3;
+    else process.env.PI_CODEX_SPEED_T3 = previous;
+  }
+
+  assert.deepEqual(sol.serviceTiers.map(tier => tier.id), ['priority', 'ultrafast']);
+  assert.deepEqual(astra.serviceTiers.map(tier => tier.id), ['priority']);
+  assert.deepEqual(apiSol.serviceTiers.map(tier => tier.id), ['priority']);
+  assert.equal(completions.serviceTiers, undefined);
+  assert.equal(h.request(), undefined);
+  await h.command('ultrafast', 'on');
+  assert.equal(branch.length, 1);
+  assert.match(h.notices.at(-1)[0], /Service Tier/);
+  assert.equal(h.request({ model: SOL, service_tier: 'ultrafast' }), undefined);
+  h.response({ service_tier: 'ultrafast' }, 'response.done');
+  assert.match(await h.detail('ultrafast'), /服务端已确认 ultrafast/);
+  assert.equal(h.request(), undefined);
+  assert.match(await h.detail(), /最近请求档位为 default/);
+});
+
+test('Ultrafast is opt-in, persists on the branch, and does not change input or thinking', async () => {
+  const h = codexSol();
+  const payload = { model: SOL, input: ['hi'], reasoning: { effort: 'high' } };
+  assert.equal(h.request(payload).service_tier, 'default');
+  await h.command('ultrafast');
+  assert.deepEqual(h.request(payload), { ...payload, service_tier: 'ultrafast' });
+  assert.equal(payload.service_tier, undefined);
+  assert.equal(h.statuses.at(-1), 'Codex ultrafast');
+  assert.equal(codexSol(h.branch).request().service_tier, 'ultrafast');
+  await h.command('ultrafast');
+  assert.equal(h.request().service_tier, 'default');
+  assert.equal(h.statuses.at(-1), undefined);
+  await h.command('ultrafast', 'on');
+  await h.command('fast', 'on');
+  assert.equal(h.request().service_tier, 'priority');
+  await h.command('ultrafast', 'on');
+  await h.command('ultrafast', 'off');
+  assert.equal(codexSol(h.branch).request().service_tier, 'default');
+  h.branch.length = 0;
+  h.emit('session_tree');
+  assert.equal(h.request().service_tier, 'default');
+});
+
+test('Ultrafast applies only to Codex Responses GPT-6.2 Sol', async () => {
+  const h = codexSol();
+  await h.command('ultrafast', 'on');
+  const saved = [...h.branch];
+  const targets = [
+    ['openai-codex', 'openai-codex-responses', 'gpt-6.2-astra', 'default'],
+    ['openai-codex', 'openai-codex-responses', 'gpt-6.1-sol', 'default'],
+    ['openai-codex', 'openai-responses', SOL, undefined],
+    ['openai', 'openai-responses', SOL, 'flex'],
+  ];
+  for (const [provider, api, id, expected] of targets) {
+    h.ctx.model = { provider, api, id };
+    h.emit('model_select');
+    const payload = { model: id, service_tier: 'flex' };
+    assert.equal(h.request(payload)?.service_tier, expected);
+    assert.equal(setup(saved, provider, api, id).request(payload)?.service_tier, expected);
+    assert.equal(h.statuses.at(-1), undefined);
+    await h.command('ultrafast', 'on');
+    assert.equal(h.notices.at(-1)[1], 'warning');
+    assert.deepEqual(h.branch, saved);
+    assert.match(await h.detail('ultrafast'), /当前模型不适用/);
+  }
+  h.ctx.model = codexSol().ctx.model;
+  h.emit('model_select');
+  assert.equal(h.request({ model: 'other' }), undefined);
+  assert.equal(h.request().service_tier, 'ultrafast');
+});
+
+test('confirm Ultrafast only when the matching Codex completion reports it', async () => {
+  const h = codexSol();
+  await h.command('ultrafast', 'on');
+  h.request();
+  h.response({ id: 'active' }, 'response.created');
+  h.response({ id: 'other', service_tier: 'ultrafast' }, 'response.done');
+  assert.match(await h.detail('ultrafast'), /待确认/);
+  h.response({ id: 'active', service_tier: 'ultrafast' }, 'response.done');
+  assert.match(await h.detail('ultrafast'), /已确认/);
+  for (const [tier, detail] of [['default', /生效未知/], ['priority', /返回 priority/], [undefined, /未报告/]]) {
+    h.request();
+    h.complete(tier);
+    assert.match(await h.detail('ultrafast'), detail);
+  }
+  h.request();
+  await h.command('ultrafast', 'off');
+  h.complete('ultrafast');
+  assert.match(await h.detail('ultrafast'), /已确认/);
+  assert.equal(h.request().service_tier, 'default');
 });
 
 test('hide badge for unsupported provider/API pairs without losing selection', async () => {

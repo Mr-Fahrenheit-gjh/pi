@@ -2,7 +2,7 @@
 
 ## 使用
 
-通过 `~/.pi/agent/extensions/codex-speed` 符号链接加载本目录。源码修改仅在下次加载扩展时生效；已运行会话仍使用旧模块。本次不执行 `/reload`、部署或重启。
+通过 `~/.pi/agent/extensions/codex-speed` 符号链接加载本目录。源码更新后，已有会话等空闲再 `/reload`，也可以新开会话；不需要重新发布 Pi Web。
 
 | 命令 | 行为 |
 |---|---|
@@ -16,7 +16,17 @@ Fast 开启且当前模型适用时，底栏按提供商显示 **OpenAI fast** �
 
 作用于 `openai` 提供商的 `openai-responses` 模型，以及 `openai-codex` 提供商的 `openai-codex-responses` 模型。暂不覆盖 Chat Completions 或自定义提供商；不更换模型、不改 thinking。新分支默认 auto：OpenAI 继承请求中已有的 `service_tier`（包括 flex、ultrafast），缺省 default；Codex 仍默认标准速度。`on/off` 是当前分支显式 priority/default 覆盖，`auto` 撤销覆盖。当前分支选择随会话保存，reload/resume/tree 后恢复，旧 standard/fast 选择不变。auto 不显示 Fast 徽标，继承 flex/ultrafast 不显示成已确认 Fast。生成过程中也可切换：不打断已发出的请求，从下一次模型请求（包括同一轮工具执行后的请求）起生效；旧请求的档位确认与用量记录保留。Pi Web 的 GPT 模型菜单可直接操作同一个开关，并可恢复模型设置。
 
-已按用户要求移除 `/ultrafast`、对应参数和补全。旧会话最后选择 ultrafast 时恢复为 standard，不继承更早的 fast。历史测速脚本和原始记录保留，但不属于运行中的模式开关。
+### Codex GPT‑6.2 Sol Ultrafast
+
+- `/ultrafast` 或 `/ultrafast on` 显式开启；再输入 `/ultrafast` 或用 `/ultrafast off` 回标准档；`/ultrafast auto` 恢复默认策略。
+- 只对 `openai-codex/openai-codex-responses` 下的精确模型 ID `gpt-6.2-sol` 发送 `service_tier=ultrafast`。选项随当前分支保存；切到其他模型暂不应用，切回 Sol 后恢复。旧版保存的 ultrafast 选择仍恢复为 standard，不会自动启用。OpenAI API 和 Pi Web 模型菜单行为不变。
+- `Codex ultrafast` 表示已选中，不代表服务端确认。发送一条请求后用 `/ultrafast status` 查看；只有服务端报告 `ultrafast` 才确认，报告 `default` 则显示生效未知。Ultrafast 会更快消耗订阅额度。
+
+### 在 T3 Code 选择速度
+
+在 T3 Code 的 Pi 提供商设置中添加环境变量 `PI_CODEX_SPEED_T3=1`，然后刷新 Pi 提供商。在输入框旁选择 Pi 模型，再打开 **Service Tier**。OpenAI Responses 和 Codex 模型显示 **Fast**。Codex 的 `gpt-6.2-sol` 还显示 **Ultra Fast**。
+
+T3 Code 根据菜单选择发送请求。**Standard** 使用端点的默认速度。T3 Code 中的 `/fast status` 和 `/ultrafast status` 可以查看最近一次请求的档位和服务端状态。终端 Pi 和 Pi Web 继续用各自原有的开关。
 
 ## 真实测速（2026-10-04）
 
@@ -26,9 +36,9 @@ Fast 开启且当前模型适用时，底栏按提供商显示 **OpenAI fast** �
 
 ## 实现及费用
 
-- `before_provider_request`：auto 保留 OpenAI 请求档位；standard → `service_tier=default`，fast → `service_tier=priority`。不改 `models.json`，不修改原 payload。
+- `before_provider_request`：auto 保留 OpenAI 请求档位；standard → `service_tier=default`，fast → `service_tier=priority`，受支持的 ultrafast → `service_tier=ultrafast`。不改 `models.json`，不修改原 payload。
 - 同时检查当前 provider/API 和 payload model；其他提供商、API、模型不改写、不记账。该 hook 仅提供 payload，无调用来源元数据，无法识别同 model ID 的第三方嵌套调用；不承诺隔离此类主动转发 hook 的调用。
-- 根据 `response.completed.response.service_tier` 记录详细状态。Codex Fast 返回 default 时标记生效未知，不报警；Pi 内置适配器也兼容这种返回。OpenAI Fast 返回 priority 或 fast 均视为已确认；返回 default 则在详细状态记录实际档位，不弹出警告，也不确认加速，不套用 Codex 的特殊兼容处理。
+- 根据 `response.completed.response.service_tier` 记录详细状态；Codex Ultrafast 同时识别原始 `response.done`。Codex Fast/Ultrafast 返回 default 时标记生效未知，不报警。OpenAI Fast 返回 priority 或 fast 均视为已确认；返回 default 则在详细状态记录实际档位，不弹出警告，也不确认加速，不套用 Codex 的特殊兼容处理。
 - 不修改 Pi 核心、凭据或套餐，不自动探测、不自动降档，不增加模型请求。
 - Fast 会增加额度消耗或费用。2026-10-04 官方列出的 Codex 订阅额度倍率为 2.5×，购买额度/Enterprise 按量计费为 2×；以账号实际账单和后续官方说明为准。Pi 金额估算不保证反映 payload hook 指定档位的实际费用。
 
@@ -80,6 +90,6 @@ cd ~/Documents/pi/工具/pi-codex-speed
 node --test
 ```
 
-测试覆盖继承/覆盖/auto 恢复、简洁底栏、安静通知、provider/model/API 隔离、旧 ultrafast 状态迁移、会话恢复和运行中换档，以及 ledger 隐私字段、缺失/实际档位、重试、错误/中止、responseId、模型切换、目录费率、严格阈值、12h 写入和未知估价。本次适配不重新运行付费测速；上方历史测速只代表当时的 Codex 路径，不代表当前 OpenAI 路径。
+测试覆盖继承/覆盖/auto 恢复、简洁底栏、安静通知、provider/model/API 隔离、Codex Sol Ultrafast 显式启用与响应确认、旧 ultrafast 状态迁移、会话恢复和运行中换档，以及 ledger 隐私字段、缺失/实际档位、重试、错误/中止、responseId、模型切换、目录费率、严格阈值、12h 写入和未知估价。上方历史测速不代表当前 Sol 的速度或权限。
 
 卸载：移除 `~/.pi/agent/extensions/codex-speed` 符号链接后 `/reload`，源文件和历史记录可保留。
